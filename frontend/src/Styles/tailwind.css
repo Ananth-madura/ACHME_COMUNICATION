@@ -1,0 +1,281 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+ .side-mainbar{
+    padding-left: 10px;
+    line-height: 35px;
+    overflow-y: hidden;
+    transition: 0.4s ease-in-out;
+
+   
+ }
+ .side-mainbar:hover{
+      overflow-y: scroll !important;
+      height: 90vh;
+
+ }
+.menuitem:hover{
+    color: #20B1E4;
+}
+.reaminder-font{
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 15px;
+  font-weight: 700;
+}
+  
+.active-line {
+  width: 100%;    
+  height: 1px;
+  background-color: orange;
+   border-Radius: 0 0 100% 100% / 0 0 19px 19px;
+   margin: 0 auto 6px;
+   margin-top: 5px;
+  display: block;
+  transform: scaleY(1.9);
+}
+.amountsign{
+  margin-top: -5px;
+}
+.pichart{
+  position: relative;
+  right: 30px;
+}
+.submenu {
+  line-height: 35px !important;
+  transition: 0.4s ease-in-out;
+  padding-left: 10px;
+}
+.submenu:hover{
+  color: #20B1E4 !important;
+}
+.project-template-sub a{
+ font-family: 'Times New Roman', Times, serif;
+ font-weight: 600;
+}
+.task-form label {
+ font-family: 'Times New Roman', Times, serif;
+ font-size: 19px;
+}
+.task-form input{
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 16px;
+}
+.task-form select{
+  font-size: 17px;
+  font-family: 'Times New Roman', Times, serif;
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  z-index: 50; 
+
+}
+
+.overlay.show {
+  backdrop-filter: blur(0px);
+  background: rgba(0, 0, 0, 0.1); 
+  opacity: 1;
+  visibility: visible;
+  overflow-y: auto;
+}
+body.modal-open {
+  overflow: hidden;
+}
+
+.x-icon{
+  color: red;
+}
+.invoice-heading-tab a,
+.payment-heading-tab a{ 
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+.Search{
+  background-color:  #F5F6FA!important;
+}
+.invoice-form label,
+.payment-form label{
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 18px;
+}
+.invoice-form input{
+  font-size: 15px;
+  font-family: 'Times New Roman', Times, serif;
+}
+.new-clienttab{
+ margin-top: -120px !important;
+ z-index: 40px !important;
+ position: relative;
+}
+.inv{
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 16px;
+  font-weight: 500;
+}
+.option-tab {
+  animation: dropdown 0.4s ease-in-out forwards;
+}
+
+@keyframes dropdown {
+  0% {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.more{
+  position: relative;
+  top: 38px !important;
+}
+.more2{
+  margin-top: 50px !important;
+  padding-top: 60px;
+}
+.invoicewrapper {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-20px);
+  overflow: hidden;
+
+  transition:
+    max-height 0.5s ease,
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+.invoicewrapper.See {
+  max-height: 8000px;
+  opacity: 1;
+  transform: translateY(0);
+  overflow: visible;
+}
+
+/* html {
+  scrollbar-gutter: stable;
+} */
+ 
+@keyframes doorOpen {
+  0% {
+    opacity: 0;
+    transform: perspective(800px) rotateY(-90deg);
+  }
+  60% {
+    opacity: 1;
+    transform: perspective(800px) rotateY(10deg);
+  }
+  100% {
+    transform: perspective(800px) rotateY(0deg);
+  }
+}
+
+.animate-doorOpen {
+  animation: doorOpen 0.45s ease-out forwards;
+  transform-origin: right center;
+  backface-visibility: hidden;
+}
+.login-image{
+  background-image: url(../images/login-image.jpg);
+  background-size: cover;
+  background-position: center;
+}
+.galaxy-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: auto;
+  z-index: 0;
+  background-color: black;
+  color: white !important;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.25s ease-out;
+}
+
+:root {
+  --shell-bg: #ffffff;
+  --shell-text: #1e293b;
+  --content-bg: #f5f6fa;
+}
+
+.theme-dark {
+  --shell-bg: #1f2937;   
+  --shell-text: #ffffff;
+  --content-bg: #111827;  
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  background-color: var(--shell-bg);
+  color: var(--shell-text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Responsive layout */
+@media (max-width: 1023px) {
+  .side-mainbar {
+    height: 100%;
+    overflow-y: auto !important;
+  }
+}
+
+/* Ensure content area is full width on mobile */
+@media (max-width: 1023px) {
+  .lead-summary-main {
+    padding: 1rem;
+  }
+}
+
+/* Toast animations */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}

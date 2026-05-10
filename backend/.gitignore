@@ -1,0 +1,19 @@
+    # Environment files
+    .env
+    .env.*
+
+    # Node modules
+    node_modules/
+
+    # Uploads (keep folder, not files)
+    uploads/*
+    !uploads/.gitkeep
+
+    # Logs
+    *.log
+
+    # OS / Editor files
+    .DS_Store
+    Thumbs.db
+    .vscode/
+
