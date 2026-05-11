@@ -152,6 +152,7 @@ router.put("/:id", verifyToken, (req, res) => {
       res.json({ message: "Field updated successfully" });
     }
   );
+  });
 });
 
 /* GET ALL */

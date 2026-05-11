@@ -436,6 +436,7 @@ router.delete("/:id", verifyToken, (req, res) => {
       }
     );
   });
+  });
 });
 
 

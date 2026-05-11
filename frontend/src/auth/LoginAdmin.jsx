@@ -4,7 +4,6 @@ import axios from "axios";
 import { useAuth } from "../auth/AuthContext";
 import "../Styles/tailwind.css";
 import logoImage from "../images/logo.png";
-import backheadImage from "../images/backhead.png";
 import { API } from "../config/api";
 
 const API_BACKEND = API;
@@ -20,7 +19,7 @@ export default function LoginAdmin() {
 
   const tryLogin = async () => {
     if (!email.trim()) {
-      setError("Please enter admin ID (email)");
+      setError("Please enter admin ID");
       return;
     }
     if (!password) {
@@ -31,110 +30,97 @@ export default function LoginAdmin() {
     setLoading(true);
     setError("");
 
-    let res;
     try {
-      res = await axios.post(`${API_BACKEND}/api/auth/admin-login`, {
+      const res = await axios.post(`${API_BACKEND}/api/auth/admin-login`, {
         email: email.trim().toLowerCase(),
         password,
       });
-    } catch (err) {
-      try {
-        res = await axios.post("/api/auth/admin-login", {
-          email: email.trim().toLowerCase(),
-          password,
-        });
-      } catch (err2) {
-        setLoading(false);
-        if (err2.response) {
-          const status = err2.response.status;
-          const msg = err2.response.data?.message || "Unknown error";
-          if (status === 401) {
-            setError("Invalid credentials");
-          } else if (status === 400) {
-            setError("Missing email or password");
-          } else {
-            setError(`Error: ${msg}`);
-          }
-        } else {
-          setError("Cannot connect to server. Start backend on port 5000");
-        }
-        return;
-      }
-    }
-
-    if (res?.data?.token && res?.data?.user) {
       login({ ...res.data.user, token: res.data.token });
       navigate("/dashboard/team");
-    } else {
-      setError("Invalid response from server");
+    } catch (err) {
+      const msg = err.response?.data?.message || "Login failed";
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-end relative overflow-hidden">
-      <div className="absolute inset-0 z-0">
-        <img src={backheadImage} alt="Background" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-slate-800/80 to-slate-900/90"></div>
-      </div>
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 font-sans text-[#1a1a1a]">
+      {/* Container */}
+      <div className="w-full max-w-[400px]">
+        {/* Logo */}
+        <div className="flex justify-center mb-10">
+          <img src={logoImage} alt="Logo" className="h-12 w-auto grayscale opacity-80" />
+        </div>
 
-      <div className="relative z-10 w-full max-w-md mx-4 my-auto mr-8 md:mr-16 lg:mr-24">
-        <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20">
-          <div className="flex justify-center mb-6">
-            <img src={logoImage} alt="Logo" className="h-16 w-auto object-contain" />
-          </div>
+        {/* Header */}
+        <div className="text-center mb-10">
+          <h1 className="text-[32px] font-bold tracking-tight mb-2">Admin Log in</h1>
+          <p className="text-[#787671] text-[16px]">Secure access for administrators</p>
+        </div>
 
-          <h1 className="text-3xl font-bold text-white text-center">Admin Login</h1>
-          <p className="text-slate-400 text-center mt-2">Access your admin dashboard</p>
-
-          <div className="mt-8 space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Admin ID (Email)</label>
-              <input
-                type="email"
-                placeholder="admin@example.com"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
-              <input
-                type="password"
-                placeholder="Enter password"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                onKeyDown={(e) => e.key === "Enter" && tryLogin()}
-              />
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-sm">{error}</div>
-            )}
-
-            <button
-              onClick={tryLogin}
+        {/* Form */}
+        <div className="space-y-6">
+          <div>
+            <label className="block text-[13px] font-semibold text-[#37352f] mb-1.5 uppercase tracking-wider">
+              Admin ID (Email)
+            </label>
+            <input
+              type="email"
+              placeholder="admin@madhura.com"
+              className="w-full h-11 px-3 bg-white border border-[#e5e3df] rounded-lg outline-none focus:border-[#5645d4] focus:ring-[1px] focus:ring-[#5645d4] transition-all text-[15px]"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
-              className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer"
-            >
-              {loading ? "Logging in..." : "Login as Admin"}
-            </button>
+            />
           </div>
 
-          <p className="text-center text-slate-400 mt-6">
-            Not an admin?{" "}
-            <Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">User Login</Link>
+          <div>
+            <label className="block text-[13px] font-semibold text-[#37352f] mb-1.5 uppercase tracking-wider">
+              Password
+            </label>
+            <input
+              type="password"
+              placeholder="Enter your password..."
+              className="w-full h-11 px-3 bg-white border border-[#e5e3df] rounded-lg outline-none focus:border-[#5645d4] focus:ring-[1px] focus:ring-[#5645d4] transition-all text-[15px]"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              onKeyDown={(e) => e.key === "Enter" && tryLogin()}
+            />
+          </div>
+
+          {error && (
+            <div className="p-3 bg-[#fdf2f2] border border-[#f8d7da] rounded-lg text-[#e03131] text-[14px]">
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={tryLogin}
+            disabled={loading}
+            className="w-full h-11 bg-[#5645d4] text-white rounded-lg font-semibold hover:bg-[#4534b3] transition shadow-sm disabled:opacity-50 text-[15px] mt-2"
+          >
+            {loading ? "Authenticating..." : "Log in as Admin"}
+          </button>
+        </div>
+
+        {/* Footer Links */}
+        <div className="mt-10 pt-6 border-t border-[#ede9e4] text-center space-y-3">
+          <p className="text-[14px] text-[#787671]">
+            Not an administrator?{" "}
+            <Link to="/login" className="text-[#5645d4] hover:underline font-medium">
+              User log in
+            </Link>
           </p>
+        </div>
 
-          <div className="mt-4 p-3 bg-slate-800/50 rounded-lg text-center">
-            <p className="text-xs text-slate-400">Demo Credentials:</p>
-            <p className="text-sm text-slate-300">admin@madhura.com / admin@123#</p>
-          </div>
+        {/* Demo Credentials Hint */}
+        <div className="mt-8 p-4 bg-[#f6f5f4] rounded-lg border border-[#e5e3df]">
+          <p className="text-[12px] font-semibold text-[#787671] uppercase tracking-wider mb-2">Demo Credentials</p>
+          <p className="text-[14px] text-[#37352f] font-medium">admin@madhura.com</p>
+          <p className="text-[14px] text-[#787671]">admin@123#</p>
         </div>
       </div>
     </div>

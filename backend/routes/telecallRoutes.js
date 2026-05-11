@@ -340,6 +340,7 @@ router.put("/:id", verifyToken, (req, res) => {
       res.json({ message: "Telecall updated successfully" });
     }
   );
+  });
 });
 
 

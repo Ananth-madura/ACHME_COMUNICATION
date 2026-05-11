@@ -37,7 +37,8 @@ const Team = () => {
         mobile: "",
         job_title: "",
         emp_role: "",
-        quotation_count: 0
+        quotation_count: 0,
+        emp_id: ""
     });
     const [team, setTeam] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -234,7 +235,8 @@ const editTeam = (data)=>{
     mobile: data.mobile || "",
     job_title: data.job_title || "",
     emp_role: data.emp_role || "",
-    quotation_count: data.quotation_count || 0
+    quotation_count: data.quotation_count || 0,
+    emp_id: data.emp_id || ""
   });
 
   setEditId(data.id);
@@ -252,10 +254,11 @@ const resetForm = ()=>{
   mobile:"",
   job_title:"",
   emp_role:"",
-  quotation_count: 0
+  quotation_count: 0,
+  emp_id: ""
  });
- setIsEdit(false);
  setEditId(null);
+ setIsEdit(false);
 };
 
 
@@ -362,7 +365,15 @@ const handleSendMail = () => {
 
             <form onSubmit={saveTeam} className=" invoice-form space-y-6 relative ">
 
-{/* First Name */}
+          {/* Employee ID */}
+          <div className="grid grid-cols-4 items-center gap-6">
+            <label className="text-sm text-gray-600 text-left">Employee ID</label>
+            <div className="col-span-3 w-full">
+              <input type="text" name="emp_id" value={form.emp_id} onChange={handleChange} placeholder="Enter employee ID (e.g. EMP001)" className="border rounded-md px-3 py-2 outline-none bg-white w-[100%] focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+
+          {/* First Name */}
           <div className="grid grid-cols-4 items-center gap-6">
             <label className="text-sm text-gray-600 text-left">First Name <span className="text-red-500">*</span></label>
             <div className="col-span-3 w-full">
@@ -459,6 +470,7 @@ const handleSendMail = () => {
   <thead className="bg-[#f8faf9] border-b">
     <tr className="text-sm text-[#1694CE] uppercase">
       <th className="p-4 border">ID </th>
+      <th className="p-4 border">Emp ID </th>
       <th className="p-4 border">Employee Name </th>
       <th className="p-4 border">Email</th>
       <th className="p-4 border">Job Title</th>
@@ -477,6 +489,7 @@ const handleSendMail = () => {
     team.filter(E => `${E.first_name} ${E.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())).map((E) => (
       <tr key={E.id} className="border-b hover:bg-gray-50 transition text-sm">
         <td className="p-4 border">{E.id}</td>
+        <td className="p-4 border">{E.emp_id || "---"}</td>
         <td className="p-4 border font-medium">{E.first_name} {E.last_name}</td>
         <td className="p-4 border">{E.emp_email || "---"}</td>
         <td className="p-4 border">{E.job_title || "---"}</td>

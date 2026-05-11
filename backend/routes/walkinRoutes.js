@@ -314,6 +314,7 @@ router.put("/:id", verifyToken, (req, res) => {
       res.json({ message: "Walkin updated successfully" });
     }
   );
+  });
 });
 
 

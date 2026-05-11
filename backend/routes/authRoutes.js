@@ -60,7 +60,7 @@ router.post("/send-email-otp", (req, res) => {
 
 /*  REGISTER  */
 router.post("/register", async (req, res) => {
-  const { first_name, otp, user_password, role } = req.body;
+  const { first_name, otp, user_password, role, emp_id } = req.body;
   const email = req.body.email?.trim().toLowerCase();
 
   if (!first_name || !email || !otp || !user_password) {
@@ -81,8 +81,8 @@ router.post("/register", async (req, res) => {
       const status = "pending";
 
       db.query(
-        `INSERT INTO users (first_name, email, user_password, role, status) VALUES (?,?,?,?,?)`,
-        [first_name, email, hash, userRole, status],
+        `INSERT INTO users (first_name, email, user_password, role, status, emp_id) VALUES (?,?,?,?,?,?)`,
+        [first_name, email, hash, userRole, status, emp_id || null],
         (err, result) => {
           if (err) {
             if (err.code === "ER_DUP_ENTRY") {
@@ -215,14 +215,15 @@ router.put("/approve/:id", (req, res) => {
     return res.status(400).json({ message: "Invalid action" });
   }
   
-    // First get the user's email, name and role before updating
-    db.query(`SELECT email, first_name, role FROM users WHERE id=?`, [req.params.id], (err, userRows) => {
+    // First get the user's email, name, role and emp_id before updating
+    db.query(`SELECT email, first_name, role, emp_id FROM users WHERE id=?`, [req.params.id], (err, userRows) => {
       if (err) return res.status(500).json({ message: "DB error" });
       if (!userRows.length) return res.status(404).json({ message: "User not found" });
       
       const userEmail = userRows[0].email;
       const userName = userRows[0].first_name;
       const userRole = userRows[0].role || 'employee';
+      const empId = userRows[0].emp_id;
       
       db.query(`UPDATE users SET status=? WHERE id=?`, [action, req.params.id], (err) => {
         if (err) return res.status(500).json({ message: "DB error" });
@@ -238,8 +239,8 @@ router.put("/approve/:id", (req, res) => {
               const empRole = userRole === 'admin' ? 'BDM' : 'Developer'; // Default to something in the current enum
               
               db.query(
-                `INSERT INTO teammember (first_name, last_name, emp_email, job_title, emp_role, user_id) VALUES (?, '', ?, ?, ?, ?)`,
-                [userName, userEmail, jobTitle, empRole, req.params.id],
+                `INSERT INTO teammember (first_name, last_name, emp_email, job_title, emp_role, user_id, emp_id) VALUES (?, '', ?, ?, ?, ?, ?)`,
+                [userName, userEmail, jobTitle, empRole, req.params.id, empId || null],
                 (insertErr, insertResult) => {
                   if (insertErr) {
                     console.error("Error adding user to team:", insertErr.message);

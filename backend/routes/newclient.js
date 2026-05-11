@@ -65,8 +65,6 @@ router.put("/:id", verifyToken, (req, res) => {
       }
     );
   });
-});
-
 /* DELETE CLIENT */
 router.delete("/:id", verifyToken, (req, res) => {
   // Check ownership

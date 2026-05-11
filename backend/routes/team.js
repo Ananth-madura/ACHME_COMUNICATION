@@ -5,7 +5,7 @@ const { verifyToken, isAdmin } = require("../middileware/authMiddleware");
 
 // CREATE - Admin only
 router.post("/new", verifyToken, isAdmin, (req,res)=>{
-  const { first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count } = req.body;
+  const { first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count,emp_id } = req.body;
 
   if(!first_name || !last_name || !emp_email || !mobile || !job_title || !emp_role){
     return res.status(400).json({message:"All Field Required"});
@@ -13,11 +13,11 @@ router.post("/new", verifyToken, isAdmin, (req,res)=>{
 
   const sql = `
   INSERT INTO teammember
-  (first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count)
-  VALUES (?,?,?,?,?,?,?)
+  (first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count,emp_id)
+  VALUES (?,?,?,?,?,?,?,?)
   `;
 
-  db.query(sql,[first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count || 0],
+  db.query(sql,[first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count || 0, emp_id || null],
     (err,result)=>{
       if(err) return res.status(500).json(err);
       res.json({success:true});
@@ -35,7 +35,7 @@ router.get("/", verifyToken, isAdmin, (req,res)=>{
 
 /* GET ALL - Public (for dropdowns) */
 router.get("/list", (req,res)=>{
-  db.query("SELECT id, first_name, last_name, emp_email, job_title, emp_role, user_id FROM teammember ORDER BY first_name",(err,result)=>{
+  db.query("SELECT id, first_name, last_name, emp_email, job_title, emp_role, user_id, emp_id FROM teammember ORDER BY first_name",(err,result)=>{
     if(err) return res.status(500).json(err);
     res.json(result);
   });
@@ -44,16 +44,16 @@ router.get("/list", (req,res)=>{
 
 // Edit - Admin only
 router.put("/:id", verifyToken, isAdmin, (req,res)=>{
-  const { first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count } = req.body;
+  const { first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count,emp_id } = req.body;
 
   const sql = `
    UPDATE teammember 
-   SET first_name=?, last_name=?, emp_email=?, mobile=?, job_title=?, emp_role=?, quotation_count=?
+   SET first_name=?, last_name=?, emp_email=?, mobile=?, job_title=?, emp_role=?, quotation_count=?, emp_id=?
    WHERE id=?
   `;
 
   db.query(sql,
-    [first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count || 0,req.params.id],
+    [first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count || 0,emp_id || null,req.params.id],
     (err)=>{
       if(err) return res.status(500).json(err);
       res.json({success:true});

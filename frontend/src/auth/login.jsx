@@ -4,7 +4,6 @@ import axios from "axios";
 import { useAuth } from "../auth/AuthContext";
 import "../Styles/tailwind.css";
 import logoImage from "../images/logo.png";
-import backheadImage from "../images/backhead.png";
 import { API } from "../config/api";
 
 const API_BACKEND = API;
@@ -31,12 +30,7 @@ export default function Login() {
       await axios.post(`${API_BACKEND}/api/auth/send-email-otp`, { email: email.trim().toLowerCase() });
       alert("OTP sent to your email");
     } catch (err) {
-      try {
-        await axios.post("/api/auth/send-email-otp", { email: email.trim().toLowerCase() });
-        alert("OTP sent to your email");
-      } catch (err2) {
-        setError(err2.response?.data?.message || "Failed to send OTP");
-      }
+      setError(err.response?.data?.message || "Failed to send OTP");
     } finally {
       setLoading(false);
     }
@@ -68,148 +62,127 @@ export default function Login() {
       login({ ...res.data.user, token: res.data.token });
       navigate("/dashboard/team");
     } catch (err) {
-      try {
-        const res = await axios.post("/api/auth/login", payload);
-        login({ ...res.data.user, token: res.data.token });
-        navigate("/dashboard/team");
-      } catch (err2) {
-        const msg = err2.response?.data?.message || "Login failed";
-        setError(msg);
-      }
+      const msg = err.response?.data?.message || "Login failed";
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-end relative overflow-hidden">
-      {/* Background Image */}
-      <div className="absolute inset-0 z-0">
-        <img 
-          src={backheadImage} 
-          alt="Background" 
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-slate-800/80 to-slate-900/90"></div>
-      </div>
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 font-sans text-[#1a1a1a]">
+      {/* Container */}
+      <div className="w-full max-w-[400px]">
+        {/* Logo */}
+        <div className="flex justify-center mb-10">
+          <img src={logoImage} alt="Logo" className="h-12 w-auto grayscale opacity-80" />
+        </div>
 
-      {/* Login Card - Right Side */}
-      <div className="relative z-10 w-full max-w-md mx-4 my-auto mr-8 md:mr-16 lg:mr-24">
-        <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20">
-          {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <img src={logoImage} alt="Logo" className="h-16 w-auto object-contain" />
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-[32px] font-bold tracking-tight mb-2">Sign in</h1>
+          <p className="text-[#787671] text-[16px]">Choose your preferred login method</p>
+        </div>
+
+        {/* Login Mode Toggle (Notion Segmented Style) */}
+        <div className="flex border-b border-[#ede9e4] mb-8">
+          <button
+            onClick={() => { setLoginMode("password"); setError(""); }}
+            className={`flex-1 pb-3 text-sm font-medium transition-all ${loginMode === "password" ? "text-[#1a1a1a] border-b-2 border-[#1a1a1a]" : "text-[#787671] hover:text-[#1a1a1a]"}`}
+          >
+            Password
+          </button>
+          <button
+            onClick={() => { setLoginMode("otp"); setError(""); }}
+            className={`flex-1 pb-3 text-sm font-medium transition-all ${loginMode === "otp" ? "text-[#1a1a1a] border-b-2 border-[#1a1a1a]" : "text-[#787671] hover:text-[#1a1a1a]"}`}
+          >
+            OTP
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="space-y-6">
+          <div>
+            <label className="block text-[13px] font-semibold text-[#37352f] mb-1.5 uppercase tracking-wider">
+              Email
+            </label>
+            <input
+              type="email"
+              placeholder="Enter your email..."
+              className="w-full h-11 px-3 bg-white border border-[#e5e3df] rounded-lg outline-none focus:border-[#5645d4] focus:ring-[1px] focus:ring-[#5645d4] transition-all text-[15px]"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+            />
           </div>
 
-          {/* Title */}
-          <h1 className="text-3xl font-bold text-white text-center">
-            Welcome Back
-          </h1>
-          <p className="text-slate-400 text-center mt-2">
-            Sign in to your account to continue
-          </p>
-
-          {/* Login Mode Toggle */}
-          <div className="flex bg-white/10 rounded-lg p-1 mt-6">
-            <button
-              onClick={() => { setLoginMode("password"); setError(""); }}
-              className={`flex-1 py-2 rounded-md text-sm font-medium transition ${loginMode === "password" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"}`}
-            >
-              Password Login
-            </button>
-            <button
-              onClick={() => { setLoginMode("otp"); setError(""); }}
-              className={`flex-1 py-2 rounded-md text-sm font-medium transition ${loginMode === "otp" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"}`}
-            >
-              OTP Login
-            </button>
-          </div>
-
-          {/* Form */}
-          <div className="mt-6 space-y-5">
+          {loginMode === "password" ? (
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Email Address
+              <label className="block text-[13px] font-semibold text-[#37352f] mb-1.5 uppercase tracking-wider">
+                Password
               </label>
               <input
-                type="email"
-                placeholder="Enter your email"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-400 transition-all"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="password"
+                placeholder="Enter your password..."
+                className="w-full h-11 px-3 bg-white border border-[#e5e3df] rounded-lg outline-none focus:border-[#5645d4] focus:ring-[1px] focus:ring-[#5645d4] transition-all text-[15px]"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
+                onKeyDown={(e) => e.key === 'Enter' && submit()}
               />
             </div>
-
-            {loginMode === "password" ? (
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Password
-                </label>
+          ) : (
+            <div>
+              <label className="block text-[13px] font-semibold text-[#37352f] mb-1.5 uppercase tracking-wider">
+                OTP Verification
+              </label>
+              <div className="flex gap-2">
                 <input
-                  type="password"
-                  placeholder="Enter your password"
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-400 transition-all"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  type="text"
+                  placeholder="6-digit code"
+                  className="flex-1 h-11 px-3 bg-white border border-[#e5e3df] rounded-lg outline-none focus:border-[#5645d4] focus:ring-[1px] focus:ring-[#5645d4] transition-all text-[15px]"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
                   disabled={loading}
                 />
+                <button
+                  onClick={sendOtp}
+                  disabled={loading}
+                  className="h-11 px-4 bg-[#f6f5f4] hover:bg-[#ede9e4] text-[#37352f] rounded-lg text-sm font-medium transition disabled:opacity-50 border border-[#e5e3df]"
+                >
+                  Send OTP
+                </button>
               </div>
-            ) : (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    OTP Code
-                  </label>
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      placeholder="Enter OTP"
-                      className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-400 transition-all"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      disabled={loading}
-                    />
-                    <button
-                      onClick={sendOtp}
-                      disabled={loading}
-                      className="px-4 py-3 bg-white/20 text-white rounded-xl font-medium hover:bg-white/30 transition disabled:opacity-50 cursor-pointer whitespace-nowrap"
-                    >
-                      Send OTP
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+            </div>
+          )}
 
-            {error && (
-              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-sm">
-                {error}
-              </div>
-            )}
+          {error && (
+            <div className="p-3 bg-[#fdf2f2] border border-[#f8d7da] rounded-lg text-[#e03131] text-[14px]">
+              {error}
+            </div>
+          )}
 
-            <button
-              onClick={submit}
-              disabled={loading}
-              className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer"
-            >
-              {loading ? "Signing in..." : "Sign In"}
-            </button>
-          </div>
+          <button
+            onClick={submit}
+            disabled={loading}
+            className="w-full h-11 bg-[#5645d4] text-white rounded-lg font-semibold hover:bg-[#4534b3] transition shadow-sm disabled:opacity-50 text-[15px] mt-2"
+          >
+            {loading ? "Verifying..." : "Continue"}
+          </button>
+        </div>
 
-          {/* Register Link */}
-          <p className="text-center text-slate-400 mt-6">
-            Don't have an account?{" "}
-            <Link to="/register" className="text-blue-400 hover:text-blue-300 font-medium">
-              Register here
+        {/* Footer Links */}
+        <div className="mt-10 pt-6 border-t border-[#ede9e4] text-center space-y-3">
+          <p className="text-[14px] text-[#787671]">
+            New to the platform?{" "}
+            <Link to="/register" className="text-[#5645d4] hover:underline font-medium">
+              Create account
             </Link>
           </p>
-
-          {/* Admin Login Link */}
-          <p className="text-center text-slate-500 mt-4 text-sm">
-            Are you an admin?{" "}
-            <Link to="/login/admin" className="text-blue-400 hover:text-blue-300">
-              Admin Login
+          <p className="text-[14px] text-[#787671]">
+            Are you an administrator?{" "}
+            <Link to="/login/admin" className="text-[#5645d4] hover:underline font-medium">
+              Admin log in
             </Link>
           </p>
         </div>

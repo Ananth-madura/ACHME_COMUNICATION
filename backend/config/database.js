@@ -321,6 +321,7 @@ async function ensureTablesAndColumns() {
     { table: "lead_reminders", column: "missed_count", definition: "missed_count INT DEFAULT 0" },
     { table: "lead_escalations", column: "missed_count", definition: "missed_count INT DEFAULT 0" },
     { table: "users", column: "status", definition: "status ENUM('pending','active','rejected') DEFAULT 'pending'", expectedType: "enum" },
+    { table: "users", column: "emp_id", definition: "emp_id VARCHAR(50) DEFAULT NULL" },
     { table: "admin_notifications", column: "related_id", definition: "related_id INT DEFAULT NULL" },
     { table: "admin_notifications", column: "related_type", definition: "related_type VARCHAR(50) DEFAULT NULL" },
     { table: "admin_notifications", column: "created_by", definition: "created_by INT DEFAULT NULL" },
@@ -329,6 +330,7 @@ async function ensureTablesAndColumns() {
     { table: "notifications", column: "type", definition: "type VARCHAR(50) DEFAULT NULL" },
     { table: "task_assignments", column: "status", definition: "status ENUM('Pending','Accepted','Declined','In Progress','Completed') DEFAULT 'Pending'", expectedType: "enum" },
     { table: "teammember", column: "mobile_number", definition: "mobile_number VARCHAR(20) DEFAULT NULL" },
+    { table: "teammember", column: "emp_id", definition: "emp_id VARCHAR(50) DEFAULT NULL" },
     { table: "teammember", column: "user_id", definition: "user_id INT DEFAULT NULL" },
     { table: "teammember", column: "emp_address", definition: "emp_address TEXT DEFAULT NULL" },
     { table: "Telecalls", column: "assigned_to", definition: "assigned_to INT DEFAULT NULL" },
@@ -380,7 +382,9 @@ async function ensureTablesAndColumns() {
     { table: "performainvoices", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "services", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "call_reports", column: "created_by", definition: "created_by INT DEFAULT NULL" },
-    { table: "clients", column: "gst_number", definition: "gst_number VARCHAR(50) DEFAULT NULL" }
+    { table: "clients", column: "gst_number", definition: "gst_number VARCHAR(50) DEFAULT NULL" },
+    { table: "clients", column: "company_name", definition: "company_name VARCHAR(150) DEFAULT NULL" },
+    { table: "clients", column: "service", definition: "service VARCHAR(255) DEFAULT NULL" }
   ];
 
   const enumFixes = [
