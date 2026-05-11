@@ -1,129 +1,231 @@
 import React, { useState,useEffect} from "react";
 import "../Styles/tailwind.css";
-import { Search, Plus, X,Trash2,Edit,Mail, UserPlus, UserCheck, AlertCircle, ChevronDown } from "lucide-react";
+import { Search, Plus, X,Trash2,Edit,Mail, UserPlus, UserCheck, AlertCircle, ChevronDown, CheckSquare, Calendar, List, Menu, Zap } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "../auth/AuthContext";
+import { API } from "../config/api";
 
 const Team = () => {
-   const [open, setOpen] = useState(false);
-   const [roleOpen, setRoleOpen] = useState(false);
-   const [mailOpen, setMailOpen] = useState(false);
-   const [mailTo, setMailTo] = useState("");
-   const [mailSubject, setMailSubject] = useState("");
-   const [mailMessage, setMailMessage] = useState("");
-   const [mailName, setMailName] = useState("");
-   const { user: currentUser } = useAuth();
-
-const [team,setTeam] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isEdit, setIsEdit] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [formErrors, setFormErrors] = useState({});
-
-const tabopen = () => {
-  resetForm();
-  setOpen(true);
-};
-
-//  Fetch All Data;
-const fetchTeam = async()=>{
- try {
-  const token = localStorage.getItem("token");
-  const res = await axios.get("http://localhost:3000/api/teammember", {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  setTeam(res.data);
- } catch (err) {
-  console.log("Error fetching team:", err);
- }
-};
-
-useEffect(()=>{
-   fetchTeam();
-   
-   // Listen for team updates from other pages
-   const handleTeamUpdate = () => fetchTeam();
-   window.addEventListener("refresh-team", handleTeamUpdate);
-   window.addEventListener("refresh-dashboard", handleTeamUpdate);
-   
-   // Auto-refresh every 30 seconds for live updates
-   const interval = setInterval(fetchTeam, 30000);
-   
-   return () => {
-     clearInterval(interval);
-     window.removeEventListener("refresh-team", handleTeamUpdate);
-     window.removeEventListener("refresh-dashboard", handleTeamUpdate);
-   };
-  },[]);
-
-  const [form, setForm] = useState({
-         first_name:"",
-         last_name: "",
-         emp_email: "",
-         mobile: "",
-         job_title: "",
-         emp_role: "",
-         quotation_count: 0
+    const [open, setOpen] = useState(false);
+    const [roleOpen, setRoleOpen] = useState(false);
+    const [mailOpen, setMailOpen] = useState(false);
+    const [assignOpen, setAssignOpen] = useState(false);
+    const [assignMember, setAssignMember] = useState(null);
+    const [mailTo, setMailTo] = useState("");
+    const [mailSubject, setMailSubject] = useState("");
+    const [mailMessage, setMailMessage] = useState("");
+    const [mailName, setMailName] = useState("");
+    const [assignForm, setAssignForm] = useState({
+        taskTargetId: "",
+        taskTargetType: "task", // task or target
+        title: "",
+        description: "",
+        dueDate: "",
+        priority: "medium",
+        notes: "",
+        amount: ""
     });
-  
-
-const handleChange = (e) =>{
-    setForm({...form, [e.target.name]: e.target.value});
-    // Clear error when user types
-    if (formErrors[e.target.name]) {
-      setFormErrors({...formErrors, [e.target.name]: null});
-    }
-  };
-
-  const validateForm = () => {
-    const errors = {};
-    if (!form.first_name?.trim()) errors.first_name = "First name is required";
-    if (!form.last_name?.trim()) errors.last_name = "Last name is required";
-    if (!form.emp_email?.trim()) errors.emp_email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(form.emp_email)) errors.emp_email = "Invalid email format";
-    if (!form.job_title?.trim()) errors.job_title = "Job title is required";
-    if (!form.emp_role) errors.emp_role = "Role is required";
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const saveTeam = async (e) =>{
-    e.preventDefault();
+    const [assignLoading, setAssignLoading] = useState(false);
+    const [assignErrors, setAssignErrors] = useState({});
+    const [taskTargets, setTaskTargets] = useState([]);
     
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    const token = localStorage.getItem("token");
-    const config = { headers: { Authorization: `Bearer ${token}` } };
+    // Team member form state
+    const [form, setForm] = useState({
+        first_name: "",
+        last_name: "",
+        emp_email: "",
+        mobile: "",
+        job_title: "",
+        emp_role: "",
+        quotation_count: 0
+    });
+    const [team, setTeam] = useState([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [isEdit, setIsEdit] = useState(false);
+    const [editId, setEditId] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
+    const { user: currentUser } = useAuth();
 
-  try {
-    if(isEdit){
-      await axios.put(`http://localhost:3000/api/teammember/${editId}`, form, config);
-      alert("Successfully Updated");
-    } else{
-      await axios.post("http://localhost:3000/api/teammember/new", form, config);
-      alert("Successfully Created");
+    // Fetch All Team Data;
+    const fetchTeam = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${API}/api/teammember`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setTeam(res.data);
+        } catch (err) {
+            console.log("Error fetching team:", err);
+        }
+    };
+
+    // Fetch team on mount and listen for refresh events
+    useEffect(() => {
+        fetchTeam();
+        fetchTaskTargets();
+
+        const handleRefresh = () => {
+            fetchTeam();
+            fetchTaskTargets();
+        };
+
+        window.addEventListener("refresh-team", handleRefresh);
+        window.addEventListener("refresh-dashboard", handleRefresh);
+
+        return () => {
+            window.removeEventListener("refresh-team", handleRefresh);
+            window.removeEventListener("refresh-dashboard", handleRefresh);
+        };
+    }, []);
+
+    const tabopen = () => {
+        resetForm();
+        setOpen(true);
+    };
+
+    const fetchTaskTargets = async () => {
+    try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${API}/api/task`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const tasks = res.data.map(task => ({
+            id: task.id,
+            title: task.task_title || task.project_name || "Task",
+            type: "task"
+        }));
+        
+        // Fetch targets as well
+        const targetRes = await axios.get(`${API}/api/task/targets`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const targets = targetRes.data.map(target => ({
+            id: target.id,
+            title: `Target for ${target.user_name} (${target.monthly_target}/month)`,
+            type: "target"
+        }));
+        
+        setTaskTargets([...tasks, ...targets]);
+    } catch (err) {
+        console.log("Error fetching task/target data:", err);
     }
+};
 
-    fetchTeam();  
-    resetForm();
-    setOpen(false);
-    
-    // Notify other components to refresh
-    window.dispatchEvent(new Event("refresh-team"));
-    window.dispatchEvent(new Event("refresh-dashboard"));
-} catch (err) {
-      console.log("Error saving team member:", err);
-      alert(err.response?.data?.message || "Error saving team member");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const handleChange = (e) => {
+        setForm({...form, [e.target.name]: e.target.value});
+        // Clear error when user types
+        if (formErrors[e.target.name]) {
+            setFormErrors({...formErrors, [e.target.name]: null});
+        }
+    };
 
+    const validateForm = () => {
+        const errors = {};
+        if (!form.first_name?.trim()) errors.first_name = "First name is required";
+        if (!form.last_name?.trim()) errors.last_name = "Last name is required";
+        if (!form.emp_email?.trim()) errors.emp_email = "Email is required";
+        else if (!/\S+@\S+\.\S+/.test(form.emp_email)) errors.emp_email = "Invalid email format";
+        if (!form.job_title?.trim()) errors.job_title = "Job title is required";
+        if (!form.emp_role) errors.emp_role = "Role is required";
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
 
+    const saveTeam = async (e) => {
+        e.preventDefault();
+        
+        if (!validateForm()) return;
+        
+        setIsLoading(true);
+        const token = localStorage.getItem("token");
+        const config = { headers: { Authorization: `Bearer ${token}` } };
 
-//  Edit
+        try {
+            if(isEdit){
+                await axios.put(`${API}/api/teammember/${editId}`, form, config);
+                alert("Successfully Updated");
+            } else{
+                await axios.post(`${API}/api/teammember/new`, form, config);
+                alert("Successfully Created");
+            }
+
+            fetchTeam();  
+            resetForm();
+            setOpen(false);
+            
+            // Notify other components to refresh
+            window.dispatchEvent(new Event("refresh-team"));
+            window.dispatchEvent(new Event("refresh-dashboard"));
+        } catch (err) {
+            console.log("Error saving team member:", err);
+            alert(err.response?.data?.message || "Error saving team member");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+   const validateAssignForm = () => {
+     const errors = {};
+     if (!assignForm.taskTargetId) errors.taskTargetId = "Task/Target is required";
+     if (!assignForm.dueDate) errors.dueDate = "Due date is required";
+     if (!assignForm.priority) errors.priority = "Priority is required";
+     setAssignErrors(errors);
+     return Object.keys(errors).length === 0;
+   };
+
+    const saveAssignment = async (e) => {
+      e.preventDefault();
+      
+      if (!validateAssignForm()) return;
+      
+      setAssignLoading(true);
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      try {
+        const assignmentData = {
+          type: assignForm.taskTargetType,
+          task_id: assignForm.taskTargetType === "task" ? assignForm.taskTargetId : null,
+          target_id: assignForm.taskTargetType === "target" ? assignForm.taskTargetId : null,
+          amount: assignForm.taskTargetType === "target" ? assignForm.amount : null,
+          assigned_to_user_id: assignMember?.user_id || assignMember?.id,
+          assigned_to_user_name: `${assignMember?.first_name} ${assignMember?.last_name}`.trim(),
+          assigned_by: currentUser?.name || "Admin",
+          due_date: assignForm.dueDate,
+          priority: assignForm.priority,
+          notes: assignForm.notes
+        };
+
+        await axios.post(`${API}/api/task/assign`, assignmentData, config);
+        alert("Task/Target assigned successfully!");
+
+        // Reset form and close modal
+        setAssignForm({
+          taskTargetId: "",
+          taskTargetType: "task",
+          title: "",
+          description: "",
+          dueDate: "",
+          priority: "medium",
+          notes: ""
+        });
+        setAssignOpen(false);
+        setAssignMember(null);
+        
+        // Notify refresh
+        window.dispatchEvent(new Event("refresh-team"));
+        window.dispatchEvent(new Event("refresh-dashboard"));
+        fetchTeam();
+      } catch (err) {
+        console.log("Error saving assignment:", err);
+        alert(err.response?.data?.message || "Error saving assignment");
+      } finally {
+        setAssignLoading(false);
+      }
+    };
+
+   //  Edit
 const editTeam = (data)=>{
   setForm({
     first_name: data.first_name || "",
@@ -165,7 +267,7 @@ const resetForm = ()=>{
     const config = { headers: { Authorization: `Bearer ${token}` } };
     try {
       setIsLoading(true);
-      await axios.delete(`http://localhost:3000/api/teammember/${id}`, config);
+      await axios.delete(`${API}/api/teammember/${id}`, config);
       fetchTeam();
       window.dispatchEvent(new Event("refresh-team"));
       window.dispatchEvent(new Event("refresh-dashboard")); 
@@ -178,11 +280,27 @@ const resetForm = ()=>{
    };
 
 const openMailModal = (member) => {
-  setMailTo(member.emp_email || "");
-  setMailName(member.first_name || "");
-  setMailSubject("Work Information");
-  setMailMessage(`Hello ${member.first_name},\n\n`);
-  setMailOpen(true);
+   setMailTo(member.emp_email || "");
+   setMailName(member.first_name || "");
+   setMailSubject("Work Information");
+   setMailMessage(`Hello ${member.first_name},\n\n`);
+   setMailOpen(true);
+};
+
+const openAssignModal = (member) => {
+   // Set form data for assignment
+   setAssignMember(member);
+   setAssignForm({
+      taskTargetId: "",
+      taskTargetType: "task",
+      title: "",
+      description: "",
+      dueDate: "",
+      priority: "medium",
+      notes: "",
+      amount: ""
+   });
+   setAssignOpen(true);
 };
 
 const handleSendMail = () => {
@@ -365,22 +483,25 @@ const handleSendMail = () => {
         <td className="p-4 border">{E.emp_role || "---"}</td>
         <td className="p-4 border">{E.quotation_count || 0}</td>
 <td className="p-4 border">
-          <div className="flex justify-center gap-3">
-              {currentUser?.role === "admin" && (
-                <>
-                  <button type="button" onClick={() => deleteTeamMember(E.id)} className="text-red-500 hover:text-red-700 transition" title="Delete">
-                    <Trash2 size={18} />
-                  </button>
-                  <button type="button" onClick={() => editTeam(E)} className="text-green-600 hover:text-green-800 transition" title="Edit">
-                    <Edit size={18} />
-                  </button>
-                </>
-              )}
-              <button type="button" onClick={() => openMailModal(E)} className="text-yellow-600 hover:text-yellow-800 transition" title="Send Email">
-                <Mail size={18} />
-              </button>
-           </div>
-         </td>
+           <div className="flex justify-center gap-3">
+               {currentUser?.role === "admin" && (
+                 <>
+                   <button type="button" onClick={() => deleteTeamMember(E.id)} className="text-red-500 hover:text-red-700 transition" title="Delete">
+                     <Trash2 size={18} />
+                   </button>
+                   <button type="button" onClick={() => editTeam(E)} className="text-green-600 hover:text-green-800 transition" title="Edit">
+                     <Edit size={18} />
+                   </button>
+                   <button type="button" onClick={() => openAssignModal(E)} className="text-blue-600 hover:text-blue-800 transition" title="Assign Task/Target">
+                     <CheckSquare size={18} />
+                   </button>
+                 </>
+               )}
+               <button type="button" onClick={() => openMailModal(E)} className="text-yellow-600 hover:text-yellow-800 transition" title="Send Email">
+                 <Mail size={18} />
+               </button>
+            </div>
+          </td>
       </tr>
     ))
   )}
@@ -416,12 +537,166 @@ const handleSendMail = () => {
                 Open in Gmail
               </button>
               <button onClick={() => setMailOpen(false)} className="bg-gray-200 text-gray-600 px-8 py-2.5 rounded-lg hover:bg-gray-300 font-bold transition">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+             </div>
+           </div>
+         </div>
+       )}
+       
+       {/* Assignment Modal */}
+       {assignOpen && (
+         <div className="overlay show flex justify-center items-center">
+           <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-lg p-8 relative">
+             <div className="flex justify-between items-center mb-6">
+               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                 <CheckSquare size={20} /> 
+                 {isEdit ? "Edit Assignment" : "Create New Assignment"}
+               </h2>
+               <X className="cursor-pointer text-gray-400 hover:text-red-500" onClick={() => setAssignOpen(false)} />
+             </div>
+             <div className="space-y-4">
+               <div className="flex flex-col gap-1">
+                 <label className="text-xs font-bold text-gray-500 uppercase">Task/Target</label>
+                 <select
+                   value={assignForm.taskTargetId}
+                   onChange={(e) => setAssignForm({...assignForm, taskTargetId: e.target.value})}
+                   className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100 w-full"
+                 >
+                   <option value="">Select Task or Target</option>
+                   {taskTargets.map((item) => (
+                     <option key={`${item.id}-${item.type}`} value={item.id}>
+                       [{item.type === "task" ? "📋 Task" : "🎯 Target"}] {item.title}
+                     </option>
+                   ))}
+                 </select>
+                 {assignErrors.taskTargetId && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12} /> {assignErrors.taskTargetId}</p>}
+               </div>
+               
+               <div className="flex flex-col gap-1">
+                 <label className="text-xs font-bold text-gray-500 uppercase">Type</label>
+                 <div className="flex gap-4">
+                   <label className="flex items-center gap-2 cursor-pointer">
+                     <input
+                       type="radio"
+                       value="task"
+                       checked={assignForm.taskTargetType === "task"}
+                       onChange={(e) => setAssignForm({...assignForm, taskTargetType: e.target.value})}
+                       className="form-radio h-4 w-4 text-blue-600"
+                     />
+                     Task
+                   </label>
+                   <label className="flex items-center gap-2 cursor-pointer">
+                     <input
+                       type="radio"
+                       value="target"
+                       checked={assignForm.taskTargetType === "target"}
+                       onChange={(e) => setAssignForm({...assignForm, taskTargetType: e.target.value})}
+                       className="form-radio h-4 w-4 text-blue-600"
+                     />
+                     Target
+                   </label>
+                 </div>
+                
+                {assignForm.taskTargetType === "target" && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Target Amount (Yearly INR)</label>
+                    <input
+                      type="number"
+                      value={assignForm.amount}
+                      onChange={(e) => setAssignForm({...assignForm, amount: e.target.value})}
+                      placeholder="Enter yearly target amount"
+                      className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100"
+                    />
+                    <p className="text-[10px] text-gray-400">Monthly: ₹{assignForm.amount ? Math.round(parseFloat(assignForm.amount) / 12).toLocaleString() : 0}</p>
+                  </div>
+                )}
+               </div>
+               
+               <div className="flex flex-col gap-1">
+                 <label className="text-xs font-bold text-gray-500 uppercase">Title</label>
+                 <input
+                   type="text"
+                   value={assignForm.title}
+                   onChange={(e) => setAssignForm({...assignForm, title: e.target.value})}
+                   placeholder="Enter title"
+                   className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100"
+                 />
+                 {assignErrors.title && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12} /> {assignErrors.title}</p>}
+               </div>
+               
+               <div className="flex flex-col gap-1">
+                 <label className="text-xs font-bold text-gray-500 uppercase">Description</label>
+                 <textarea
+                   value={assignForm.description}
+                   onChange={(e) => setAssignForm({...assignForm, description: e.target.value})}
+                   placeholder="Enter description"
+                   rows="3"
+                   className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100"
+                 />
+                 {assignErrors.description && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12} /> {assignErrors.description}</p>}
+               </div>
+               
+               <div className="flex flex-col gap-1">
+                 <label className="text-xs font-bold text-gray-500 uppercase">Due Date</label>
+                 <input
+                   type="date"
+                   value={assignForm.dueDate}
+                   onChange={(e) => setAssignForm({...assignForm, dueDate: e.target.value})}
+                   className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100"
+                 />
+                 {assignErrors.dueDate && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12} /> {assignErrors.dueDate}</p>}
+               </div>
+               
+               <div className="flex flex-col gap-1">
+                 <label className="text-xs font-bold text-gray-500 uppercase">Priority</label>
+                 <select
+                   value={assignForm.priority}
+                   onChange={(e) => setAssignForm({...assignForm, priority: e.target.value})}
+                   className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100"
+                 >
+                   <option value="low">Low</option>
+                   <option value="medium">Medium</option>
+                   <option value="high">High</option>
+                 </select>
+                 {assignErrors.priority && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12} /> {assignErrors.priority}</p>}
+               </div>
+               
+               <div className="flex flex-col gap-1">
+                 <label className="text-xs font-bold text-gray-500 uppercase">Notes</label>
+                 <textarea
+                   value={assignForm.notes}
+                   onChange={(e) => setAssignForm({...assignForm, notes: e.target.value})}
+                   placeholder="Enter notes"
+                   rows="3"
+                   className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100"
+                 />
+               </div>
+             </div>
+              <div className="flex gap-4 pt-6">
+                <button
+                  onClick={saveAssignment}
+                  disabled={assignLoading}
+                  className="bg-blue-600 text-white px-8 py-2.5 rounded-lg hover:bg-blue-700 font-bold shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {assignLoading ? (
+                    <>
+                      <UserCheck size={18} className="animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    isEdit ? "Update Assignment" : "Create Assignment"
+                  )}
+                </button>
+                <button
+                  onClick={() => setAssignOpen(false)}
+                  className="bg-gray-200 text-gray-600 px-8 py-2.5 rounded-lg hover:bg-gray-300 font-bold transition"
+                >
+                  Cancel
+                </button>
+              </div>
+           </div>
+         </div>
+       )}
+     </div>
+   );
+ };
 
-export default Team;
+ export default Team;

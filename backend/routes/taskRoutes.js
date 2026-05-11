@@ -12,15 +12,286 @@ const getNotificationIO = () => {
   }
 };
 
+const findUserForTask = (nameOrEmail, callback) => {
+  if (!nameOrEmail) return callback(null, null);
+
+  db.query(
+    `SELECT u.id, u.first_name, u.email
+     FROM users u
+     LEFT JOIN teammember t ON t.emp_email = u.email
+     WHERE u.id = ? OR u.email = ? OR u.first_name = ? OR CONCAT_WS(' ', t.first_name, t.last_name) = ? OR t.emp_email = ?
+     LIMIT 1`,
+    [nameOrEmail, nameOrEmail, nameOrEmail, nameOrEmail, nameOrEmail],
+    (err, rows) => callback(err, rows && rows.length ? rows[0] : null)
+  );
+};
+
+const notifyTaskAssigned = (task, assignedTo) => {
+  findUserForTask(assignedTo, (err, user) => {
+    if (err) {
+      console.warn("task assignee lookup skipped:", err.message);
+      return;
+    }
+
+    const message = `New task assigned: "${task.task_title || task.project_name || "Task"}"${task.due_date ? ` (Due: ${task.due_date})` : ""}`;
+
+    const notificationIO = getNotificationIO();
+    if (notificationIO && user?.id) {
+      notificationIO.emitNotification("task_assigned", {
+        taskId: task.id,
+        taskName: task.task_title || task.project_name,
+        userId: user.id,
+        userName: user.first_name || assignedTo,
+        dueDate: task.due_date,
+        priority: task.project_priority,
+        type: "task"
+      }, user.id, false);
+      return;
+    }
+
+    db.query(
+      "INSERT INTO notifications (task_id, user_id, type, title, description) VALUES (?, ?, ?, ?, ?)",
+      [task.id, user?.id || null, "task_assigned", "New Task Assigned", message],
+      (notifErr) => { if (notifErr) console.warn("notifications insert skipped:", notifErr.message); }
+    );
+  });
+};
+
+const notifyTargetAssigned = (target, assignedTo) => {
+  findUserForTask(assignedTo, (err, user) => {
+    if (err) {
+      console.warn("target assignee lookup skipped:", err.message);
+      return;
+    }
+
+    const message = `New target assigned to you: ₹${Number(target.yearly_target || 0).toLocaleString()}/year`;
+
+    const notificationIO = getNotificationIO();
+    if (notificationIO && user?.id) {
+      notificationIO.emitNotification("new_target", {
+        id: target.id,
+        userId: user.id,
+        userName: user.first_name || assignedTo,
+        targetAmount: target.yearly_target,
+        type: "target"
+      }, user.id, false);
+      return;
+    }
+
+    db.query(
+      "INSERT INTO notifications (user_id, type, title, description) VALUES (?, ?, ?, ?)",
+      [user?.id || null, "target_assigned", "New Target Assigned", message],
+      (notifErr) => { if (notifErr) console.warn("notifications insert skipped:", notifErr.message); }
+    );
+  });
+};
+
+const notifyTaskCompleted = (assignment) => {
+  const notificationIO = getNotificationIO();
+  if (notificationIO) {
+    notificationIO.emitNotification("task_completed", {
+      taskId: assignment.task_id,
+      taskName: assignment.task_title || "Task",
+      userId: assignment.assigned_to_user_id,
+      userName: assignment.assigned_to_user_name,
+      type: "task",
+      priority: "high"
+     }, null, true);
+     return;
+   }
+
+   db.query(
+     "INSERT INTO admin_notifications (type, user_id, message) VALUES (?, ?, ?)",
+     ["task_completed", assignment.assigned_to_user_id || null, `${assignment.assigned_to_user_name || "Employee"} completed task: "${assignment.task_title || "Task"}"`]
+   );
+};
+
+// Function to check for overdue tasks and send notifications
+const checkOverdueTasks = () => {
+  const query = `
+    SELECT ta.*, t.task_title, t.due_date 
+    FROM task_assignments ta 
+    JOIN tasks t ON ta.task_id = t.id 
+    WHERE ta.status NOT IN ('Completed', 'Declined') 
+    AND t.due_date < CURDATE()
+  `;
+
+  db.query(query, (err, overdueTasks) => {
+    if (err) {
+      console.error("Error checking overdue tasks:", err);
+      return;
+    }
+
+    overdueTasks.forEach(task => {
+      // Notify admin about overdue task
+      const notificationIO = getNotificationIO();
+      if (notificationIO) {
+        notificationIO.emitNotification("task_overdue", {
+          taskId: task.task_id,
+          taskName: task.task_title,
+          assignedTo: task.assigned_to_user_name,
+          dueDate: task.due_date,
+          daysOverdue: Math.floor((new Date() - new Date(task.due_date)) / (1000 * 60 * 60 * 24)),
+          type: "task",
+          priority: "high"
+        }, null, true); // true for admin notification
+      }
+
+      // Also create a notification record
+      db.query(
+        "INSERT INTO admin_notifications (type, user_id, message) VALUES (?, ?, ?)",
+        ["task_overdue", 0, `Task "${task.task_title}" assigned to ${task.assigned_to_user_name} is overdue by ${Math.floor((new Date() - new Date(task.due_date)) / (1000 * 60 * 60 * 24))} days`]
+      );
+    });
+  });
+};
+
+// Function to check for tasks due soon and send warnings
+const checkUpcomingDeadlines = () => {
+  const query = `
+    SELECT ta.*, t.task_title, t.due_date 
+    FROM task_assignments ta 
+    JOIN tasks t ON ta.task_id = t.id 
+    WHERE ta.status NOT IN ('Completed', 'Declined') 
+    AND t.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 2 DAY)
+  `;
+
+  db.query(query, (err, upcomingTasks) => {
+    if (err) {
+      console.error("Error checking upcoming deadlines:", err);
+      return;
+    }
+
+    upcomingTasks.forEach(task => {
+      // Notify admin about upcoming deadline
+      const notificationIO = getNotificationIO();
+      if (notificationIO) {
+        notificationIO.emitNotification("task_overdue_warning", {
+          taskId: task.task_id,
+          taskName: task.task_title,
+          assignedTo: task.assigned_to_user_name,
+          dueDate: task.due_date,
+          daysUntilDue: Math.floor((new Date(task.due_date) - new Date()) / (1000 * 60 * 60 * 24)),
+          type: "task",
+          priority: "medium"
+        }, null, true); // true for admin notification
+      }
+
+      // Also create a notification record
+      db.query(
+        "INSERT INTO admin_notifications (type, user_id, message) VALUES (?, ?, ?)",
+        ["task_overdue_warning", 0, `Task "${task.task_title}" assigned to ${task.assigned_to_user_name} is due in ${Math.floor((new Date(task.due_date) - new Date()) / (1000 * 60 * 60 * 24))} days`]
+      );
+    });
+  });
+};
+
+// Set up periodic checks for overdue tasks and upcoming deadlines (every hour)
+setInterval(checkOverdueTasks, 60 * 60 * 1000); // Every hour
+setInterval(checkUpcomingDeadlines, 60 * 60 * 1000); // Every hour
+
+/* GET ALL TASKS - Authenticated users */
+
+ // Function to check for overdue tasks and send notifications
+ const checkOverdueTasks = () => {
+   const query = `
+     SELECT ta.*, t.task_title, t.due_date 
+     FROM task_assignments ta 
+     JOIN tasks t ON ta.task_id = t.id 
+     WHERE ta.status NOT IN ('Completed', 'Declined') 
+     AND t.due_date < CURDATE()
+   `;
+
+   db.query(query, (err, overdueTasks) => {
+     if (err) {
+       console.error("Error checking overdue tasks:", err);
+       return;
+     }
+
+     overdueTasks.forEach(task => {
+       // Notify admin about overdue task
+       const notificationIO = getNotificationIO();
+       if (notificationIO) {
+         notificationIO.emitNotification("task_overdue", {
+           taskId: task.task_id,
+           taskName: task.task_title,
+           assignedTo: task.assigned_to_user_name,
+           dueDate: task.due_date,
+           daysOverdue: Math.floor((new Date() - new Date(task.due_date)) / (1000 * 60 * 60 * 24)),
+           type: "task",
+           priority: "high"
+         }, null, true); // true for admin notification
+       }
+
+       // Also create a notification record
+       db.query(
+         "INSERT INTO admin_notifications (type, user_id, message) VALUES (?, ?, ?)",
+         ["task_overdue", 0, `Task "${task.task_title}" assigned to ${task.assigned_to_user_name} is overdue by ${Math.floor((new Date() - new Date(task.due_date)) / (1000 * 60 * 60 * 24))} days`]
+       );
+     });
+   });
+ };
+
+ // Function to check for tasks due soon and send warnings
+ const checkUpcomingDeadlines = () => {
+   const query = `
+     SELECT ta.*, t.task_title, t.due_date 
+     FROM task_assignments ta 
+     JOIN tasks t ON ta.task_id = t.id 
+     WHERE ta.status NOT IN ('Completed', 'Declined') 
+     AND t.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 2 DAY)
+   `;
+
+   db.query(query, (err, upcomingTasks) => {
+     if (err) {
+       console.error("Error checking upcoming deadlines:", err);
+       return;
+     }
+
+     upcomingTasks.forEach(task => {
+       // Notify admin about upcoming deadline
+       const notificationIO = getNotificationIO();
+       if (notificationIO) {
+         notificationIO.emitNotification("task_overdue_warning", {
+           taskId: task.task_id,
+           taskName: task.task_title,
+           assignedTo: task.assigned_to_user_name,
+           dueDate: task.due_date,
+           daysUntilDue: Math.floor((new Date(task.due_date) - new Date()) / (1000 * 60 * 60 * 24)),
+           type: "task",
+           priority: "medium"
+         }, null, true); // true for admin notification
+       }
+
+       // Also create a notification record
+       db.query(
+         "INSERT INTO admin_notifications (type, user_id, message) VALUES (?, ?, ?)",
+         ["task_overdue_warning", 0, `Task "${task.task_title}" assigned to ${task.assigned_to_user_name} is due in ${Math.floor((new Date(task.due_date) - new Date()) / (1000 * 60 * 60 * 24))} days`]
+       );
+     });
+   });
+ };
+
 /* GET ALL TASKS - Authenticated users */
 router.get("/", verifyToken, (req, res) => {
-  db.query(
-    "SELECT * FROM tasks ORDER BY id DESC",
-    (err, rows) => {
-      if (err) return res.status(500).json(err);
-      res.json(rows);
-    }
-  );
+  const { id: user_id, role, first_name: user_name } = req.user;
+  let sql = `
+    SELECT t.*, u.first_name as creator_name 
+    FROM tasks t
+    LEFT JOIN users u ON t.created_by = u.id
+  `;
+  const params = [];
+  
+  if (role === "employee") {
+    sql += " WHERE t.created_by = ? OR t.staff_name LIKE ? OR t.assigned_to = ?";
+    params.push(user_id, `%${user_name}%`, user_id);
+  }
+  
+  sql += " ORDER BY t.id DESC";
+  db.query(sql, params, (err, rows) => {
+    if (err) return res.status(500).json(err);
+    res.json(rows);
+  });
 });
 
 /*  CREATE TASK - Admin Only */
@@ -34,12 +305,12 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
 
   const sql = `
     INSERT INTO tasks
-    (project_name, task_title, project_status, project_priority, staff_name, client_name, created_date, due_date, assigned_to)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (project_name, task_title, project_status, project_priority, staff_name, client_name, created_date, due_date, assigned_to, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   db.query(sql,
-    [project_name, task_title, project_status, project_priority, finalStaffName, client_name, created_date, due_date, assigned_to || null],
+    [project_name, task_title, project_status, project_priority, finalStaffName, client_name, created_date, due_date, assigned_to || null, req.user.id],
     (err, result) => {
       if (err) {
         console.error("Task create error:", err);
@@ -61,6 +332,14 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
         [taskId, "New Task", `Task "${task_title}" added (${project_priority})`],
         (notifErr) => { if (notifErr) console.warn("notifications insert skipped:", notifErr.message); }
       );
+
+      notifyTaskAssigned({
+        id: taskId,
+        task_title,
+        project_name,
+        project_priority,
+        due_date
+      }, finalStaffName);
 
       res.json({ message: "Task created", id: taskId });
     }
@@ -97,21 +376,30 @@ router.put("/:id", verifyToken, (req, res) => {
     WHERE id = ?
   `;
 
-  db.query(
-    sql,
-    [
-      project_name,
-      task_title,
-      project_status,
-      project_priority,
-      client_name,
-      finalStaffName,
-      created_date,
-      due_date,
-      assigned_to || null,
-      req.params.id
-    ],
-    (err) => {
+  // Check ownership
+  db.query("SELECT created_by FROM tasks WHERE id = ?", [req.params.id], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (results.length === 0) return res.status(404).json({ message: "Not found" });
+    
+    if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    db.query(
+      sql,
+      [
+        project_name,
+        task_title,
+        project_status,
+        project_priority,
+        client_name,
+        finalStaffName,
+        created_date,
+        due_date,
+        assigned_to || null,
+        req.params.id
+      ],
+      (err) => {
       if (err) return res.status(500).json(err);
 
       // Task Activity
@@ -130,6 +418,19 @@ router.put("/:id", verifyToken, (req, res) => {
         ]
       );
 
+      if (project_status === "Completed") {
+        const notificationIO = getNotificationIO();
+        if (notificationIO) {
+          notificationIO.emitNotification("task_completed", {
+            taskId: req.params.id,
+            taskName: task_title,
+            userName: finalStaffName || "Employee",
+            type: "task",
+            priority: "high"
+          }, null, true);
+        }
+      }
+
       res.json({ message: "Task updated" });
     }
   );
@@ -137,21 +438,31 @@ router.put("/:id", verifyToken, (req, res) => {
 
 /* ================= DELETE TASK - Admin Only ================= */
 router.delete("/:id", verifyToken, isAdmin, (req, res) => {
-  db.query(
-    "DELETE FROM tasks WHERE id = ?",
-    [req.params.id],
-    (err) => {
-      if (err) return res.status(500).json(err);
-
-      // Optional activity log
-      db.query(
-        "INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
-        [req.params.id, "Deleted", "Task deleted"]
-      );
-
-      res.json({ message: "Task deleted" });
+  // Check ownership
+  db.query("SELECT created_by FROM tasks WHERE id = ?", [req.params.id], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (results.length === 0) return res.status(404).json({ message: "Not found" });
+    
+    if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
     }
-  );
+
+    db.query(
+      "DELETE FROM tasks WHERE id = ?",
+      [req.params.id],
+      (err) => {
+        if (err) return res.status(500).json(err);
+
+        // Optional activity log
+        db.query(
+          "INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
+          [req.params.id, "Deleted", "Task deleted"]
+        );
+
+        res.json({ message: "Task deleted" });
+      }
+    );
+  });
 });
 
 /* ================= DASHBOARD TASKS (READ ONLY) ================= */
@@ -467,41 +778,116 @@ router.get("/targets/history", (req, res) => {
   });
 });
 
-/* ASSIGN TASK TO USER - Admin Only */
+/* ASSIGN TASK/TARGET TO USER - Admin Only */
 router.post("/assign", verifyToken, isAdmin, (req, res) => {
-  const { task_id, assigned_to_user_id, assigned_to_user_name, assigned_by, due_date, priority, notes } = req.body;
+   const { task_id, target_id, assigned_to_user_id, assigned_to_user_name, assigned_by, due_date, priority, notes, type, amount } = req.body;
 
-  if (!task_id || !assigned_to_user_name) {
-    return res.status(400).json({ error: "task_id and assigned_to_user_name required" });
-  }
+   // Validate required fields
+   if (!assigned_to_user_name) {
+     return res.status(400).json({ error: "assigned_to_user_name is required" });
+   }
 
-  // First update the task with staff_name
-  db.query(
-    "UPDATE tasks SET staff_name = ? WHERE id = ?",
-    [assigned_to_user_name, task_id],
-    (updateErr) => {
-      if (updateErr) return res.status(500).json({ error: updateErr.message });
+   // Determine if assigning task or target
+   const isTaskAssignment = type === "task" && task_id;
+   const isTargetAssignment = type === "target"; // Can be new or existing
 
-      // Then create assignment record
+   if (!isTaskAssignment && !isTargetAssignment) {
+     return res.status(400).json({ error: "Either task_id (for task) or target_id (for target) is required" });
+   }
+
+   // For task assignment, update the task with staff_name
+   if (isTaskAssignment) {
+     db.query(
+       "UPDATE tasks SET staff_name = ?, assigned_to = ? WHERE id = ?",
+       [assigned_to_user_name, assigned_to_user_id || null, task_id],
+       (updateErr) => {
+         if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+         // Then create assignment record
+         db.query(
+           `INSERT INTO task_assignments
+            (task_id, assigned_to_user_id, assigned_to_user_name, assigned_by, assigned_date, due_date, priority, notes)
+            VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?)`,
+           [task_id, assigned_to_user_id, assigned_to_user_name, assigned_by, due_date, priority, notes],
+           (err, result) => {
+             if (err) return res.status(500).json({ error: err.message });
+
+             // Update task activity
+             db.query(
+               "INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
+               [task_id, "Task Assigned", `Task assigned to ${assigned_to_user_name}`]
+             );
+
+             // Notify assigned user via socket
+             notifyTaskAssigned({
+               id: task_id,
+               task_title: `Task #${task_id}`,
+               project_priority: priority,
+               due_date
+             }, assigned_to_user_id || assigned_to_user_name);
+
+             res.json({ message: "Task assigned successfully", id: result.insertId });
+           }
+         );
+       }
+     );
+   } 
+   // For target assignment
+   else if (isTargetAssignment) {
+      // If amount is provided, we create/update the target in task_targets table
+      if (amount) {
+        const yearly_target = parseFloat(amount);
+        const monthlyTarget = Math.round(yearly_target / 12);
+        
+        db.query(
+          "SELECT id FROM task_targets WHERE user_name = ? OR user_id = ?",
+          [assigned_to_user_name, assigned_to_user_id],
+          (targetErr, targetRows) => {
+            if (targetErr) return res.status(500).json({ error: targetErr.message });
+            
+            if (targetRows.length > 0) {
+              // Update existing target
+              db.query(
+                "UPDATE task_targets SET yearly_target = ?, monthly_target = ?, updated_at = NOW() WHERE id = ?",
+                [yearly_target, monthlyTarget, targetRows[0].id]
+              );
+            } else {
+              // Create new target
+              db.query(
+                "INSERT INTO task_targets (user_id, user_name, yearly_target, monthly_target, created_by_admin) VALUES (?, ?, ?, ?, 1)",
+                [assigned_to_user_id, assigned_to_user_name, yearly_target, monthlyTarget]
+              );
+            }
+          }
+        );
+      }
+
+      // Create a target assignment record
       db.query(
         `INSERT INTO task_assignments
          (task_id, assigned_to_user_id, assigned_to_user_name, assigned_by, assigned_date, due_date, priority, notes)
          VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?)`,
-        [task_id, assigned_to_user_id, assigned_to_user_name, assigned_by, due_date, priority, notes],
+        [target_id || 0, assigned_to_user_id, assigned_to_user_name, assigned_by, due_date, priority, notes],
         (err, result) => {
           if (err) return res.status(500).json({ error: err.message });
 
-          // Update task activity
+          // Update task activity for target assignment
           db.query(
             "INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
-            [task_id, "Task Assigned", `Task assigned to ${assigned_to_user_name}`]
+            [target_id || 0, "Target Assigned", `Target assigned to ${assigned_to_user_name}`]
           );
 
-          res.json({ message: "Task assigned", id: result.insertId });
+          // Notify assigned user via socket about target assignment
+          notifyTargetAssigned({
+            id: target_id || 0,
+            yearly_target: amount || 0,
+            target_name: `Target for ${assigned_to_user_name}`
+          }, assigned_to_user_id || assigned_to_user_name);
+
+          res.json({ message: "Target assigned successfully", id: result.insertId });
         }
       );
-    }
-  );
+   }
 });
 
 /* GET ASSIGNED TASKS FOR USER */
@@ -589,7 +975,7 @@ router.put("/assignment/:id/status", (req, res) => {
 
   // First get current assignment info
   db.query(
-    "SELECT task_id, assigned_to_user_name, assigned_to_user_id, status as old_status FROM task_assignments WHERE id = ?",
+    "SELECT ta.task_id, ta.assigned_to_user_name, ta.assigned_to_user_id, ta.status as old_status, t.task_title FROM task_assignments ta LEFT JOIN tasks t ON t.id = ta.task_id WHERE ta.id = ?",
     [req.params.id],
     (err, currentRows) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -610,6 +996,7 @@ router.put("/assignment/:id/status", (req, res) => {
           if (!wasCompleted && nowCompleted) {
             // Task just completed - add to achievement
             updateTaskAchievement(assignment.assigned_to_user_id, assignment.assigned_to_user_name, 1, "Task completed");
+            notifyTaskCompleted(assignment);
           } else if (wasCompleted && !nowCompleted) {
             // Task status changed from completed - subtract from achievement
             updateTaskAchievement(assignment.assigned_to_user_id, assignment.assigned_to_user_name, -1, "Task status changed from completed");
@@ -686,9 +1073,24 @@ function updateTaskAchievement(user_id, user_name, count, description) {
 }
 
 /* ================= NOTIFICATIONS ================= */
-router.get("/notifications", (req, res) => {
+router.get("/notifications", verifyToken, (req, res) => {
+  const { id: user_id, role } = req.user;
+  const params = [];
+  let sql = "SELECT * FROM notifications";
+  
+  if (role === "employee") {
+    sql += " WHERE user_id = ? OR user_id IS NULL";
+    params.push(user_id);
+  } else if (req.query.user_id) {
+    sql += " WHERE user_id = ?";
+    params.push(req.query.user_id);
+  }
+  
+  sql += " ORDER BY created_at DESC";
+
   db.query(
-    "SELECT * FROM notifications ORDER BY created_at DESC",
+    sql,
+    params,
     (err, rows) => {
       if (err) return res.status(500).json(err);
       res.json(rows);

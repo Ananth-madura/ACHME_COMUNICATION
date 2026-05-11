@@ -4,9 +4,26 @@ const jwt = require("jsonwebtoken");
 const db = require("../config/database");
 const { generateOtp } = require("../backendutil/otp");
 const sendEmailOtp = require("../backendutil/sendSms");
-const { isAdmin } = require("../middileware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middileware/authMiddleware");
 
 const router = express.Router();
+
+const getNotificationIO = () => {
+  try {
+    const app = require("../server");
+    return app.get("notificationIO");
+  } catch (e) {
+    return null;
+  }
+};
+
+const fieldLabels = {
+  first_name: "Name",
+  email: "Email",
+  mobile_number: "Mobile Number",
+  emp_address: "Address",
+  password: "Password"
+};
 
 /* ================= SEND EMAIL OTP ================= */
 router.post("/send-email-otp", (req, res) => {
@@ -82,6 +99,26 @@ router.post("/register", async (req, res) => {
             `INSERT INTO admin_notifications (type, user_id, message) VALUES ('registration', ?, ?)`,
             [newUserId, `New ${userRole} registration: ${first_name} (${email}) is waiting for approval.`]
           );
+
+          const notificationIO = getNotificationIO();
+          if (notificationIO) {
+            notificationIO.sendToAdmin("new_notification", {
+              dbId: newUserId,
+              type: "registration",
+              timestamp: new Date().toISOString(),
+              is_read: 0,
+              data: {
+                id: newUserId,
+                userId: newUserId,
+                userName: first_name,
+                email,
+                type: "user",
+                message: `New ${userRole} registration: ${first_name} (${email}) is waiting for approval.`
+              },
+              userId: newUserId,
+              message: `New ${userRole} registration: ${first_name} (${email}) is waiting for approval.`
+            });
+          }
 
           res.json({ message: "Registration successful. Your account is pending admin approval." });
         }
@@ -178,34 +215,262 @@ router.put("/approve/:id", (req, res) => {
     return res.status(400).json({ message: "Invalid action" });
   }
   
-  // First get the user's email before updating
-  db.query(`SELECT email, first_name FROM users WHERE id=?`, [req.params.id], (err, userRows) => {
-    if (err) return res.status(500).json({ message: "DB error" });
-    if (!userRows.length) return res.status(404).json({ message: "User not found" });
-    
-    const userEmail = userRows[0].email;
-    const userName = userRows[0].first_name;
-    
-    db.query(`UPDATE users SET status=? WHERE id=?`, [action, req.params.id], (err) => {
+    // First get the user's email, name and role before updating
+    db.query(`SELECT email, first_name, role FROM users WHERE id=?`, [req.params.id], (err, userRows) => {
       if (err) return res.status(500).json({ message: "DB error" });
+      if (!userRows.length) return res.status(404).json({ message: "User not found" });
       
-      // If approved (active), add to team
-      if (action === "active") {
-        db.query(`SELECT id FROM teammember WHERE emp_email=?`, [userEmail], (err, teamRows) => {
-          if (teamRows.length === 0) {
-            db.query(
-              `INSERT INTO teammember (first_name, last_name, emp_email, job_title, emp_role) VALUES (?, '', ?, ?, ?)`,
-              [userName, userEmail, "Developer", "Developer"]
-            );
-          }
-        });
-      }
+      const userEmail = userRows[0].email;
+      const userName = userRows[0].first_name;
+      const userRole = userRows[0].role || 'employee';
+      
+      db.query(`UPDATE users SET status=? WHERE id=?`, [action, req.params.id], (err) => {
+        if (err) return res.status(500).json({ message: "DB error" });
+        
+        // If approved (active), add to team
+        if (action === "active") {
+          db.query(`SELECT id FROM teammember WHERE emp_email=? OR user_id=?`, [userEmail, req.params.id], (err, teamRows) => {
+            if (err) {
+              console.error("Error checking team member:", err.message);
+            } else if (teamRows.length === 0) {
+              // Create new team member entry
+              const jobTitle = userRole === 'admin' ? 'Administrator' : 'Team Member';
+              const empRole = userRole === 'admin' ? 'BDM' : 'Developer'; // Default to something in the current enum
+              
+              db.query(
+                `INSERT INTO teammember (first_name, last_name, emp_email, job_title, emp_role, user_id) VALUES (?, '', ?, ?, ?, ?)`,
+                [userName, userEmail, jobTitle, empRole, req.params.id],
+                (insertErr, insertResult) => {
+                  if (insertErr) {
+                    console.error("Error adding user to team:", insertErr.message);
+                  } else {
+                    console.log(`User ${userName} added to team with ID: ${insertResult.insertId}`);
+                  }
+                }
+              );
+            } else {
+              // Update existing team member with user_id if missing
+              db.query(`UPDATE teammember SET user_id=? WHERE emp_email=? AND (user_id IS NULL OR user_id = 0)`, [req.params.id, userEmail]);
+            }
+          });
+        }
       
       // Mark notification as read
       db.query(`UPDATE admin_notifications SET is_read=1 WHERE user_id=?`, [req.params.id]);
+
+      const notificationIO = getNotificationIO();
+      if (notificationIO) {
+        notificationIO.emitNotification(action === "active" ? "registration_approved" : "registration_declined", {
+          id: req.params.id,
+          userId: req.params.id,
+          userName,
+          type: "user",
+          message: action === "active"
+            ? "Your account has been approved. You can now log in."
+            : "Your account request was declined. Please contact admin."
+        }, req.params.id, false);
+      }
+
       res.json({ message: `User ${action}` });
     });
   });
+});
+
+/* ================= USER PROFILE ================= */
+
+router.get("/profile", verifyToken, (req, res) => {
+  if (req.user.role === "admin" && Number(req.user.id) === 0) {
+    return res.json({
+      id: 0,
+      first_name: "Admin",
+      email: "admin@madhura.com",
+      role: "admin",
+      status: "active",
+      job_title: "Administrator",
+      emp_role: "Admin"
+    });
+  }
+
+  db.query(
+    `SELECT u.id, u.first_name, u.email, u.role, u.status, u.created_at,
+            t.job_title, t.emp_role,
+            COALESCE(t.mobile_number, t.mobile) AS mobile_number,
+            t.emp_address
+     FROM users u
+     LEFT JOIN teammember t ON t.emp_email = u.email
+     WHERE u.id = ?`,
+    [req.user.id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ message: "DB error", error: err.message });
+      if (!rows.length) return res.status(404).json({ message: "Profile not found" });
+      res.json(rows[0]);
+    }
+  );
+});
+
+router.put("/profile", verifyToken, (req, res) => {
+  const { first_name, mobile_number, emp_address } = req.body;
+  if (!first_name?.trim()) return res.status(400).json({ message: "Name is required" });
+
+  db.query("SELECT email FROM users WHERE id=?", [req.user.id], (err, rows) => {
+    if (err) return res.status(500).json({ message: "DB error" });
+    if (!rows.length) return res.status(404).json({ message: "Profile not found" });
+
+    db.query("UPDATE users SET first_name=? WHERE id=?", [first_name.trim(), req.user.id], (err2) => {
+      if (err2) return res.status(500).json({ message: "Profile update failed" });
+
+      db.query(
+        "UPDATE teammember SET first_name=?, mobile_number=?, emp_address=? WHERE emp_email=?",
+        [first_name.trim(), mobile_number || null, emp_address || null, rows[0].email]
+      );
+
+      res.json({ message: "Profile updated successfully" });
+    });
+  });
+});
+
+router.get("/my-change-requests", verifyToken, (req, res) => {
+  db.query(
+    "SELECT id, field, status, created_at, admin_response_at FROM profile_change_requests WHERE user_id=? ORDER BY created_at DESC LIMIT 20",
+    [req.user.id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ message: "DB error", error: err.message });
+      res.json(rows);
+    }
+  );
+});
+
+router.post("/request-profile-change", verifyToken, (req, res) => {
+  const { field, new_value, current_password } = req.body;
+  const allowedFields = ["first_name", "email", "mobile_number", "emp_address", "password"];
+  if (!allowedFields.includes(field)) return res.status(400).json({ message: "Invalid field" });
+  if (!new_value) return res.status(400).json({ message: "New value is required" });
+
+  const createRequest = (valueToStore) => {
+    db.query(
+      "INSERT INTO profile_change_requests (user_id, field, new_value, status) VALUES (?, ?, ?, 'pending')",
+      [req.user.id, field, valueToStore],
+      (err, result) => {
+        if (err) return res.status(500).json({ message: "Request failed", error: err.message });
+
+        const notificationIO = getNotificationIO();
+        if (notificationIO) {
+          notificationIO.emitNotification("profile_change_requested", {
+            id: result.insertId,
+            userId: req.user.id,
+            userName: req.user.name,
+            field,
+            fieldLabel: fieldLabels[field] || field,
+            type: "profile",
+            priority: "high"
+          }, null, true);
+        } else {
+          db.query(
+            "INSERT INTO admin_notifications (type, user_id, message, related_id, related_type, priority) VALUES (?, ?, ?, ?, ?, ?)",
+            ["profile_change_requested", req.user.id, `Profile change requested: ${fieldLabels[field] || field}`, result.insertId, "profile", "high"]
+          );
+        }
+
+        res.json({ message: "Change request submitted", id: result.insertId });
+      }
+    );
+  };
+
+  if (field !== "password") return createRequest(new_value);
+
+  db.query("SELECT user_password FROM users WHERE id=?", [req.user.id], async (err, rows) => {
+    if (err || !rows.length) return res.status(404).json({ message: "User not found" });
+    const ok = await bcrypt.compare(current_password || "", rows[0].user_password || "");
+    if (!ok) return res.status(401).json({ message: "Current password is incorrect" });
+    const hash = await bcrypt.hash(new_value, 10);
+    createRequest(hash);
+  });
+});
+
+router.get("/profile-change-requests", (req, res) => {
+  db.query(
+    `SELECT p.id, p.user_id, p.field, p.new_value, p.status, p.created_at,
+            u.first_name, u.email
+     FROM profile_change_requests p
+     JOIN users u ON u.id = p.user_id
+     WHERE p.status='pending'
+     ORDER BY p.created_at DESC`,
+    (err, rows) => {
+      if (err) return res.status(500).json({ message: "DB error", error: err.message });
+      res.json(rows.map((row) => row.field === "password" ? { ...row, new_value: "" } : row));
+    }
+  );
+});
+
+router.put("/handle-change-request/:id", (req, res) => {
+  const { action } = req.body;
+  if (!["approved", "declined"].includes(action)) {
+    return res.status(400).json({ message: "Invalid action" });
+  }
+
+  db.query(
+    `SELECT p.*, u.email, u.first_name
+     FROM profile_change_requests p
+     JOIN users u ON u.id = p.user_id
+     WHERE p.id=? AND p.status='pending'`,
+    [req.params.id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ message: "DB error" });
+      if (!rows.length) return res.status(404).json({ message: "Request not found" });
+
+      const request = rows[0];
+      const finish = () => {
+        db.query(
+          "UPDATE profile_change_requests SET status=?, admin_response_at=NOW() WHERE id=?",
+          [action, req.params.id],
+          (err2) => {
+            if (err2) return res.status(500).json({ message: "Request update failed" });
+
+            const notificationIO = getNotificationIO();
+            if (notificationIO) {
+              notificationIO.emitNotification(action === "approved" ? "profile_change_approved" : "profile_change_declined", {
+                id: req.params.id,
+                userId: request.user_id,
+                field: request.field,
+                fieldLabel: fieldLabels[request.field] || request.field,
+                type: "profile"
+              }, request.user_id, false);
+              notificationIO.sendToUser(request.user_id, "profile_change_response", { id: req.params.id, status: action });
+            }
+
+            res.json({ message: `Request ${action}` });
+          }
+        );
+      };
+
+      if (action === "declined") return finish();
+
+      if (request.field === "password") {
+        db.query("UPDATE users SET user_password=? WHERE id=?", [request.new_value, request.user_id], finish);
+        return;
+      }
+
+      if (request.field === "first_name" || request.field === "email") {
+        const sql = request.field === "first_name"
+          ? "UPDATE users SET first_name=? WHERE id=?"
+          : "UPDATE users SET email=? WHERE id=?";
+        db.query(sql, [request.new_value, request.user_id], (e) => {
+          if (e) return res.status(500).json({ message: "Could not apply change", error: e.message });
+          const teamSql = request.field === "first_name"
+            ? "UPDATE teammember SET first_name=? WHERE emp_email=?"
+            : "UPDATE teammember SET emp_email=? WHERE emp_email=?";
+          db.query(teamSql, [request.new_value, request.email], finish);
+        });
+        return;
+      }
+
+      db.query(
+        `UPDATE teammember SET ${request.field}=? WHERE emp_email=?`,
+        [request.new_value, request.email],
+        finish
+      );
+    }
+  );
 });
 
 /* ================= ADMIN: NOTIFICATIONS ================= */
@@ -215,7 +480,7 @@ router.get("/notifications", (req, res) => {
     `SELECT n.id, n.type, n.message, n.is_read, n.created_at, n.user_id,
             u.first_name, u.email, u.role, u.status
      FROM admin_notifications n
-     INNER JOIN users u ON u.id = n.user_id
+     LEFT JOIN users u ON u.id = n.user_id
      ORDER BY n.created_at DESC`,
     (err, rows) => {
       if (err) return res.status(500).json({ message: "DB error", error: err.message });

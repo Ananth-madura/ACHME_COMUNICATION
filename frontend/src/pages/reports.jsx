@@ -3,12 +3,15 @@ import "../Styles/tailwind.css";
 import axios from "axios";
 import { normalizeDate, getToday } from "../utils/leadutil";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, Legend, AreaChart, Area, ComposedChart } from "recharts";
-import { Calendar, Filter, RefreshCw } from "lucide-react";
+import { Calendar, Filter, RefreshCw, Search } from "lucide-react";
+import { useAuth } from "../auth/AuthContext";
+import { API } from "../config";
 
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#14B8A6"];
 const PIE_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#06B6D4"];
 
 const Reports = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [teamMembers, setTeamMembers] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState("");
@@ -19,55 +22,44 @@ const Reports = () => {
   const [customFromDate, setCustomFromDate] = useState("");
   const [customToDate, setCustomToDate] = useState("");
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const [telecalls, setTelecalls] = useState([]);
-  const [walkins, setWalkins] = useState([]);
-  const [fields, setFields] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [contracts, setContracts] = useState([]);
-  const [services, setServices] = useState([]);
-  const [proposals, setProposals] = useState([]);
-  const [performaInvoices, setPerformaInvoices] = useState([]);
-  const [taskTargets, setTaskTargets] = useState([]);
-  const [tasks, setTasks] = useState([]);
+  const [overview, setOverview] = useState(null);
+  const [employeeData, setEmployeeData] = useState([]);
+  const [monthlyTrends, setMonthlyTrends] = useState([]);
+  const [dailyTrends, setDailyTrends] = useState([]);
 
   const today = getToday();
 
   useEffect(() => {
-    const fetchData = () => {
+    const fetchData = async () => {
       setLoading(true);
-      Promise.all([
-        axios.get("http://localhost:3000/api/teammember"),
-        axios.get("http://localhost:3000/api/Telecalls"),
-        axios.get("http://localhost:3000/api/Walkins"),
-        axios.get("http://localhost:3000/api/Fields"),
-        axios.get("http://localhost:3000/api/client"),
-        axios.get("http://localhost:3000/api/contract/with-usage"),
-        axios.get("http://localhost:3000/api/amc/amc-alc"),
-        axios.get("http://localhost:3000/api/quotations"),
-        axios.get("http://localhost:3000/api/performainvoice"),
-        axios.get("http://localhost:3000/api/task/targets"),
-        axios.get("http://localhost:3000/api/task"),
-      ]).then(([team, tc, wk, fld, cl, cn, srvc, prop, pi, tgt, tsk]) => {
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const queryParams = `?filter=${filter}${customFromDate ? `&from=${customFromDate}` : ""}${customToDate ? `&to=${customToDate}` : ""}${searchTerm ? `&customer=${searchTerm}` : ""}`;
+
+      try {
+        const [team, ov, emp, mt, dt] = await Promise.all([
+          axios.get(`${API}/api/teammember`, config),
+          axios.get(`${API}/api/reports/overview${queryParams}`, config),
+          axios.get(`${API}/api/reports/employee-comparison${queryParams}`, config),
+          axios.get(`${API}/api/reports/trends?type=monthly`, config),
+          axios.get(`${API}/api/reports/trends?type=daily`, config),
+        ]);
+        
         setTeamMembers(team.data);
-        setTelecalls(tc.data);
-        setWalkins(wk.data);
-        setFields(fld.data);
-        setClients(cl.data);
-        setContracts(cn.data);
-        setServices(srvc.data);
-        setProposals(prop.data);
-        setPerformaInvoices(pi.data);
-        setTaskTargets(tgt.data);
-        setTasks(tsk.data);
+        setOverview(ov.data);
+        setEmployeeData(emp.data);
+        setMonthlyTrends(mt.data);
+        setDailyTrends(dt.data);
         setLoading(false);
-      }).catch((err) => {
+      } catch (err) {
         console.error("Fetch error:", err);
         setLoading(false);
-      });
+      }
     };
     fetchData();
-  }, []);
+  }, [filter, customFromDate, customToDate, searchTerm]);
 
   const getStartDate = () => {
     if (showCustomDate && customFromDate) return customFromDate;
@@ -112,154 +104,23 @@ const Reports = () => {
     return "This Month";
   };
 
-  const normalizeName = (name) => name?.toLowerCase().trim().replace(/\s+/g, " ") || "";
-
-  const isEmployeeMatch = (itemName, empName) => {
-    if (!itemName || !empName) return false;
-    const normalizedItem = normalizeName(itemName);
-    const normalizedEmp = normalizeName(empName);
-    return normalizedItem === normalizedEmp || normalizedItem.includes(normalizedEmp) || normalizedEmp.includes(normalizedItem);
+  const overviewData = overview || {
+    totalSales: 0, totalLeads: 0, totalCalls: 0, totalWalkins: 0, totalFields: 0,
+    totalServices: 0, totalRevenue: 0, convertedLeads: 0, totalClients: 0, totalContracts: 0, totalProposals: 0
   };
-
-  const getEmployeeMetrics = (empName) => {
-    const empFullName = normalizeName(empName);
-    const empFirstName = empFullName.split(" ")[0];
-    const empFromTeam = teamMembers.find(t => normalizeName(`${t.first_name} ${t.last_name || ""}`) === empFullName);
-    const empEmail = empFromTeam?.emp_email || "";
-    
-    const getEmpData = (arr, fields) => arr.filter(item => {
-      for (const field of fields) {
-        if (item[field] && (isEmployeeMatch(item[field], empFullName) || isEmployeeMatch(item[field], empFirstName))) return true;
-      }
-      return false;
-    });
-    
-    const empTelecalls = getEmpData(telecalls, ["staff_name", "assigned_to"]);
-    const empWalkins = getEmpData(walkins, ["staff_name", "assigned_to"]);
-    const empFields = getEmpData(fields, ["staff_name", "assigned_to"]);
-    const empServices = getEmpData(services, ["service_person", "staff_name"]);
-    const empTasks = getEmpData(tasks, ["staff_name", "assigned_to"]);
-    const empProposals = proposals.filter(p => p.created_by === empEmail || isEmployeeMatch(p.created_by, empFullName));
-    
-    const empClientNames = new Set([...empTelecalls.map(t => t.customer_name), ...empWalkins.map(w => w.customer_name), ...empFields.map(f => f.customer_name)]);
-    const empClients = clients.filter(c => empClientNames.has(c.name));
-    const empContracts = contracts.filter(c => empClientNames.has(c.client_company) || isEmployeeMatch(c.created_by, empFullName));
-    const empServiceRevenue = empServices.reduce((sum, s) => sum + (parseFloat(s.total_expenses) || 0), 0);
-    const empTarget = taskTargets.find(t => normalizeName(t.user_name) === empFullName);
-    const leadsCreated = empTelecalls.length + empWalkins.length + empFields.length;
-    const leadsConverted = empTelecalls.filter(t => t.call_outcome === "Converted").length + empWalkins.filter(w => w.walkin_status === "Converted").length + empFields.filter(f => f.field_outcome === "Converted").length;
-    const conversionRate = leadsCreated > 0 ? Math.round((leadsConverted / leadsCreated) * 100) : 0;
-
-    return {
-      telecalls: empTelecalls.length, walkins: empWalkins.length, fields: empFields.length,
-      totalLeads: leadsCreated, leadsConverted, conversionRate, clients: empClients.length,
-      proposals: empProposals.length, contracts: empContracts.length, services: empServices.length,
-      serviceRevenue: empServiceRevenue, tasksAssigned: empTasks.length,
-      tasksCompleted: empTasks.filter(t => t.project_status === "Completed").length,
-      targetAmount: empTarget?.monthly_target || 0, achievedAmount: empTarget?.achieved_count || 0,
-      targetRate: empTarget?.monthly_target > 0 ? Math.round((empTarget.achieved_count / empTarget.monthly_target) * 100) : 0,
-    };
-  };
-
-  const getEmployeeComparisonData = useMemo(() => {
-    return teamMembers.map(member => {
-      const name = `${member.first_name} ${member.last_name || ""}`.trim();
-      const metrics = getEmployeeMetrics(name);
-      return { id: member.id, name, position: member.job_title || "Staff", ...metrics };
-    }).sort((a, b) => {
-      if (sortBy === "leads") return b.totalLeads - a.totalLeads;
-      if (sortBy === "revenue") return b.serviceRevenue - a.serviceRevenue;
-      if (sortBy === "conversion") return b.conversionRate - a.conversionRate;
-      if (sortBy === "target") return b.targetRate - a.targetRate;
-      if (sortBy === "tasks") return b.tasksCompleted - a.tasksCompleted;
-      return b.totalLeads - a.totalLeads;
-    });
-  }, [teamMembers, telecalls, walkins, fields, services, tasks, proposals, clients, contracts, taskTargets, sortBy]);
-
-  const getTeamSummary = useMemo(() => ({
-    totalEmployees: getEmployeeComparisonData.length,
-    totalLeads: getEmployeeComparisonData.reduce((s, m) => s + m.totalLeads, 0),
-    totalConverted: getEmployeeComparisonData.reduce((s, m) => s + m.leadsConverted, 0),
-    totalRevenue: getEmployeeComparisonData.reduce((s, m) => s + m.serviceRevenue, 0),
-    avgConversion: getEmployeeComparisonData.length > 0 ? Math.round(getEmployeeComparisonData.reduce((s, m) => s + m.conversionRate, 0) / getEmployeeComparisonData.length) : 0,
-  }), [getEmployeeComparisonData]);
-
-  const getOverviewMetrics = () => {
-    const filteredCalls = telecalls.filter(t => inRange(t.call_date));
-    const filteredWalkins = walkins.filter(w => inRange(w.walkin_date));
-    const filteredFields = fields.filter(f => inRange(f.visit_date));
-    const filteredInvoices = performaInvoices.filter(p => inRange(p.invoice_date));
-    const filteredServices = services.filter(s => inRange(s.service_date));
-    const filteredClients = clients.filter(c => c.created_at && inRange(c.created_at.split(" ")[0].split("T")[0]));
-    const filteredContracts = contracts.filter(c => c.start_date && inRange(c.start_date));
-    const filteredProposals = proposals.filter(p => p.created_at && inRange(p.created_at.split(" ")[0].split("T")[0]));
-    return {
-      totalSales: filteredInvoices.reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0),
-      totalLeads: filteredCalls.length + filteredWalkins.length + filteredFields.length,
-      totalCalls: filteredCalls.length, totalWalkins: filteredWalkins.length, totalFields: filteredFields.length,
-      totalServices: filteredServices.length,
-      totalRevenue: filteredServices.reduce((sum, s) => sum + (parseFloat(s.total_expenses) || 0), 0),
-      convertedLeads: filteredCalls.filter(t => t.call_outcome === "Converted").length + filteredWalkins.filter(w => w.walkin_status === "Converted").length + filteredFields.filter(f => f.field_outcome === "Converted").length,
-      totalClients: filteredClients.length || clients.length, totalContracts: filteredContracts.length || contracts.length, totalProposals: filteredProposals.length || proposals.length,
-    };
-  };
-
-  const getMonthlyTrendData = useMemo(() => {
-    const months = [];
-    const currentYear = new Date().getFullYear();
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    for (let i = 0; i < 12; i++) {
-      const m = String(i + 1).padStart(2, "0");
-      const monthKey = `${currentYear}-${m}`;
-      months.push({
-        name: monthNames[i],
-        Sales: performaInvoices.filter(p => normalizeDate(p.invoice_date)?.startsWith(monthKey)).reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0),
-        Leads: telecalls.filter(t => normalizeDate(t.call_date)?.startsWith(monthKey)).length + walkins.filter(w => normalizeDate(w.walkin_date)?.startsWith(monthKey)).length + fields.filter(f => normalizeDate(f.visit_date)?.startsWith(monthKey)).length,
-        Services: services.filter(s => normalizeDate(s.service_date)?.startsWith(monthKey)).length,
-        Revenue: services.filter(s => normalizeDate(s.service_date)?.startsWith(monthKey)).reduce((sum, s) => sum + (parseFloat(s.total_expenses) || 0), 0),
-        Converted: telecalls.filter(t => normalizeDate(t.call_date)?.startsWith(monthKey) && t.call_outcome === "Converted").length + walkins.filter(w => normalizeDate(w.walkin_date)?.startsWith(monthKey) && w.walkin_status === "Converted").length,
-      });
-    }
-    return months;
-  }, [performaInvoices, telecalls, walkins, fields, services]);
-
-  const getDailyTrendData = useMemo(() => {
-    const days = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.min(Math.ceil(diffTime / (1000 * 60 * 60 * 24)), 30);
-
-    for (let i = 0; i < diffDays; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().split("T")[0];
-      days.push({
-        date: dateStr.slice(5),
-        Sales: performaInvoices.filter(p => p.invoice_date?.startsWith(dateStr) && inRange(p.invoice_date)).reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0),
-        Leads: telecalls.filter(t => t.call_date?.startsWith(dateStr) && inRange(t.call_date)).length + walkins.filter(w => w.walkin_date?.startsWith(dateStr) && inRange(w.walkin_date)).length + fields.filter(f => f.visit_date?.startsWith(dateStr) && inRange(f.visit_date)).length,
-        Services: services.filter(s => s.service_date?.startsWith(dateStr) && inRange(s.service_date)).length,
-      });
-    }
-    return days;
-  }, [performaInvoices, telecalls, walkins, fields, services, startDate, endDate]);
 
   const getLeadSourceData = () => [
-    { name: "Telecalling", value: telecalls.length, color: "#3B82F6" },
-    { name: "Walkins", value: walkins.length, color: "#10B981" },
-    { name: "Field Work", value: fields.length, color: "#8B5CF6" },
+    { name: "Telecalling", value: overviewData.totalCalls, color: "#3B82F6" },
+    { name: "Walkins", value: overviewData.totalWalkins, color: "#10B981" },
+    { name: "Field Work", value: overviewData.totalFields, color: "#8B5CF6" },
   ];
 
-  const getConversionData = () => {
-    const total = telecalls.length + walkins.length + fields.length;
-    const converted = telecalls.filter(t => t.call_outcome === "Converted").length + walkins.filter(w => w.walkin_status === "Converted").length + fields.filter(f => f.field_outcome === "Converted").length;
-    return [
-      { name: "Converted", value: converted, color: "#10B981" },
-      { name: "Not Converted", value: total - converted, color: "#EF4444" },
-    ];
-  };
+  const getConversionData = () => [
+    { name: "Converted", value: overviewData.convertedLeads, color: "#10B981" },
+    { name: "Not Converted", value: Math.max(0, overviewData.totalLeads - overviewData.convertedLeads), color: "#EF4444" },
+  ];
 
-  const getEmployeePerformanceData = () => getEmployeeComparisonData.slice(0, 6).map(emp => ({
+  const getEmployeePerformanceData = () => employeeData.slice(0, 6).map(emp => ({
     name: emp.name.split(" ")[0],
     Leads: emp.totalLeads,
     Revenue: emp.serviceRevenue,
@@ -267,8 +128,7 @@ const Reports = () => {
     Services: emp.services,
   }));
 
-  const overview = getOverviewMetrics();
-  const selectedEmpMetrics = selectedEmployee ? getEmployeeMetrics(selectedEmployee) : null;
+  const selectedEmpMetrics = selectedEmployee ? employeeData.find(e => e.name === selectedEmployee) : null;
 
   const OverviewTab = () => (
     <div className="space-y-6">
@@ -304,25 +164,37 @@ const Reports = () => {
             <button onClick={handleCustomDateApply} className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">Apply</button>
           </div>
         )}
-        <div className="ml-auto text-sm text-gray-500 flex items-center gap-2">
-          <Calendar size={14} />
-          Showing: <span className="font-semibold text-gray-700">{getDateRangeLabel()}</span>
+        <div className="ml-auto text-sm text-gray-500 flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-white border rounded-lg px-3 py-1.5 shadow-sm">
+            <Search size={14} className="text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="Filter by Customer..." 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="outline-none text-sm w-40"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar size={14} />
+            Showing: <span className="font-semibold text-gray-700">{getDateRangeLabel()}</span>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white"><p className="text-blue-100 text-sm">Total Sales</p><p className="text-2xl font-bold">₹{overview.totalSales.toLocaleString()}</p></div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white"><p className="text-green-100 text-sm">Total Leads</p><p className="text-2xl font-bold">{overview.totalLeads}</p></div>
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white"><p className="text-purple-100 text-sm">Services Done</p><p className="text-2xl font-bold">{overview.totalServices}</p></div>
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white"><p className="text-orange-100 text-sm">Revenue</p><p className="text-2xl font-bold">₹{overview.totalRevenue.toLocaleString()}</p></div>
-        <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl p-4 text-white"><p className="text-cyan-100 text-sm">Conversion</p><p className="text-2xl font-bold">{overview.totalLeads > 0 ? Math.round((overview.convertedLeads / overview.totalLeads) * 100) : 0}%</p></div>
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white"><p className="text-blue-100 text-sm">Total Sales</p><p className="text-2xl font-bold">₹{overviewData.totalSales.toLocaleString()}</p></div>
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white"><p className="text-green-100 text-sm">Total Leads</p><p className="text-2xl font-bold">{overviewData.totalLeads}</p></div>
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white"><p className="text-purple-100 text-sm">Services Done</p><p className="text-2xl font-bold">{overviewData.totalServices}</p></div>
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-4 text-white"><p className="text-orange-100 text-sm">Revenue</p><p className="text-2xl font-bold">₹{overviewData.totalRevenue.toLocaleString()}</p></div>
+        <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-xl p-4 text-white"><p className="text-cyan-100 text-sm">Conversion</p><p className="text-2xl font-bold">{overviewData.totalLeads > 0 ? Math.round((overviewData.convertedLeads / overviewData.totalLeads) * 100) : 0}%</p></div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-lg p-4">
           <h3 className="text-lg font-semibold text-gray-700 mb-4">Monthly Sales & Leads Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={getMonthlyTrendData}>
+            <LineChart data={monthlyTrends}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
               <YAxis yAxisId="left" stroke="#6b7280" fontSize={12} />
@@ -339,7 +211,7 @@ const Reports = () => {
         <div className="bg-white rounded-xl shadow-lg p-4">
           <h3 className="text-lg font-semibold text-gray-700 mb-4">Revenue & Services Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={getMonthlyTrendData}>
+            <AreaChart data={monthlyTrends}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
               <YAxis stroke="#6b7280" fontSize={12} />
@@ -402,10 +274,10 @@ const Reports = () => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 shadow border"><p className="text-gray-500 text-sm">Telecalls</p><p className="text-2xl font-bold text-blue-600">{overview.totalCalls}</p></div>
-        <div className="bg-white rounded-xl p-4 shadow border"><p className="text-gray-500 text-sm">Walkins</p><p className="text-2xl font-bold text-green-600">{overview.totalWalkins}</p></div>
-        <div className="bg-white rounded-xl p-4 shadow border"><p className="text-gray-500 text-sm">Field Visits</p><p className="text-2xl font-bold text-purple-600">{overview.totalFields}</p></div>
-        <div className="bg-white rounded-xl p-4 shadow border"><p className="text-gray-500 text-sm">Total Clients</p><p className="text-2xl font-bold text-orange-600">{overview.totalClients}</p></div>
+        <div className="bg-white rounded-xl p-4 shadow border"><p className="text-gray-500 text-sm">Telecalls</p><p className="text-2xl font-bold text-blue-600">{overviewData.totalCalls}</p></div>
+        <div className="bg-white rounded-xl p-4 shadow border"><p className="text-gray-500 text-sm">Walkins</p><p className="text-2xl font-bold text-green-600">{overviewData.totalWalkins}</p></div>
+        <div className="bg-white rounded-xl p-4 shadow border"><p className="text-gray-500 text-sm">Field Visits</p><p className="text-2xl font-bold text-purple-600">{overviewData.totalFields}</p></div>
+        <div className="bg-white rounded-xl p-4 shadow border"><p className="text-gray-500 text-sm">Total Clients</p><p className="text-2xl font-bold text-orange-600">{overviewData.totalClients}</p></div>
       </div>
 
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -416,7 +288,7 @@ const Reports = () => {
               <tr><th className="px-4 py-3 text-left">Month</th><th className="px-4 py-3 text-right">Sales (₹)</th><th className="px-4 py-3 text-right">Leads</th><th className="px-4 py-3 text-right">Services</th><th className="px-4 py-3 text-right">Converted</th><th className="px-4 py-3 text-right">Revenue (₹)</th></tr>
             </thead>
             <tbody>
-              {getMonthlyTrendData.map((m, i) => (
+              {monthlyTrends.map((m, i) => (
                 <tr key={i} className="border-b hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{m.name}</td>
                   <td className="px-4 py-3 text-right text-blue-600 font-semibold">₹{m.Sales.toLocaleString()}</td>
@@ -434,8 +306,22 @@ const Reports = () => {
   );
 
   const EmployeeTab = () => {
-    const employeeData = getEmployeeComparisonData;
-    const teamSummary = getTeamSummary;
+    const sortedEmployeeData = [...employeeData].sort((a, b) => {
+      if (sortBy === "leads") return b.totalLeads - a.totalLeads;
+      if (sortBy === "revenue") return b.serviceRevenue - a.serviceRevenue;
+      if (sortBy === "conversion") return b.conversionRate - a.conversionRate;
+      if (sortBy === "target") return b.targetRate - a.targetRate;
+      if (sortBy === "tasks") return b.tasksCompleted - a.tasksCompleted;
+      return b.totalLeads - a.totalLeads;
+    });
+
+    const teamSummary = {
+      totalEmployees: employeeData.length,
+      totalLeads: employeeData.reduce((s, m) => s + m.totalLeads, 0),
+      totalConverted: employeeData.reduce((s, m) => s + m.leadsConverted, 0),
+      totalRevenue: employeeData.reduce((s, m) => s + m.serviceRevenue, 0),
+      avgConversion: employeeData.length > 0 ? Math.round(employeeData.reduce((s, m) => s + m.conversionRate, 0) / employeeData.length) : 0,
+    };
 
     return (
     <div className="space-y-6">
@@ -572,7 +458,7 @@ const Reports = () => {
               <tr><th className="px-3 py-3 text-left">#</th><th className="px-3 py-3 text-left">Employee</th><th className="px-3 py-3 text-center">Position</th><th className="px-3 py-3 text-right">Tel</th><th className="px-3 py-3 text-right">Walk</th><th className="px-3 py-3 text-right">Field</th><th className="px-3 py-3 text-right">Leads</th><th className="px-3 py-3 text-right">Conv%</th><th className="px-3 py-3 text-right">Clients</th><th className="px-3 py-3 text-right">Services</th><th className="px-3 py-3 text-right">Revenue</th><th className="px-3 py-3 text-right">Target%</th></tr>
             </thead>
             <tbody>
-              {employeeData.map((emp, i) => (
+              {sortedEmployeeData.map((emp, i) => (
                 <tr key={i} className={`border-b hover:bg-gray-50 cursor-pointer ${selectedEmployee === emp.name ? "bg-blue-50" : ""}`} onClick={() => setSelectedEmployee(emp.name)}>
                   <td className="px-3 py-3 text-gray-400">{i + 1}</td>
                   <td className="px-3 py-3 font-medium text-blue-600">{emp.name}</td>
@@ -596,11 +482,7 @@ const Reports = () => {
     );
   };
 
-  const trendsConversionRate = (() => {
-    const filteredCalls = telecalls.filter(t => inRange(t.call_date));
-    const converted = filteredCalls.filter(t => t.call_outcome === "Converted").length;
-    return Math.round((converted / Math.max(1, filteredCalls.length)) * 100);
-  })();
+  const trendsConversionRate = overviewData.totalLeads > 0 ? Math.round((overviewData.convertedLeads / overviewData.totalLeads) * 100) : 0;
 
   const TrendsTab = () => (
     <div className="space-y-6">
@@ -643,10 +525,10 @@ const Reports = () => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl p-4 text-white"><p className="text-blue-100 text-sm">Total Sales</p><p className="text-2xl font-bold">₹{performaInvoices.filter(p => inRange(p.invoice_date)).reduce((s, p) => s + (Number(p.grand_total) || 0), 0).toLocaleString()}</p></div>
-        <div className="bg-gradient-to-br from-green-400 to-green-600 rounded-xl p-4 text-white"><p className="text-green-100 text-sm">Total Leads</p><p className="text-2xl font-bold">{telecalls.filter(t => inRange(t.call_date)).length + walkins.filter(w => inRange(w.walkin_date)).length + fields.filter(f => inRange(f.visit_date)).length}</p></div>
-        <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl p-4 text-white"><p className="text-purple-100 text-sm">Services</p><p className="text-2xl font-bold">{services.filter(s => inRange(s.service_date)).length}</p></div>
-        <div className="bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-4 text-white"><p className="text-orange-100 text-sm">Revenue</p><p className="text-2xl font-bold">₹{services.filter(s => inRange(s.service_date)).reduce((s, p) => s + (parseFloat(p.total_expenses) || 0), 0).toLocaleString()}</p></div>
+        <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl p-4 text-white"><p className="text-blue-100 text-sm">Total Sales</p><p className="text-2xl font-bold">₹{overviewData.totalSales.toLocaleString()}</p></div>
+        <div className="bg-gradient-to-br from-green-400 to-green-600 rounded-xl p-4 text-white"><p className="text-green-100 text-sm">Total Leads</p><p className="text-2xl font-bold">{overviewData.totalLeads}</p></div>
+        <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl p-4 text-white"><p className="text-purple-100 text-sm">Services</p><p className="text-2xl font-bold">{overviewData.totalServices}</p></div>
+        <div className="bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-4 text-white"><p className="text-orange-100 text-sm">Revenue</p><p className="text-2xl font-bold">₹{overviewData.totalRevenue.toLocaleString()}</p></div>
         <div className="bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-xl p-4 text-white"><p className="text-cyan-100 text-sm">Conversion</p><p className="text-2xl font-bold">{trendsConversionRate}%</p></div>
       </div>
 
@@ -654,7 +536,7 @@ const Reports = () => {
         <div className="bg-white rounded-xl shadow-lg p-4">
           <h3 className="text-lg font-semibold text-gray-700 mb-4">Daily Leads & Services Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={getDailyTrendData}>
+            <LineChart data={dailyTrends}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="date" stroke="#6b7280" fontSize={10} />
               <YAxis stroke="#6b7280" fontSize={12} />
@@ -669,7 +551,7 @@ const Reports = () => {
         <div className="bg-white rounded-xl shadow-lg p-4">
           <h3 className="text-lg font-semibold text-gray-700 mb-4">Daily Sales Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={getDailyTrendData}>
+            <AreaChart data={dailyTrends}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="date" stroke="#6b7280" fontSize={10} />
               <YAxis stroke="#6b7280" fontSize={12} />
@@ -684,7 +566,7 @@ const Reports = () => {
         <div className="bg-white rounded-xl shadow-lg p-4">
           <h3 className="text-lg font-semibold text-gray-700 mb-4">Monthly Comparison</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={getMonthlyTrendData}>
+            <BarChart data={monthlyTrends}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
               <YAxis yAxisId="left" stroke="#6b7280" fontSize={12} />
@@ -700,7 +582,7 @@ const Reports = () => {
         <div className="bg-white rounded-xl shadow-lg p-4">
           <h3 className="text-lg font-semibold text-gray-700 mb-4">Revenue by Month</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={getMonthlyTrendData}>
+            <ComposedChart data={monthlyTrends}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
               <YAxis stroke="#6b7280" fontSize={12} />
@@ -721,7 +603,7 @@ const Reports = () => {
               <tr><th className="px-4 py-3 text-left">Month</th><th className="px-4 py-3 text-right">Sales (₹)</th><th className="px-4 py-3 text-right">Leads</th><th className="px-4 py-3 text-right">Services</th><th className="px-4 py-3 text-right">Revenue (₹)</th><th className="px-4 py-3 text-right">Converted</th></tr>
             </thead>
             <tbody>
-              {getMonthlyTrendData.map((m, i) => (
+              {monthlyTrends.map((m, i) => (
                 <tr key={i} className="border-b hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{m.name}</td>
                   <td className="px-4 py-3 text-right text-blue-600">₹{m.Sales.toLocaleString()}</td>

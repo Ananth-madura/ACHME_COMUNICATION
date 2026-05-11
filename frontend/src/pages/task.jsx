@@ -25,7 +25,7 @@ const Task = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [newStatus, setNewStatus] = useState("");
-  const [targetForm, setTargetForm] = useState({ user_name: "", yearly_target: "" });
+  const [targetForm, setTargetForm] = useState({ user_name: "", yearly_target: "", user_id: "" });
   const [employeeFilter, setEmployeeFilter] = useState("all");
   const [lastUpdate, setLastUpdate] = useState(null);
 
@@ -105,24 +105,36 @@ const Task = () => {
 
   const handleTargetSubmit = async (e) => {
     e.preventDefault();
-    if (!targetForm.user_name || !targetForm.yearly_target) {
-      alert("Please select employee and enter target amount");
+    if (!targetForm.user_id && !targetForm.user_name) {
+      alert("Please select employee");
+      return;
+    }
+    if (!targetForm.yearly_target) {
+      alert("Please enter target amount");
       return;
     }
     const token = localStorage.getItem("token");
     try {
-      const selectedMember = teamMembers.find(m => `${m.first_name} ${m.last_name || ""}`.trim() === targetForm.user_name);
+      let selectedName = targetForm.user_name;
+      let selectedId = targetForm.user_id;
+
+      if (selectedId && !selectedName) {
+        const member = teamMembers.find(m => m.user_id == selectedId || m.id == selectedId);
+        selectedName = `${member?.first_name} ${member?.last_name || ""}`.trim();
+      }
+
       await axios.post(`${API}/api/task/targets`, {
-        user_id: selectedMember?.id,
-        user_name: targetForm.user_name,
+        user_id: selectedId,
+        user_name: selectedName,
         yearly_target: parseFloat(targetForm.yearly_target),
         created_by_admin: true
       }, { headers: { Authorization: `Bearer ${token}` } });
+      
       if (socket) {
-        socket.emit("new_target", { userName: targetForm.user_name });
+        socket.emit("new_target", { userName: selectedName, userId: selectedId });
       }
       setTargetModalOpen(false);
-      setTargetForm({ user_name: "", yearly_target: "" });
+      setTargetForm({ user_name: "", yearly_target: "", user_id: "" });
       fetchAll();
       refreshNotifications();
     } catch (err) {
@@ -159,7 +171,7 @@ const Task = () => {
 
       let tasksRes, targetsRes, teamRes;
 
-      const teamResPromise = axios.get(`${API}/api/teammember/list`).catch(() => ({ data: [] }));
+      const teamResPromise = axios.get(`${API}/api/teammember`, config).catch(() => ({ data: [] }));
 
       if (isAdmin) {
         [tasksRes, targetsRes, teamRes] = await Promise.all([
@@ -656,11 +668,12 @@ const Task = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">Assign To</label>
-                  <select name="assigned_to" value={form.assigned_to} onChange={handleChange} className="w-full border rounded-lg p-2">
-                    <option value="">Select Employee</option>
-                    {teamMembers.map(m => (
-                      <option key={m.id} value={`${m.first_name} ${m.last_name || ""}`.trim()}>
-                        {m.first_name} {m.last_name}
+                  <select name="assigned_to" value={form.assigned_to} onChange={handleChange}
+                    className="border rounded-md px-3 py-2 outline-none bg-white w-full text-sm">
+                    <option value="">-- Select Staff --</option>
+                    {teamMembers.map(t => (
+                      <option key={t.id} value={t.user_id || `${t.first_name} ${t.last_name || ""}`.trim()}>
+                        {t.first_name} {t.last_name || ""} {t.job_title ? `(${t.job_title})` : ""}
                       </option>
                     ))}
                   </select>
@@ -757,15 +770,23 @@ const Task = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Select Employee *</label>
                 <select 
-                  value={targetForm.user_name} 
-                  onChange={(e) => setTargetForm({ ...targetForm, user_name: e.target.value })}
-                  className="w-full border rounded-lg p-2"
+                  value={targetForm.user_id || targetForm.user_name} 
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const member = teamMembers.find(m => m.user_id == val || m.id == val || `${m.first_name} ${m.last_name || ""}`.trim() === val);
+                    setTargetForm({ 
+                      ...targetForm, 
+                      user_id: member?.user_id || member?.id || "", 
+                      user_name: member ? `${member.first_name} ${member.last_name || ""}`.trim() : val 
+                    });
+                  }}
+                  className="border rounded-md px-3 py-2 outline-none bg-white w-full text-sm"
                   required
                 >
-                  <option value="">Select Employee</option>
-                  {teamMembers.map(m => (
-                    <option key={m.id} value={`${m.first_name} ${m.last_name || ""}`.trim()}>
-                      {m.first_name} {m.last_name}
+                  <option value="">-- Select Staff --</option>
+                  {teamMembers.map(t => (
+                    <option key={t.id} value={t.user_id || t.id}>
+                      {t.first_name} {t.last_name || ""} {t.job_title ? `(${t.job_title})` : ""}
                     </option>
                   ))}
                 </select>

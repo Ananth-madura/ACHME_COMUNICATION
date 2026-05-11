@@ -4,7 +4,6 @@ import { NotificationProvider } from "./context/NotificationContext";
 import { ToastProvider, useToast } from "./components/Toast";
 import { useEffect } from "react";
 import axios from "axios";
-
 import Login from "./auth/login";
 import LoginAdmin from "./auth/LoginAdmin";
 import Register from "./auth/register";
@@ -31,13 +30,20 @@ import PerformaInvoice from "./pages/performainvoice";
 import Reports from "./pages/reports";
 import InvoicePreview from "./pages/invoicepreview";
 import AdminNotifications from "./pages/adminnotifications";
-
 import AMCService from "./pages/amc";
 import Profile from "./pages/profile";
 import Settings from "./pages/settings";
 import UserManagement from "./pages/usermanagement";
 
 const API_BACKEND = "http://localhost:5000";
+
+axios.interceptors.request.use(config => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, error => Promise.reject(error));
 const CHECK_INTERVAL_ONLINE = 2 * 60 * 60 * 1000; // 2 hours when online
 const CHECK_INTERVAL_OFFLINE = 5 * 60 * 1000; // 5 minutes when offline
 let lastConnectionStatus = null;
