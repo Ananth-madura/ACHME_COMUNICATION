@@ -508,8 +508,7 @@ const openEdit = async (id) => {
                               walkin_status: "Converted"
                             });
                             alert("Lead converted to Client successfully!");
-                            fetchWalkins();
-                            window.dispatchEvent(new Event("refresh-dashboard"));
+                            window.location.href = "/dashboard/clients";
                           } catch (err) {
                             alert("Failed to convert: " + (err.response?.data?.message || err.message));
                           }

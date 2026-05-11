@@ -644,8 +644,7 @@ useEffect(() => {
                         call_outcome: "Converted"
                       });
                       alert("Lead converted to Client successfully!");
-                      fetchTelecalls();
-                      window.dispatchEvent(new Event("refresh-dashboard"));
+                      window.location.href = "/dashboard/clients";
                     } catch (err) {
                       alert("Failed to convert: " + (err.response?.data?.message || err.message));
                     }
