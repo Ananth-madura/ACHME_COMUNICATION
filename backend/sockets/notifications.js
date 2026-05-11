@@ -19,9 +19,9 @@ function initNotificationsSocket(io, corsOrigin = "*") {
     socket.on("mark_read", (notificationId) => {
       if (!notificationId) return;
       db.query("UPDATE admin_notifications SET is_read = 1 WHERE id = ?", [notificationId], (err) => {
-        if (!err) {
+        db.query("UPDATE notifications SET is_read = 1 WHERE id = ?", [notificationId], () => {
           notifIO.emit("notification_read", { notificationId });
-        }
+        });
       });
     });
 
@@ -42,21 +42,44 @@ function initNotificationsSocket(io, corsOrigin = "*") {
     const message = data.message || getNotificationMessage(type, data);
     const priority = data.priority || "normal";
 
+    const emitToEmployee = () => {
+      if (!targetUserId) return;
+
+      db.query(
+        "INSERT INTO notifications (task_id, user_id, type, title, description) VALUES (?, ?, ?, ?, ?)",
+        [data.taskId || data.id || null, targetUserId, type, data.title || type, message],
+        (err, result) => {
+          if (err) {
+            console.warn("employee notification insert skipped:", err.message);
+            notifIO.to(`notifications:${targetUserId}`).emit("new_notification", notification);
+            return;
+          }
+
+          notifIO.to(`notifications:${targetUserId}`).emit("new_notification", {
+            ...notification,
+            dbId: result.insertId
+          });
+        }
+      );
+    };
+
+    if (!isAdmin) {
+      emitToEmployee();
+      return;
+    }
+
     db.query(
       "INSERT INTO admin_notifications (type, message, related_id, related_type, created_by, priority) VALUES (?, ?, ?, ?, ?, ?)",
-      [type, message, data.id || null, data.type || null, data.userId || null, priority],
+      [type, message, data.id || data.taskId || data.leadId || null, data.type || null, data.userId || null, priority],
       (err, result) => {
-        if (!err && result.insertId) {
-          notification.dbId = result.insertId;
-          
-          if (isAdmin) {
-            notifIO.to("admin_notifications").emit("new_notification", notification);
-          }
-          
-          if (targetUserId) {
-            notifIO.to(`notifications:${targetUserId}`).emit("new_notification", notification);
-          }
+        if (err) {
+          console.warn("admin notification insert skipped:", err.message);
+          return emitToEmployee();
         }
+
+        notification.dbId = result.insertId;
+        notifIO.to("admin_notifications").emit("new_notification", notification);
+        emitToEmployee();
       }
     );
   };
@@ -73,6 +96,16 @@ function initNotificationsSocket(io, corsOrigin = "*") {
         return `New task assigned to ${data.userName || "employee"}: ${data.taskName || "Task"}`;
       case "task_completed":
         return `${data.userName || "Employee"} completed task: ${data.taskName || "Task"}`;
+      case "profile_change_requested":
+        return `${data.userName || "Employee"} requested profile change: ${data.fieldLabel || data.field || "Profile"}`;
+      case "profile_change_approved":
+        return `Your profile change was approved: ${data.fieldLabel || data.field || "Profile"}`;
+      case "profile_change_declined":
+        return `Your profile change was declined: ${data.fieldLabel || data.field || "Profile"}`;
+      case "registration_approved":
+        return `Your account has been approved. You can now log in.`;
+      case "registration_declined":
+        return `Your account request was declined. Please contact admin.`;
       case "task_updated":
         return `${data.userName || "Employee"} updated task status to: ${data.status || "Updated"}`;
       case "new_lead":

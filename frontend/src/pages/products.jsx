@@ -3,8 +3,10 @@ import axios from "axios";
 import { X, Search, Plus, Eye, ChevronLeft, ChevronRight, Edit, Trash2 } from "lucide-react";
 import "../Styles/tailwind.css";
 
+import { API as BASE_API } from "../config";
+
 function Products() {
-  const API = "http://localhost:3000/api";
+  const API = `${BASE_API}/api`;
 
   const [showModal, setShowModal] = useState(false);
   const [services, setServices] = useState([]);
@@ -455,7 +457,7 @@ function Products() {
 
               <div className="w-full h-full flex items-center justify-center">
                 <img
-                  src={`http://localhost:3000/uploads/${currentImages[currentIndex]}`}
+                  src={`${BASE_API}/uploads/${currentImages[currentIndex]}`}
                   className="max-w-full max-h-full object-contain shadow-2xl"
                   alt={`Product img ${currentIndex + 1}`}
                 />

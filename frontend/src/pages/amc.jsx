@@ -5,7 +5,7 @@ import axios from "axios";
 import socket from "../socket/socket";
 import { useNavigate } from "react-router-dom";
 
-const API = "http://localhost:5000";
+import { API } from "../config";
 
 const AMCService = () => {
   const navigate = useNavigate();
@@ -16,6 +16,7 @@ const AMCService = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isEdit, setIsEdit] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState(null);
+  const [selectedContractId, setSelectedContractId] = useState(null);
   const [activeTab, setActiveTab] = useState("contracts");
 
   // Contract Modal
@@ -139,8 +140,13 @@ const fetchServices = useCallback(async () => {
   const saveContract = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API}/api/contract/new`, contractForm);
-      alert("Contract created successfully!");
+      if (isEdit && selectedContractId) {
+        await axios.put(`${API}/api/contract/${selectedContractId}`, contractForm);
+        alert("Contract updated successfully!");
+      } else {
+        await axios.post(`${API}/api/contract/new`, contractForm);
+        alert("Contract created successfully!");
+      }
       setContractModalOpen(false);
       setContractForm({
         contract_title: "",
@@ -166,7 +172,24 @@ const fetchServices = useCallback(async () => {
     try {
       await axios.delete(`${API}/api/contract/${id}`);
       fetchContracts();
-    } catch (err) { alert("Failed to delete"); }
+    } catch (err) { alert("Failed to delete contract"); }
+  };
+
+  const openEditContract = (c) => {
+    setContractForm({
+      contract_title: c.contract_title || "",
+      client_company: c.client_company || "",
+      mobile_number: c.mobile_number || "",
+      email: c.email || "",
+      location_city: c.location_city || "",
+      service_type: c.contract_type || "None",
+      amount_value: c.amount_value || "",
+      start_date: c.start_date?.split("T")[0] || "",
+      end_date: c.end_date?.split("T")[0] || ""
+    });
+    setSelectedContractId(c.id);
+    setIsEdit(true);
+    setContractModalOpen(true);
   };
 
   const resetContractForm = () => {
@@ -181,7 +204,8 @@ const fetchServices = useCallback(async () => {
       start_date: new Date().toISOString().slice(0, 10),
       end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().slice(0, 10)
     });
-    setSelectedClient("");
+    setIsEdit(false);
+    setSelectedContractId(null);
     setShowOtherClient(false);
   };
 
@@ -439,7 +463,7 @@ const fetchServices = useCallback(async () => {
         </div>
         <div className="flex gap-2">
           {activeTab === "contracts" && (
-            <button onClick={() => { setContractForm({ contract_title: "", client_company: "", mobile_number: "", email: "", location_city: "", service_type: "None", amount_value: "", start_date: new Date().toISOString().slice(0, 10), end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().slice(0, 10) }); setContractModalOpen(true); }} className="bg-[#FF3355] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#e62848]">
+            <button onClick={() => { resetContractForm(); setContractModalOpen(true); }} className="bg-[#FF3355] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#e62848]">
               <Plus size={18} /> New Contract
             </button>
           )}
@@ -537,6 +561,7 @@ const fetchServices = useCallback(async () => {
                     <td className="p-2 md:p-3 text-center">{c.service_count || 0}</td>
                     <td className="p-2 md:p-3 text-center">
                       <div className="flex gap-1 justify-center">
+                        <button onClick={() => openEditContract(c)} className="text-blue-600 hover:underline text-xs">Edit</button>
                         <button onClick={() => openQuotation(c)} className="text-purple-600 hover:underline text-xs">Quotation</button>
                         <button onClick={() => deleteContract(c.id)} className="text-red-600 hover:underline text-xs">Delete</button>
                       </div>

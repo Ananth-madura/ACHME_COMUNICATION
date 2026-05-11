@@ -4,6 +4,11 @@ import Invoice from "../components/invoicetemplate";
 import { calculateItemTotal, calculateTotals } from "../utils/invoicecal";
 import axios from "axios";
 import html2pdf from "html2pdf.js";
+import { useAuth } from "../auth/AuthContext";
+import { API } from "../config";
+
+
+const API_BACKEND = API;
 
 const UOM_OPTIONS = ["Nos", "Units", "Pieces", "Boxes", "Sets", "Meters", "Kg", "Liters"];
 const BRANCH_OPTIONS = [
@@ -57,6 +62,7 @@ const emptyExtra = () => ({
 });
 
 const PerformaInvoice = () => {
+  const { user } = useAuth();
   const [performaInvoices, setPerformaInvoices] = useState([]);
   const [quotations, setQuotations] = useState([]);
   const [fromAddresses, setFromAddresses] = useState([]);
@@ -100,7 +106,10 @@ const PerformaInvoice = () => {
     const id = viewId || selectedId;
     if (!id) return;
     try {
-      const res = await fetch(`http://localhost:3000/api/performainvoice/download-pdf/${id}`);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BACKEND}/api/performainvoice/download-pdf/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a"); a.href = url;
@@ -113,25 +122,51 @@ const PerformaInvoice = () => {
     fetchPerformaInvoices();
     fetchQuotations();
     fetchFromAddresses();
+
+    // Check for query params
+    const urlParams = new URLSearchParams(window.location.search);
+    const qName = urlParams.get('client_name');
+    if (qName) {
+      setExtra(ex => ({ ...ex, client_company: decodeURIComponent(qName) }));
+      setOpen(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const fetchPerformaInvoices = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/performainvoice"); setPerformaInvoices(res.data); }
+    try { 
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await axios.get(`${API_BACKEND}/api/performainvoice`, config); 
+      setPerformaInvoices(res.data); 
+    }
     catch (err) { console.error(err); }
   };
   const fetchQuotations = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/quotations"); setQuotations(res.data); }
+    try { 
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await axios.get(`${API_BACKEND}/api/quotations`, config); 
+      setQuotations(res.data); 
+    }
     catch (err) { console.error(err); }
   };
   const fetchFromAddresses = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/performainvoice/from-addresses"); setFromAddresses(res.data); }
+    try { 
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await axios.get(`${API_BACKEND}/api/performainvoice/from-addresses`, config); 
+      setFromAddresses(res.data); 
+    }
     catch (err) { console.error(err); }
   };
 
   const openHistory = async (e, invoiceId, customerName, parentId) => {
     e.stopPropagation();
     try {
-      const res = await axios.get(`http://localhost:3000/api/performainvoice/version-history/${invoiceId}`);
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await axios.get(`${API_BACKEND}/api/performainvoice/version-history/${invoiceId}`, config);
       setHistoryList(res.data);
       setHistoryCustomerName(customerName);
       setHistorySearch("");
@@ -145,7 +180,9 @@ const PerformaInvoice = () => {
     e.stopPropagation();
     if (!window.confirm("Delete this version?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/performainvoice/${id}`);
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.delete(`${API_BACKEND}/api/performainvoice/${id}`, config);
       setHistoryList(prev => prev.filter(q => q.id !== id));
     } catch (err) { alert("Failed to delete version"); }
   };
@@ -158,7 +195,9 @@ const PerformaInvoice = () => {
   const handleAddAddress = async () => {
     if (!newAddrLabel || !newAddrText) return alert("Label and address required");
     try {
-      const res = await axios.post("http://localhost:3000/api/performainvoice/from-addresses", { label: newAddrLabel, address: newAddrText });
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await axios.post(`${API_BACKEND}/api/performainvoice/from-addresses`, { label: newAddrLabel, address: newAddrText }, config);
       setFromAddresses(prev => [...prev, res.data]);
       setNewAddrLabel(""); setNewAddrText(""); setShowAddAddress(false);
     } catch (err) { alert("Failed to add address"); }
@@ -167,7 +206,9 @@ const PerformaInvoice = () => {
   const handleDeleteAddress = async (id) => {
     if (!window.confirm("Remove this address?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/performainvoice/from-addresses/${id}`);
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.delete(`${API_BACKEND}/api/performainvoice/from-addresses/${id}`, config);
       setFromAddresses(prev => prev.filter(a => a.id !== id));
       if (extra.from_address_id === id) setExtra(e => ({ ...e, from_address_id: "" }));
     } catch (err) { alert("Failed to delete address"); }
@@ -176,7 +217,9 @@ const PerformaInvoice = () => {
   const handleSelectProposal = async (proposalId) => {
     if (!proposalId) return;
     try {
-      const res = await axios.get(`http://localhost:3000/api/quotations/${proposalId}`);
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await axios.get(`${API_BACKEND}/api/quotations/${proposalId}`, config);
       const rows = res.data;
       if (rows.length > 0) {
         const h = rows[0];
@@ -204,7 +247,9 @@ const PerformaInvoice = () => {
   };
 
   const handleEdit = async (id) => {
-    const res = await axios.get(`http://localhost:3000/api/performainvoice/${id}`);
+    const token = localStorage.getItem("token");
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    const res = await axios.get(`${API_BACKEND}/api/performainvoice/${id}`, config);
     const rows = res.data;
     const h = rows[0];
     setCustomer({ customer_name: h.customer_name, mobile_number: h.mobile_number, email: h.email, gst_number: h.gst_number || "", location_city: h.location_city });
@@ -275,6 +320,8 @@ const PerformaInvoice = () => {
     if (!performaInvoice.invoice_date) return alert("Please select date");
     if (items.some(i => !i.name.trim())) return alert("Description cannot be empty");
     try {
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
       const totals = getTaxCalculations();
       const payload = {
         customer,
@@ -291,10 +338,10 @@ const PerformaInvoice = () => {
         extra,
       };
       if (editId) {
-        await axios.put(`http://localhost:3000/api/performainvoice/${editId}`, payload);
+        await axios.put(`${API_BACKEND}/api/performainvoice/${editId}`, payload, config);
         alert("Updated successfully");
       } else {
-        await axios.post("http://localhost:3000/api/performainvoice/create", payload);
+        await axios.post(`${API_BACKEND}/api/performainvoice/create`, payload, config);
         alert("Created successfully");
       }
       setOpen(false); resetForm(); fetchPerformaInvoices();
@@ -333,7 +380,9 @@ const PerformaInvoice = () => {
     if (!selectedId) return alert("Select an item to delete");
     if (!window.confirm("Are you sure?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/performainvoice/${selectedId}`);
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.delete(`${API_BACKEND}/api/performainvoice/${selectedId}`, config);
       setSelectedId(null); setViewId(null); fetchPerformaInvoices();
     } catch (error) { console.error(error); }
   };
@@ -350,7 +399,9 @@ const PerformaInvoice = () => {
     if (!mailTo) return alert("Please enter recipient email");
     setMailSending(true);
     try {
-      await axios.post(`http://localhost:3000/api/performainvoice/send-email/${selectedId}`, { to: mailTo, subject: mailSubject });
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.post(`${API_BACKEND}/api/performainvoice/send-email/${selectedId}`, { to: mailTo, subject: mailSubject }, config);
       alert("Email sent successfully"); setMailOpen(false);
     } catch (error) { alert(error.response?.data?.message || "Failed to send email"); }
     finally { setMailSending(false); }

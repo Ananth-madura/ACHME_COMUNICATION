@@ -4,7 +4,7 @@ import axios from "axios";
 import { useAuth } from "../auth/AuthContext";
 import { Users, Plus, Edit2, Trash2, Ban, Unlock, Search, X, Check, AlertCircle } from "lucide-react";
 
-const API = "http://localhost:5000";
+import { API } from "../config";
 
 const UserManagement = () => {
   const { user } = useAuth();

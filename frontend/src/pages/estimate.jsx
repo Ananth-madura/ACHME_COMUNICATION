@@ -2,6 +2,8 @@ import React, { useState,useEffect} from "react";
 import "../Styles/tailwind.css";
 import { Search, Plus, X,Trash2,Edit } from "lucide-react";
 import axios from "axios";
+import { API } from "../config";
+
 
 const Estimate = () => {
   const [open, setOpen] = useState(false);
@@ -39,7 +41,7 @@ const Estimate = () => {
 
   const Fetchestimate = async () =>{
      try{
-  const response = await axios.get("http://localhost:3000/api/estimate");
+  const response = await axios.get(`${API}/api/estimate`);
   console.log("INVOICES:", response.data); 
     setEstimate(response.data);
   } catch (err) {
@@ -58,7 +60,7 @@ useEffect(() => {
 
     try {
       const res = await axios.get(
-        `http://localhost:3000/api/estimate-client/search?name=${value}`
+        `${API}/api/estimate-client/search?name=${value}`
       );
       setClientList(res.data);
     } catch (err) {
@@ -108,7 +110,7 @@ useEffect(() => {
         return;
       }
 
-      await axios.post("http://localhost:3000/api/estimate-client/new", {
+      await axios.post(`${API}/api/estimate-client/new`, {
         company_name: EstimateCompany,
         client_firstname: firstname,
         client_lastname: lastname,
@@ -136,7 +138,7 @@ useEffect(() => {
     // Edit Mode
     if (isEdit && selectedEstimateId) {
       await axios.put(
-        `http://localhost:3000/api/estimate/${selectedEstimateId}`,
+        `${API}/api/estimate/${selectedEstimateId}`,
         payload
       );
       alert("Estimate updated successfully");
@@ -144,7 +146,7 @@ useEffect(() => {
     // Create Mode
     else {
       await axios.post(
-        "http://localhost:3000/api/estimate/new",
+        `${API}/api/estimate/new`,
         payload
       );
       alert("Estimate created successfully");
@@ -178,7 +180,7 @@ useEffect(() => {
     if (!window.confirm("Delete this estimate?")) return;
 
     try {
-      await axios.delete(`http://localhost:3000/api/estimate/${id}`);
+      await axios.delete(`${API}/api/estimate/${id}`);
       alert("Estimate deleted");
       Fetchestimate();
     } catch (err) {

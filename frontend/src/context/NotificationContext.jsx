@@ -56,34 +56,39 @@ export const NotificationProvider = ({ children }) => {
     setUnreadCount(0);
   }, []);
 
-  const getNotificationIcon = (type) => {
+const getNotificationIcon = (type) => {
     switch (type) {
-      case "new_target": return "🎯";
-      case "target_updated": return "📈";
-      case "target_achieved": return "🏆";
-      case "task_assigned": return "📋";
-      case "task_completed": return "✅";
-      case "task_updated": return "🔄";
-      case "task_not_completed": return "⏰";
-      case "daily_task_summary": return "📊";
-      case "new_lead": return "📞";
-      case "lead_converted": return "🎉";
-      case "lead_updated": return "✏️";
-      case "missed_calls": return "⚠️";
-      case "contract_created": return "📝";
-      case "proposal_created": return "📄";
-      case "service_created": return "🔧";
-      default: return "🔔";
+        case "new_target": return "🎯";
+        case "target_updated": return "📈";
+        case "target_achieved": return "🏆";
+        case "task_assigned": return "📋";
+        case "task_assigned_to_employee": return "📋";
+        case "task_completed": return "✅";
+        case "task_completed_by_employee": return "✅";
+        case "task_updated": return "🔄";
+        case "task_not_completed": return "⏰";
+        case "task_overdue": return "⏰";
+        case "task_overdue_warning": return "⚠️";
+        case "daily_task_summary": return "📊";
+        case "new_lead": return "📞";
+        case "lead_converted": return "🎉";
+        case "lead_updated": return "✏️";
+        case "missed_calls": return "⚠️";
+        case "contract_created": return "📝";
+        case "proposal_created": return "📄";
+        case "service_created": return "🔧";
+        default: return "🔔";
     }
-  };
+};
 
-  const getNotificationColor = (type) => {
-    if (type === "missed_calls" || type === "task_not_completed") return "border-l-red-500 bg-red-50";
-    if (type === "target_achieved" || type === "lead_converted") return "border-l-green-500 bg-green-50";
-    if (type === "new_lead" || type === "proposal_created" || type === "contract_created") return "border-l-blue-500 bg-blue-50";
+const getNotificationColor = (type) => {
+    if (type === "missed_calls" || type === "task_not_completed" || type === "task_overdue") return "border-l-red-500 bg-red-50";
+    if (type === "task_overdue_warning") return "border-l-orange-500 bg-orange-50";
+    if (type === "target_achieved" || type === "lead_converted" || type === "task_completed" || type === "task_completed_by_employee") return "border-l-green-500 bg-green-50";
+    if (type === "new_lead" || type === "proposal_created" || type === "contract_created" || type === "task_assigned" || type === "task_assigned_to_employee") return "border-l-blue-500 bg-blue-50";
     if (type === "daily_task_summary") return "border-l-purple-500 bg-purple-50";
     return "border-l-yellow-500 bg-yellow-50";
-  };
+};
 
   return (
     <NotificationContext.Provider value={{

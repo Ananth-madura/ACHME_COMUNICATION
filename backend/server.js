@@ -18,6 +18,7 @@ if (missing.length) {
 
 const app = express();
 const server = http.createServer(app);
+module.exports = app;
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // In production set ALLOWED_ORIGIN in your .env, e.g. https://yourdomain.com
@@ -84,6 +85,7 @@ app.use("/api/services", require("./routes/serviceRoutes"));
 app.use("/api/leads", require("./routes/leadManagementRoutes"));
 app.use("/api/targets", require("./routes/targetRoutes"));
 app.use("/api/amc", require("./routes/amcRoutes"));
+app.use("/api/reports", require("./routes/reportRoutes"));
 
 app.use("/uploads", express.static("uploads"));
 

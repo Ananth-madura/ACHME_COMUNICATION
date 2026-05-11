@@ -1,6 +1,7 @@
 import { PlusCircle, MinusCircle, Plus, X, MapPin } from "lucide-react";
 import { calculateItemTotal, calculateTotals } from "../utils/invoicecal";
 import axios from "axios";
+import { API } from "../config/api";
 
 const UOM_OPTIONS = ["Nos", "Units", "Pieces", "Boxes", "Sets", "Meters", "Kg", "Liters"];
 const TAX_OPTIONS = [{ value: "GST18", label: "GST 18%" }, { value: "GST5", label: "GST 5%" }, { value: "CUSTOM", label: "Custom GST" }];
@@ -49,7 +50,7 @@ export default function InvoiceFormModal({
             <span className="text-sm font-semibold text-blue-800">Quick Fill from Quotation:</span>
             <select onChange={async e => {
               if (!e.target.value) return;
-              const res = await axios.get(`http://localhost:3000/api/quotations/${e.target.value}`);
+              const res = await axios.get(`${API}/api/quotations/${e.target.value}`);
               const rows = res.data; const h = rows[0];
               setCustomer({ customer_name: h.customer_name, mobile_number: h.mobile_number, email: h.email, location_city: h.location_city });
             }} className="bg-white border text-sm rounded-md px-3 py-1.5 outline-none flex-1 max-w-xs">

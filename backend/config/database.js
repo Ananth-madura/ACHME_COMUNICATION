@@ -127,8 +127,25 @@ async function ensureTablesAndColumns() {
         type VARCHAR(50) DEFAULT 'registration',
         user_id INT,
         message TEXT,
+        related_id INT DEFAULT NULL,
+        related_type VARCHAR(50) DEFAULT NULL,
+        created_by INT DEFAULT NULL,
+        priority VARCHAR(20) DEFAULT 'normal',
         is_read TINYINT(1) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
+      name: "profile_change_requests",
+      sql: `CREATE TABLE IF NOT EXISTS profile_change_requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        field VARCHAR(50) NOT NULL,
+        new_value TEXT,
+        status ENUM('pending','approved','declined') DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        admin_response_at TIMESTAMP NULL DEFAULT NULL,
+        KEY user_id (user_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     },
     {
@@ -178,6 +195,8 @@ async function ensureTablesAndColumns() {
         user_name VARCHAR(150) NOT NULL,
         yearly_target DECIMAL(15,2) DEFAULT 0,
         monthly_target DECIMAL(15,2) DEFAULT 0,
+        carry_forward DECIMAL(15,2) DEFAULT 0,
+        effective_target DECIMAL(15,2) DEFAULT 0,
         created_by_admin TINYINT(1) DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -240,32 +259,6 @@ async function ensureTablesAndColumns() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     },
     {
-      name: "sales_targets",
-      sql: `CREATE TABLE IF NOT EXISTS sales_targets (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT DEFAULT NULL,
-        user_name VARCHAR(150) NOT NULL,
-        yearly_target DECIMAL(15,2) DEFAULT 0,
-        monthly_target DECIMAL(15,2) DEFAULT 0,
-        created_by_admin TINYINT(1) DEFAULT 1,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
-    },
-    {
-      name: "target_achievements",
-      sql: `CREATE TABLE IF NOT EXISTS target_achievements (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT DEFAULT NULL,
-        user_name VARCHAR(150) NOT NULL,
-        target_id INT NOT NULL,
-        month_year VARCHAR(7) NOT NULL,
-        achieved_amount DECIMAL(15,2) DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_target_month (target_id, month_year)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
-    },
-    {
       name: "task_activity",
       sql: `CREATE TABLE IF NOT EXISTS task_activity (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -280,6 +273,8 @@ async function ensureTablesAndColumns() {
       sql: `CREATE TABLE IF NOT EXISTS notifications (
         id INT AUTO_INCREMENT PRIMARY KEY,
         task_id INT,
+        user_id INT DEFAULT NULL,
+        type VARCHAR(50) DEFAULT NULL,
         title VARCHAR(100),
         description TEXT,
         is_read TINYINT(1) DEFAULT 0,
@@ -294,11 +289,27 @@ async function ensureTablesAndColumns() {
         assigned_to_user_id INT,
         assigned_to_user_name VARCHAR(255),
         assigned_by VARCHAR(255),
-        status ENUM('Pending', 'In Progress', 'Completed') DEFAULT 'Pending',
+        status ENUM('Pending','Accepted','Declined','In Progress','Completed') DEFAULT 'Pending',
         assigned_date DATE,
         due_date DATE,
         priority ENUM('Low', 'Normal', 'High', 'Urgent') DEFAULT 'Normal',
         notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
+      name: "clients",
+      sql: `CREATE TABLE IF NOT EXISTS clients (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(150) NOT NULL,
+        company_name VARCHAR(150),
+        email VARCHAR(150),
+        phone VARCHAR(20),
+        address TEXT,
+        service VARCHAR(255),
+        gst_number VARCHAR(50),
+        created_by INT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
@@ -310,6 +321,16 @@ async function ensureTablesAndColumns() {
     { table: "lead_reminders", column: "missed_count", definition: "missed_count INT DEFAULT 0" },
     { table: "lead_escalations", column: "missed_count", definition: "missed_count INT DEFAULT 0" },
     { table: "users", column: "status", definition: "status ENUM('pending','active','rejected') DEFAULT 'pending'", expectedType: "enum" },
+    { table: "admin_notifications", column: "related_id", definition: "related_id INT DEFAULT NULL" },
+    { table: "admin_notifications", column: "related_type", definition: "related_type VARCHAR(50) DEFAULT NULL" },
+    { table: "admin_notifications", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "admin_notifications", column: "priority", definition: "priority VARCHAR(20) DEFAULT 'normal'" },
+    { table: "notifications", column: "user_id", definition: "user_id INT DEFAULT NULL" },
+    { table: "notifications", column: "type", definition: "type VARCHAR(50) DEFAULT NULL" },
+    { table: "task_assignments", column: "status", definition: "status ENUM('Pending','Accepted','Declined','In Progress','Completed') DEFAULT 'Pending'", expectedType: "enum" },
+    { table: "teammember", column: "mobile_number", definition: "mobile_number VARCHAR(20) DEFAULT NULL" },
+    { table: "teammember", column: "user_id", definition: "user_id INT DEFAULT NULL" },
+    { table: "teammember", column: "emp_address", definition: "emp_address TEXT DEFAULT NULL" },
     { table: "Telecalls", column: "assigned_to", definition: "assigned_to INT DEFAULT NULL" },
     { table: "Telecalls", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "Walkins", column: "assigned_to", definition: "assigned_to INT DEFAULT NULL" },
@@ -348,12 +369,23 @@ async function ensureTablesAndColumns() {
     { table: "task_targets", column: "carry_forward", definition: "carry_forward DECIMAL(15,2) DEFAULT 0" },
     { table: "task_targets", column: "effective_target", definition: "effective_target DECIMAL(15,2) DEFAULT 0" },
     { table: "sales_targets", column: "user_id", definition: "user_id INT DEFAULT NULL" },
+    { table: "teammember", column: "user_id", definition: "user_id INT DEFAULT NULL" },
     { table: "sales_targets", column: "created_by_admin", definition: "created_by_admin TINYINT(1) DEFAULT 1" },
-    { table: "target_achievements", column: "achieved_amount", definition: "achieved_amount DECIMAL(15,2) DEFAULT 0" }
+    { table: "target_achievements", column: "achieved_amount", definition: "achieved_amount DECIMAL(15,2) DEFAULT 0" },
+    { table: "clients", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "tasks", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "quotations", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "contracts", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "clientinvoices", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "performainvoices", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "services", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "call_reports", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "clients", column: "gst_number", definition: "gst_number VARCHAR(50) DEFAULT NULL" }
   ];
 
   const enumFixes = [
-    { table: "tasks", column: "project_priority", oldEnum: "'Low','Normal','High','Urgent'", newEnum: "'Low','Normal','Medium','High','Urgent'" }
+    { table: "tasks", column: "project_priority", oldEnum: "'Low','Normal','High','Urgent'", newEnum: "'Low','Normal','Medium','High','Urgent'" },
+    { table: "teammember", column: "emp_role", oldEnum: "'Developer','BDM'", newEnum: "'Developer','BDM','Manager','Sales'" }
   ];
 
   for (const { table, column, definition, expectedType } of columnChecks) {
@@ -369,8 +401,10 @@ async function ensureTablesAndColumns() {
           (err, rows) => {
             if (err || rows.length === 0) return resolve();
             const currentType = rows[0].column_type || "";
-            if (currentType.includes("Medium") || currentType.includes("medium")) {
-              console.log(`✅ ${table}.${column} already has Medium`);
+            const isPriorityFix = table === "tasks" && (currentType.includes("Medium") || currentType.includes("medium"));
+            const isRoleFix = table === "teammember" && currentType.includes("Manager");
+            if (isPriorityFix || isRoleFix) {
+              console.log(`✅ ${table}.${column} already updated`);
               return resolve();
             }
             const newType = currentType.replace(oldEnum, newEnum);

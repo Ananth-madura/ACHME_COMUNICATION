@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
+const { verifyToken } = require("../middileware/authMiddleware");
 
 const getNotificationIO = () => {
   try {
@@ -12,46 +13,60 @@ const getNotificationIO = () => {
 };
 
 // GET all telecalls
-router.get("/", (req, res) => {
-  const { user_id, role, user_name } = req.query;
-  let sql = "SELECT * FROM Walkins";
+router.get("/", verifyToken, (req, res) => {
+  const { id: user_id, role, first_name: user_name } = req.user;
+  let sql = `
+    SELECT w.*, u.first_name as creator_name 
+    FROM Walkins w
+    LEFT JOIN users u ON w.created_by = u.id
+  `;
   const params = [];
-  if ((role === "user" || role === "employee") && user_name) {
-    sql += " WHERE staff_name LIKE ? OR assigned_to = ?";
-    params.push(`%${user_name}%`, user_id || 0);
+  
+  if (role === "employee") {
+    sql += " WHERE w.created_by = ? OR w.staff_name LIKE ? OR w.assigned_to = ?";
+    params.push(user_id, `%${user_name}%`, user_id);
   }
-  sql += " ORDER BY id DESC";
+  
+  sql += " ORDER BY w.id DESC";
   db.query(sql, params, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
   });
 });
 
-const syncClient = (data) => {
-  const { customer_name, mobile_number, location_city, purpose, email, walkin_status } = data;
+const syncClient = (data, userId) => {
+  const { customer_name, mobile_number, location_city, purpose, email, walkin_status, gst_number } = data;
 
   if (walkin_status === "Converted") {
     db.query("SELECT id FROM clients WHERE phone = ?", [mobile_number], (err, result) => {
-      if (err) return;
+      if (err) {
+        console.error("Error checking client existence:", err);
+        return;
+      }
+
       if (result.length === 0) {
         db.query(
-          "INSERT INTO clients (name, phone, address, service, email) VALUES (?, ?, ?, ?, ?)",
-          [customer_name, mobile_number, location_city, purpose, email]
+          "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [customer_name, mobile_number, location_city, purpose, email, gst_number || "", userId],
+          (insertErr) => {
+            if (insertErr) console.error("Client conversion (walkin insert) failed:", insertErr);
+          }
         );
       } else {
         db.query(
-          "UPDATE clients SET name=?, address=?, service=?, email=? WHERE phone=?",
-          [customer_name, location_city, purpose, email, mobile_number]
+          "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, created_by=? WHERE phone=?",
+          [customer_name, location_city, purpose, email, gst_number || "", userId, mobile_number],
+          (updateErr) => {
+            if (updateErr) console.error("Client conversion (walkin update) failed:", updateErr);
+          }
         );
       }
     });
-  } else {
-    db.query("DELETE FROM clients WHERE phone = ?", [mobile_number]);
   }
 };
 
 // POST telecall
-router.post("/", (req, res) => {
+router.post("/", verifyToken, (req, res) => {
   const {
     customer_name,
     mobile_number,
@@ -88,9 +103,10 @@ router.post("/", (req, res) => {
       reminder_notes,
       reference,
       gst_number,
-      email
+      email,
+      created_by
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   db.query(
@@ -111,11 +127,12 @@ router.post("/", (req, res) => {
       reminder_notes,
       reference,
       gst_number,
-      email
+      email,
+      req.user.id
     ],
     (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
-      syncClient(req.body);
+      syncClient(req.body, req.user.id);
       const newId = result.insertId;
 
       // Notify when lead is converted
@@ -162,7 +179,7 @@ router.post("/", (req, res) => {
 
 // GET single telecall (EDIT)
 
-router.get("/:id", (req, res) => {
+router.get("/:id", verifyToken, (req, res) => {
   const id = Number(req.params.id);
   if (isNaN(id)) {
     return res.status(400).json({ message: "Invalid ID" });
@@ -173,7 +190,14 @@ router.get("/:id", (req, res) => {
     [id],
     (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json(results[0]);
+      if (results.length === 0) return res.status(404).json({ message: "Not found" });
+      
+      const lead = results[0];
+      if (req.user.role !== 'admin' && lead.created_by !== req.user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(lead);
     }
   );
 });
@@ -181,7 +205,7 @@ router.get("/:id", (req, res) => {
 
 // Edit 
 
-router.put("/:id", (req, res) => {
+router.put("/:id", verifyToken, (req, res) => {
   const {
     customer_name,
     mobile_number,
@@ -201,53 +225,59 @@ router.put("/:id", (req, res) => {
     email
   } = req.body;
 
-  db.query(
-    `UPDATE Walkins SET
-      customer_name=?,
-      mobile_number=?,
-      location_city=?,
-      walkin_date=?,
-      purpose=?,
-      staff_name=?,
-      walkin_status=?,
-      followup_required=?,
-      followup_date=?,
-      followup_notes=?,
-      reminder_required=?,
-      reminder_date=?,
-      reminder_notes=?,
-      reference=?,
-      gst_number=?,
-      email=?
-     WHERE id=?`,
-    [
-      customer_name,
-      mobile_number,
-      location_city,
-      walkin_date,
-      purpose,
-      staff_name,
-      walkin_status,
-      followup_required,
-      followup_date,
-      followup_notes,
-      reminder_required,
-      reminder_date,
-      reminder_notes,
-      reference,
-      gst_number,
-      email,
-      req.params.id
-    ],
-    (err, result) => {
-      if (err) {
-        console.error("Update error:", err);
-        return res.status(500).json({ error: err.message });
-      }
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: "Walkin not found" });
-      }
-      syncClient(req.body);
+  // Check ownership
+  db.query("SELECT created_by FROM Walkins WHERE id = ?", [req.params.id], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (results.length === 0) return res.status(404).json({ message: "Not found" });
+    
+    if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    db.query(
+      `UPDATE Walkins SET
+        customer_name=?,
+        mobile_number=?,
+        location_city=?,
+        walkin_date=?,
+        purpose=?,
+        staff_name=?,
+        walkin_status=?,
+        followup_required=?,
+        followup_date=?,
+        followup_notes=?,
+        reminder_required=?,
+        reminder_date=?,
+        reminder_notes=?,
+        reference=?,
+        gst_number=?,
+        email=?
+       WHERE id=?`,
+      [
+        customer_name,
+        mobile_number,
+        location_city,
+        walkin_date,
+        purpose,
+        staff_name,
+        walkin_status,
+        followup_required,
+        followup_date,
+        followup_notes,
+        reminder_required,
+        reminder_date,
+        reminder_notes,
+        reference,
+        gst_number,
+        email,
+        req.params.id
+      ],
+      (err, result) => {
+        if (err) {
+          console.error("Update error:", err);
+          return res.status(500).json({ error: err.message });
+        }
+        syncClient(req.body, results[0].created_by || req.user.id);
       const id = req.params.id;
 
       // Notify when lead is converted on update
@@ -288,15 +318,25 @@ router.put("/:id", (req, res) => {
 
 
  // Delete;
-  router.delete("/:id",(req,res) =>{
-    db.query(
-      "DELETE FROM Walkins WHERE id = ?",
-      [req.params.id],
-    (err) => {
-      if (err) return res.status(500).json({ message: "Delete failed" });
-      res.json({ message: "Field deleted" });
-    }
-    );
+  router.delete("/:id", verifyToken, (req,res) =>{
+    // Check ownership
+    db.query("SELECT created_by FROM Walkins WHERE id = ?", [req.params.id], (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (results.length === 0) return res.status(404).json({ message: "Not found" });
+      
+      if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      db.query(
+        "DELETE FROM Walkins WHERE id = ?",
+        [req.params.id],
+      (err) => {
+        if (err) return res.status(500).json({ message: "Delete failed" });
+        res.json({ message: "Field deleted" });
+      }
+      );
+    });
   })
 
 module.exports = router;

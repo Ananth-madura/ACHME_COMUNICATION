@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Search, X, Edit, Trash2 } from "lucide-react";
+import { Search, X, Edit, Trash2, FileText, FileSignature } from "lucide-react";
 import "../Styles/tailwind.css";
 import axios from "axios";
+import { useAuth } from "../auth/AuthContext";
+import { API } from "../config";
 
-const API_BACKEND = "http://localhost:5000";
+// Use the global API constant
 
 const Clients = () => {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -16,15 +19,12 @@ const Clients = () => {
 
   const fetchClients = async () => {
     try {
-      const response = await axios.get(`${API_BACKEND}/api/client`);
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.get(`${API}/api/client`, config);
       setClients(response.data);
     } catch (err) {
-      try {
-        const response = await axios.get("/api/client");
-        setClients(response.data);
-      } catch (err2) {
-        console.log("Fetch Error:", err2);
-      }
+      console.log("Fetch Error:", err);
     }
   };
 
@@ -32,7 +32,6 @@ const Clients = () => {
     const data = filteredClients.length > 0 ? filteredClients : clients;
     if (!data.length) return alert("No client data to export");
 
-    // Match exactly the table columns shown: ID, Name, Email, Phone, City, Service
     const headers = ["ID", "Name", "Email", "Phone", "City", "Service"];
     const rows = data.map(c => [
       c.id,
@@ -60,38 +59,41 @@ const Clients = () => {
     fetchClients();
   }, []);
 
-  //  delete client
   const deleteClient = async (id) => {
     if (!window.confirm("Are you sure you want to delete this client?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/client/${id}`);
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.delete(`${API}/api/client/${id}`, config);
       fetchClients();
     } catch (err) {
       console.log("delete error", err);
     }
   };
 
-  // form State
   const [form, setForm] = useState({
     name: "",
+    company_name: "",
     email: "",
     phone: "",
     address: "",
     service: "",
+    gst_number: "",
   });
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  // Save
   const saveClient = async (e) => {
     e.preventDefault();
     try {
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
       if (isEdit) {
-        await axios.put(`http://localhost:3000/api/client/${selectedClientId}`, form);
+        await axios.put(`${API}/api/client/${selectedClientId}`, form, config);
         alert("Client updated successfully");
       } else {
-        await axios.post("http://localhost:3000/api/client", form);
+        await axios.post(`${API}/api/client`, form, config);
         alert("Client added successfully");
       }
       resetForm();
@@ -103,7 +105,7 @@ const Clients = () => {
   };
 
   const resetForm = () => {
-    setForm({ name: "", email: "", phone: "", address: "", service: "" });
+    setForm({ name: "", company_name: "", email: "", phone: "", address: "", service: "", gst_number: "" });
     setIsEdit(false);
     setSelectedClientId(null);
   };
@@ -111,17 +113,17 @@ const Clients = () => {
   const openEditModal = (selectedClient) => {
     setForm({
       name: selectedClient.name || "",
+      company_name: selectedClient.company_name || "",
       email: selectedClient.email || "",
       phone: selectedClient.phone || "",
       address: selectedClient.address || "",
       service: selectedClient.service || "",
+      gst_number: selectedClient.gst_number || "",
     });
     setSelectedClientId(selectedClient.id);
     setIsEdit(true);
     setOpen(true);
   };
-
-
 
   useEffect(() => {
     if (open) {
@@ -132,7 +134,6 @@ const Clients = () => {
     return () => document.body.classList.remove("modal-open");
   }, [open]);
 
-  // Filter clients by name
   const filteredClients = clients.filter(c =>
     c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -140,22 +141,26 @@ const Clients = () => {
   );
 
   return (
-    <div className="w-full h-[111vh]">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-[#1694CE]">Clients</h1>
-        <a className="text-sm text-gray-500" href="/dashboard">
-          Dashboard &gt; Customers &gt; Clients
-        </a>
+    <div className="w-full min-h-screen p-4">
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-[#1694CE]">Clients</h1>
+          <nav className="text-sm text-gray-500">
+            <a href="/dashboard" className="hover:underline">Dashboard</a> &gt; Customers &gt; Clients
+          </nav>
+        </div>
+        <button
+          onClick={() => { resetForm(); setOpen(true); }}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+        >
+          + Add Client
+        </button>
       </div>
 
-      {/* ----------------- FILTER & SEARCH BAR ----------------- */}
       <div className="bg-[#F3F8FA] p-4 rounded-xl flex justify-between items-center shadow mb-4">
-        {/* Search */}
         <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg shadow border w-80">
           <Search size={18} className="text-gray-500" />
-          <label htmlFor="client-search" className="sr-only">Search Clients</label>
           <input
-            id="client-search"
             type="text"
             placeholder="Search Clients"
             className="outline-none text-sm w-full"
@@ -164,20 +169,18 @@ const Clients = () => {
           />
         </div>
 
-        {/* Download XL */}
         <button
           onClick={downloadExcel}
-          className="flex items-center gap-2 bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-green-800 transition shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="flex items-center gap-2 bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-green-800 transition shadow"
         >
           <span className="text-lg">↓</span> Download XL
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white shadow rounded-xl mt-[20px] overflow-hidden">
+      <div className="bg-white shadow rounded-xl overflow-hidden">
         <table className="w-full text-sm border-collapse">
-          <thead className="bg-[#f8faf9]">
-            <tr className="text-black font-[Times-New-Roman] uppercase text-xs border-b">
+          <thead className="bg-gray-50">
+            <tr className="text-gray-600 uppercase text-xs border-b">
               <th className="px-4 py-3 border text-left">ID</th>
               <th className="px-4 py-3 border text-left">Name</th>
               <th className="px-4 py-3 border text-left">Email</th>
@@ -187,7 +190,7 @@ const Clients = () => {
               <th className="px-4 py-3 border text-center">Actions</th>
             </tr>
           </thead>
-          <tbody className="text-sm font-[Times-New-Roman]">
+          <tbody>
             {filteredClients.map((c) => (
               <tr key={c.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
                 <td className="px-4 py-3 border">{c.id}</td>
@@ -196,10 +199,34 @@ const Clients = () => {
                 <td className="px-4 py-3 border">{c.phone}</td>
                 <td className="px-4 py-3 border">{c.address}</td>
                 <td className="px-4 py-3 border">{c.service}</td>
-                <td className="px-4 py-3 border">
-                  <div className="flex justify-center">
+                <td className="px-4 py-3 border text-center">
+                  <div className="flex justify-center items-center gap-3">
                     <button
-                      type="button"
+                      onClick={() => window.location.href = `/proposal?client_name=${encodeURIComponent(c.name)}&client_email=${encodeURIComponent(c.email || '')}`}
+                      className="text-blue-600 hover:text-blue-800 transition"
+                      title="Create Proposal"
+                    >
+                      <FileText size={18} />
+                    </button>
+                    <button
+                      onClick={() => window.location.href = `/contract?client_name=${encodeURIComponent(c.name)}&client_email=${encodeURIComponent(c.email || '')}`}
+                      className="text-green-600 hover:text-green-800 transition"
+                      title="Create Contract"
+                    >
+                      <FileSignature size={18} />
+                    </button>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">Added By</span>
+                      <span className="text-xs font-semibold text-blue-600">{c.creator_name || "Admin"}</span>
+                    </div>
+                    <button
+                      onClick={() => openEditModal(c)}
+                      className="text-amber-600 hover:text-amber-800 transition"
+                      title="Edit"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button
                       onClick={() => deleteClient(c.id)}
                       className="text-red-600 hover:text-red-800 transition"
                       title="Delete"
@@ -219,7 +246,107 @@ const Clients = () => {
         </table>
       </div>
 
-
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+              <h2 className="text-xl font-bold text-gray-800">{isEdit ? "Edit Client" : "Add Client"}</h2>
+              <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-gray-700">
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={saveClient} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                <input
+                  type="text"
+                  name="company_name"
+                  value={form.company_name}
+                  onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input
+                  type="text"
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">City/Address</label>
+                <input
+                  type="text"
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Service Interests</label>
+                <input
+                  type="text"
+                  name="service"
+                  value={form.service}
+                  onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">GST Number</label>
+                <input
+                  type="text"
+                  name="gst_number"
+                  value={form.gst_number}
+                  onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition shadow-lg"
+                >
+                  {isEdit ? "Update Client" : "Save Client"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

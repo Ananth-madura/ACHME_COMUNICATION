@@ -3,6 +3,7 @@ import { Send, Smile, Paperclip, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../auth/AuthContext';
 import socket from '../socket/socket';
+import { API } from '../config/api';
   const ChatBox = () =>{
     const { user } = useAuth();
 const [users, setUsers] = useState([]);
@@ -17,7 +18,7 @@ const [activeUser, setActiveUser] = useState(null);
 
 // Check User List
   useEffect(() => {
-  fetch("http://localhost:3000/api/auth/users") 
+  fetch(`${API}/api/auth/users`) 
     .then(res => {
       if (!res.ok) throw new Error(`Server responded with ${res.status}`);
       return res.json();
@@ -48,7 +49,7 @@ const [activeUser, setActiveUser] = useState(null);
 useEffect(() => {
     if (user?.id) {
       // Use receiver 0 for group chat
-      fetch(`http://localhost:3000/api/chat/history/${user.id}/0`)
+      fetch(`${API}/api/chat/history/${user.id}/0`)
         .then(res => res.json())
         .then(data => {
           const history = data.map(m => ({
@@ -134,7 +135,7 @@ const handleFileSend = async (e) => {
   formData.append("receiver_id", 0);
 
   try {
-    const res = await fetch("http://localhost:3000/api/chat/upload", {
+    const res = await fetch(`${API}/api/chat/upload`, {
       method: "POST",
       body: formData
     });

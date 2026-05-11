@@ -6,6 +6,8 @@ import html2pdf from "html2pdf.js";
 import "../Styles/tailwind.css";
 import Invoice from "../components/invoicetemplate";
 
+import { API } from "../config";
+
 const UOM_OPTIONS = ["Nos", "Units", "Pieces", "Boxes", "Sets", "Meters", "Kg", "Liters"];
 const BRANCH_OPTIONS = [
   { value: "Chennai", label: "Chennai", state: "Tamil Nadu" },
@@ -104,22 +106,22 @@ const ServiceEstimation = () => {
   }, []);
 
   const fetchServiceInvoices = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/service-estimation"); setServiceInvoices(res.data); }
+    try { const res = await axios.get(`${API}/api/service-estimation`); setServiceInvoices(res.data); }
     catch (err) { console.error(err); }
   };
   const fetchQuotations = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/quotations"); setQuotations(res.data); }
+    try { const res = await axios.get(`${API}/api/quotations`); setQuotations(res.data); }
     catch (err) { console.error(err); }
   };
   const fetchFromAddresses = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/service-estimation/from-addresses"); setFromAddresses(res.data); }
+    try { const res = await axios.get(`${API}/api/service-estimation/from-addresses`); setFromAddresses(res.data); }
     catch (err) { console.error(err); }
   };
 
   const openHistory = async (e, invoiceId, customerName, parentId) => {
     e.stopPropagation();
     try {
-      const res = await axios.get(`http://localhost:3000/api/service-estimation/version-history/${invoiceId}`);
+      const res = await axios.get(`${API}/api/service-estimation/version-history/${invoiceId}`);
       setHistoryList(res.data);
       setHistoryCustomerName(customerName);
       setHistorySearch(""); setHistorySelectedId(null);
@@ -132,7 +134,7 @@ const ServiceEstimation = () => {
     e.stopPropagation();
     if (!window.confirm("Delete this version?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/service-estimation/${id}`);
+      await axios.delete(`${API}/api/service-estimation/${id}`);
       setHistoryList(prev => prev.filter(q => q.id !== id));
     } catch (err) { alert("Failed to delete"); }
   };
@@ -145,7 +147,7 @@ const ServiceEstimation = () => {
   const handleAddAddress = async () => {
     if (!newAddrLabel || !newAddrText) return alert("Label and address required");
     try {
-      const res = await axios.post("http://localhost:3000/api/service-estimation/from-addresses", { label: newAddrLabel, address: newAddrText });
+      const res = await axios.post(`${API}/api/service-estimation/from-addresses`, { label: newAddrLabel, address: newAddrText });
       setFromAddresses(prev => [...prev, res.data]);
       setNewAddrLabel(""); setNewAddrText(""); setShowAddAddress(false);
     } catch (err) { alert("Failed to add address"); }
@@ -154,7 +156,7 @@ const ServiceEstimation = () => {
   const handleDeleteAddress = async (id) => {
     if (!window.confirm("Remove this address?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/service-estimation/from-addresses/${id}`);
+      await axios.delete(`${API}/api/service-estimation/from-addresses/${id}`);
       setFromAddresses(prev => prev.filter(a => a.id !== id));
       if (extra.from_address_id === id) setExtra(e => ({ ...e, from_address_id: "" }));
     } catch (err) { alert("Failed to delete address"); }
@@ -163,7 +165,7 @@ const ServiceEstimation = () => {
   const handleSelectProposal = async (proposalId) => {
     if (!proposalId) return;
     try {
-      const res = await axios.get(`http://localhost:3000/api/quotations/${proposalId}`);
+      const res = await axios.get(`${API}/api/quotations/${proposalId}`);
       const rows = res.data;
       if (rows.length > 0) {
         const h = rows[0];
@@ -191,7 +193,7 @@ const ServiceEstimation = () => {
   };
 
   const handleEdit = async (id) => {
-    const res = await axios.get(`http://localhost:3000/api/service-estimation/${id}`);
+    const res = await axios.get(`${API}/api/service-estimation/${id}`);
     const rows = res.data;
     const h = rows[0];
     setCustomer({ customer_name: h.customer_name, mobile_number: h.mobile_number, email: h.email, gst_number: h.gst_number || "", location_city: h.location_city });
@@ -278,10 +280,10 @@ const ServiceEstimation = () => {
         extra,
       };
       if (editId) {
-        await axios.put(`http://localhost:3000/api/service-estimation/${editId}`, payload);
+        await axios.put(`${API}/api/service-estimation/${editId}`, payload);
         alert("Updated successfully");
       } else {
-        await axios.post("http://localhost:3000/api/service-estimation/create", payload);
+        await axios.post(`${API}/api/service-estimation/create`, payload);
         alert("Created successfully");
       }
       setOpen(false); resetForm(); fetchServiceInvoices();
@@ -320,7 +322,7 @@ const ServiceEstimation = () => {
     if (!selectedId) return alert("Select an item to delete");
     if (!window.confirm("Are you sure?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/service-estimation/${selectedId}`);
+      await axios.delete(`${API}/api/service-estimation/${selectedId}`);
       setSelectedId(null); fetchServiceInvoices();
     } catch (error) { console.error(error); }
   };
@@ -337,7 +339,7 @@ const ServiceEstimation = () => {
     if (!mailTo) return alert("Please enter recipient email");
     setMailSending(true);
     try {
-      await axios.post(`http://localhost:3000/api/service-estimation/send-email/${selectedId}`, { to: mailTo, subject: mailSubject });
+      await axios.post(`${API}/api/service-estimation/send-email/${selectedId}`, { to: mailTo, subject: mailSubject });
       alert("Email sent successfully"); setMailOpen(false);
     } catch (error) { alert(error.response?.data?.message || "Failed to send email"); }
     finally { setMailSending(false); }
@@ -385,7 +387,7 @@ const ServiceEstimation = () => {
               const id = viewId || selectedId;
               if (!id) return alert("Select an invoice first");
               try {
-                const res = await fetch(`http://localhost:3000/api/service-estimation/download-pdf/${id}`);
+                const res = await fetch(`${API}/api/service-estimation/download-pdf/${id}`);
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a"); a.href = url;

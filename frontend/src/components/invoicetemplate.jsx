@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { API } from "../config/api";
 import backheadImg from "../images/backhead.png";
 import logoImg from "../images/logo.png";
 
@@ -472,7 +473,7 @@ const Invoice = ({ quotationId, type = "quotation", pdfMode = false }) => {
       service: "service-estimation"
     };
     const route = ROUTE_MAP[type] || "quotations";
-    const endpoint = `http://localhost:3000/api/${route}/${quotationId}`;
+    const endpoint = `${API}/api/${route}/${quotationId}`;
     
     axios
       .get(endpoint)

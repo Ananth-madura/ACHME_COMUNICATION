@@ -5,6 +5,7 @@ import axios from "axios";
 import html2pdf from "html2pdf.js";
 import "../Styles/tailwind.css";
 import Invoice from "../components/invoicetemplate";
+import { API } from "../config";
 
 const UOM_OPTIONS = ["Nos", "Units", "Pieces", "Boxes", "Sets", "Meters", "Kg", "Liters"];
 const BRANCH_OPTIONS = [
@@ -105,59 +106,76 @@ const Proposal = () => {
   useEffect(() => {
     fetchQuotationDataList();
     fetchFromAddresses();
-    // Pick up lead prefill from telecalling/walkin/field pages
-    const prefill = sessionStorage.getItem("qt_prefill");
-    if (prefill) {
-      try {
-        const p = JSON.parse(prefill);
-        setCustomer(c => ({
-          ...c,
-          customer_name: p.customer_name || "",
-          mobile_number: p.mobile_number || "",
-          email: p.email || "",
-          location_city: p.location_city || "",
-        }));
-        setExtra(ex => ({ ...ex, client_city: p.location_city || "" }));
-        setOpen(true);
-        sessionStorage.removeItem("qt_prefill");
-      } catch (_) {}
-    }
-    // Pick up contract prefill from AMC page
-    const contractPrefill = sessionStorage.getItem("quotation_prefill");
-    if (contractPrefill) {
-      try {
-        const p = JSON.parse(contractPrefill);
-        setCustomer(c => ({
-          ...c,
-          customer_name: p.customer_name || "",
-          mobile_number: p.mobile_number || "",
-          email: p.email || "",
-          location_city: p.location_city || "",
-        }));
-        setExtra(ex => ({ 
-          ...ex, 
-          client_city: p.location_city || "",
-          exec_name: p.contract_title || "",
-        }));
-        setOpen(true);
-        sessionStorage.removeItem("quotation_prefill");
-      } catch (_) {}
+    
+    // Check for query params first (new workflow)
+    const urlParams = new URLSearchParams(window.location.search);
+    const qName = urlParams.get('client_name');
+    const qEmail = urlParams.get('client_email');
+    
+    if (qName) {
+      setCustomer(c => ({
+        ...c,
+        customer_name: decodeURIComponent(qName),
+        email: qEmail ? decodeURIComponent(qEmail) : c.email,
+      }));
+      setOpen(true);
+      // Optional: clear params from URL without reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Pick up lead prefill from telecalling/walkin/field pages
+      const prefill = sessionStorage.getItem("qt_prefill");
+      if (prefill) {
+        try {
+          const p = JSON.parse(prefill);
+          setCustomer(c => ({
+            ...c,
+            customer_name: p.customer_name || "",
+            mobile_number: p.mobile_number || "",
+            email: p.email || "",
+            location_city: p.location_city || "",
+          }));
+          setExtra(ex => ({ ...ex, client_city: p.location_city || "" }));
+          setOpen(true);
+          sessionStorage.removeItem("qt_prefill");
+        } catch (_) {}
+      }
+      // Pick up contract prefill from AMC page
+      const contractPrefill = sessionStorage.getItem("quotation_prefill");
+      if (contractPrefill) {
+        try {
+          const p = JSON.parse(contractPrefill);
+          setCustomer(c => ({
+            ...c,
+            customer_name: p.customer_name || "",
+            mobile_number: p.mobile_number || "",
+            email: p.email || "",
+            location_city: p.location_city || "",
+          }));
+          setExtra(ex => ({ 
+            ...ex, 
+            client_city: p.location_city || "",
+            exec_name: p.contract_title || "",
+          }));
+          setOpen(true);
+          sessionStorage.removeItem("quotation_prefill");
+        } catch (_) {}
+      }
     }
   }, []);
 
   const fetchQuotationDataList = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/quotations"); setQuotationDataList(res.data); }
+    try { const res = await axios.get(`${API}/api/quotations`); setQuotationDataList(res.data); }
     catch (err) { console.error(err); }
   };
   const fetchFromAddresses = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/quotations/from-addresses"); setFromAddresses(res.data); }
+    try { const res = await axios.get(`${API}/api/quotations/from-addresses`); setFromAddresses(res.data); }
     catch (err) { console.error(err); }
   };
 
   const handleAddAddress = async () => {
     if (!newAddrLabel || !newAddrText) return alert("Label and address required");
     try {
-      const res = await axios.post("http://localhost:3000/api/quotations/from-addresses", { label: newAddrLabel, address: newAddrText });
+      const res = await axios.post(`${API}/api/quotations/from-addresses`, { label: newAddrLabel, address: newAddrText });
       setFromAddresses(prev => [...prev, res.data]);
       setNewAddrLabel(""); setNewAddrText(""); setShowAddAddress(false);
     } catch (err) { alert("Failed to add address"); }
@@ -166,14 +184,14 @@ const Proposal = () => {
   const handleDeleteAddress = async (id) => {
     if (!window.confirm("Remove this address?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/quotations/from-addresses/${id}`);
+      await axios.delete(`${API}/api/quotations/from-addresses/${id}`);
       setFromAddresses(prev => prev.filter(a => a.id !== id));
       if (extra.from_address_id === id) setExtra(e => ({ ...e, from_address_id: "" }));
     } catch (err) { alert("Failed to delete address"); }
   };
 
   const handleEdit = async (id) => {
-    const res = await axios.get(`http://localhost:3000/api/quotations/${id}`);
+    const res = await axios.get(`${API}/api/quotations/${id}`);
     const rows = res.data;
     const h = rows[0];
     setCustomer({ customer_name: h.customer_name, mobile_number: h.mobile_number, email: h.email, gst_number: h.gst_number || "", location_city: h.location_city });
@@ -261,11 +279,11 @@ const Proposal = () => {
         extra,
       };
       if (editId) {
-        const res = await axios.put(`http://localhost:3000/api/quotations/${editId}`, payload);
+        const res = await axios.put(`${API}/api/quotations/${editId}`, payload);
         // Backend creates a new version — refresh list and close
         alert(`Version ${res.data.version || ""} saved successfully`);
       } else {
-        await axios.post("http://localhost:3000/api/quotations/create", payload);
+        await axios.post(`${API}/api/quotations/create`, payload);
         alert("Created successfully");
       }
       setOpen(false); resetForm(); fetchQuotationDataList();
@@ -304,7 +322,7 @@ const Proposal = () => {
     if (!selectedId) return alert("Select an item to delete");
     if (!window.confirm("Are you sure?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/quotations/${selectedId}`);
+      await axios.delete(`${API}/api/quotations/${selectedId}`);
       setSelectedId(null); fetchQuotationDataList();
     } catch (error) { console.error(error); }
   };
@@ -321,7 +339,7 @@ const Proposal = () => {
     if (!mailTo) return alert("Please enter recipient email");
     setMailSending(true);
     try {
-      await axios.post(`http://localhost:3000/api/quotations/send-email/${selectedId}`, { to: mailTo, subject: mailSubject });
+      await axios.post(`${API}/api/quotations/send-email/${selectedId}`, { to: mailTo, subject: mailSubject });
       alert("Email sent successfully"); setMailOpen(false);
     } catch (error) { alert(error.response?.data?.message || "Failed to send email"); }
     finally { setMailSending(false); }
@@ -335,7 +353,7 @@ const Proposal = () => {
   const openHistory = async (e, quotationId, customerName) => {
     e.stopPropagation();
     try {
-      const res = await axios.get(`http://localhost:3000/api/quotations/customer-history/${quotationId}`);
+      const res = await axios.get(`${API}/api/quotations/customer-history/${quotationId}`);
       setHistoryList(res.data);
       setHistoryCustomerName(customerName);
       setHistorySelectedId(null);
@@ -360,7 +378,7 @@ const Proposal = () => {
     e.stopPropagation();
     if (!window.confirm("Delete this version? This cannot be undone.")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/quotations/${id}`);
+      await axios.delete(`${API}/api/quotations/${id}`);
       setHistoryList(prev => prev.filter(q => q.id !== id));
     } catch (err) { alert("Failed to delete version"); }
   };
@@ -419,7 +437,7 @@ const Proposal = () => {
               if (!selectedId && !viewId) return alert("Select an invoice first");
               const id = viewId || selectedId;
               try {
-                const res = await fetch(`http://localhost:3000/api/quotations/download-pdf/${id}`);
+                const res = await fetch(`${API}/api/quotations/download-pdf/${id}`);
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a"); a.href = url;
@@ -626,7 +644,7 @@ const Proposal = () => {
                       const val = e.target.value;
                       if (val.length > 2) {
                         try {
-                          const res = await axios.get(`http://localhost:3000/api/client/search?name=${val}`);
+                          const res = await axios.get(`${API}/api/client/search?name=${val}`);
                           setClientSearchResults(res.data);
                         } catch (err) { console.error(err); }
                       } else {
@@ -639,7 +657,7 @@ const Proposal = () => {
                       {clientSearchResults.map(c => (
                         <div key={c.id} onClick={async () => {
                           try {
-                            const res = await axios.get("http://localhost:3000/api/client");
+                            const res = await axios.get(`${API}/api/client`);
                             const fullClient = res.data.find(cc => cc.id === c.id);
                             if (fullClient) {
                               setCustomer({

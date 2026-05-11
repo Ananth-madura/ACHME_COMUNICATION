@@ -3,6 +3,8 @@ import { Search, Plus, X,ChevronDown,Edit,Trash2 } from "lucide-react";
 import "../Styles/tailwind.css";
 import axios from "axios";
 
+import { API } from "../config";
+
 const Payments = () =>{
      const [open, setOpen] = useState(false);
        const tabopen = () => {
@@ -32,7 +34,7 @@ const Payments = () =>{
   // Fetch Payments
  const fetchPayment = async () => {
     try {
-      const res = await axios.get("http://localhost:3000/api/payments");
+      const res = await axios.get(`${API}/api/payments`);
       console.log("PAYMENTS:", res.data);
       setPayment(res.data);
     } catch (err) {
@@ -87,10 +89,10 @@ useEffect(() => {
 
   try {
     if (isEdit) {
-      await axios.put(`http://localhost:3000/api/payments/${selectedPaymentId}`, payload);
+      await axios.put(`${API}/api/payments/${selectedPaymentId}`, payload);
       alert("Edited Successfully");
     } else {
-      await axios.post("http://localhost:3000/api/payments/new", payload);
+      await axios.post(`${API}/api/payments/new`, payload);
       alert("Payments Created Successfully");
     }
     fetchPayment();
@@ -142,7 +144,7 @@ const deletePayment = async (id) => {
   if (!window.confirm("Are you sure you want to delete this payment?")) return;
 
   try {
-    await axios.delete(`http://localhost:3000/api/payments/${id}`);
+    await axios.delete(`${API}/api/payments/${id}`);
     fetchPayment();
   } catch (err) {
     console.error("DELETE ERROR:", err);

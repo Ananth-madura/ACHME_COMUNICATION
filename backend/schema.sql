@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS `clientinvoices` (
   `invoice_date` date DEFAULT NULL,
   `invoice_duedate` date DEFAULT NULL,
   `category` enum('Default') DEFAULT 'Default',
-`created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS `contracts` (
   `start_date` date DEFAULT NULL,
   `end_date` date DEFAULT NULL,
   `category` enum('Default') DEFAULT 'Default',
+  `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `amount_value` decimal(10,2) NOT NULL,
   PRIMARY KEY (`id`)
@@ -40,6 +42,7 @@ CREATE TABLE IF NOT EXISTS `customers` (
   `mobile_number` varchar(20) DEFAULT NULL,
   `email` varchar(100) DEFAULT NULL,
   `location_city` varchar(100) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -89,6 +92,7 @@ CREATE TABLE IF NOT EXISTS `fields` (
   `reminder_notes` text,
   `reference` varchar(255) DEFAULT NULL,
   `gst_number` varchar(20) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -206,6 +210,7 @@ CREATE TABLE IF NOT EXISTS `quotations` (
   `total_tax` decimal(10,2) DEFAULT '0.00',
   `total_discount` decimal(10,2) DEFAULT '0.00',
   `grand_total` decimal(10,2) DEFAULT '0.00',
+  `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `total_cgst` decimal(10,2) DEFAULT '0.00',
   `total_sgst` decimal(10,2) DEFAULT '0.00',
@@ -262,6 +267,7 @@ CREATE TABLE IF NOT EXISTS `tasks` (
   `project_priority` enum('Low','Normal','High','Urgent') NOT NULL,
   `created_date` date NOT NULL,
   `due_date` date NOT NULL,
+  `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `staff_name` varchar(100) DEFAULT NULL,
@@ -353,6 +359,7 @@ CREATE TABLE IF NOT EXISTS `performainvoices` (
   `total_tax` decimal(10,2) DEFAULT '0.00',
   `total_discount` decimal(10,2) DEFAULT '0.00',
   `grand_total` decimal(10,2) DEFAULT '0.00',
+  `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `total_cgst` decimal(10,2) DEFAULT '0.00',
   `total_sgst` decimal(10,2) DEFAULT '0.00',
@@ -390,6 +397,7 @@ CREATE TABLE IF NOT EXISTS `services` (
   `date` date DEFAULT NULL,
   `images` text,
   `issues` text,
+  `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -403,6 +411,7 @@ CREATE TABLE IF NOT EXISTS `call_reports` (
   `time_spent` varchar(50) DEFAULT NULL,
   `km` decimal(10,2) DEFAULT NULL,
   `report_date` date DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

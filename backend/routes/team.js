@@ -35,7 +35,7 @@ router.get("/", verifyToken, isAdmin, (req,res)=>{
 
 /* GET ALL - Public (for dropdowns) */
 router.get("/list", (req,res)=>{
-  db.query("SELECT id, first_name, last_name, emp_email, job_title, emp_role FROM teammember ORDER BY first_name",(err,result)=>{
+  db.query("SELECT id, first_name, last_name, emp_email, job_title, emp_role, user_id FROM teammember ORDER BY first_name",(err,result)=>{
     if(err) return res.status(500).json(err);
     res.json(result);
   });

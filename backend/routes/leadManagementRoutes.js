@@ -8,6 +8,21 @@ const toTimeOnly = (val) => {
   if (s.length >= 8) return s.slice(-8);
   return s;
 };
+const notifyMissedLead = (lead, req) => {
+  const notificationIO = req?.app?.get("io");
+  if (!notificationIO || !notificationIO.emitNotification) return;
+  notificationIO.emitNotification("missed_calls", {
+    leadId: lead.lead_id,
+    leadType: lead.lead_type,
+    userName: lead.staff_name,
+    customerName: lead.customer_name,
+    mobileNumber: lead.mobile_number,
+    count: lead.missed_count,
+    missedAt: new Date().toLocaleString(),
+    type: "lead",
+    priority: "high"
+  }, null, true);
+};
 
 // ── REMINDERS ──────────────────────────────────────────────────────────────
 
@@ -111,6 +126,7 @@ router.post("/check-missed", (req, res) => {
                 // Update missed count on existing escalation
                 if (existing.length > 0) {
                   db.query("UPDATE lead_escalations SET missed_count=? WHERE id=?", [lead.missed_count, existing[0].id]);
+                  if ([3, 5, 7, 9, 10].includes(Number(lead.missed_count))) notifyMissedLead(lead, req);
                 }
                 if (--pending === 0) res.json({ markedMissed, escalated });
                 return;
@@ -119,7 +135,10 @@ router.post("/check-missed", (req, res) => {
                 "INSERT INTO lead_escalations (lead_id, lead_type, customer_name, mobile_number, staff_name, last_followup_date, missed_count) VALUES (?,?,?,?,?,?,?)",
                 [lead.lead_id, lead.lead_type, lead.customer_name, lead.mobile_number, lead.staff_name, toDateOnly(lead.followup_date), lead.missed_count],
                 (e2) => {
-                  if (!e2) escalated++;
+                  if (!e2) {
+                    escalated++;
+                    notifyMissedLead(lead, req);
+                  }
                   if (--pending === 0) res.json({ markedMissed, escalated });
                 }
               );
@@ -205,6 +224,122 @@ router.get("/missed-counts/:leadType", (req, res) => {
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json(rows);
+    }
+  );
+});
+
+// ── LEAD CONVERSION ────────────────────────────────────────────────────────
+// These routes match the frontend's expected /api/leads/ subpaths
+
+// PUT convert telecall
+router.put("/telecall/:id", (req, res) => {
+  const { call_outcome } = req.body;
+  db.query(
+    "UPDATE Telecalls SET call_outcome=? WHERE id=?",
+    [call_outcome || "Converted", req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      // Fetch full lead data to sync with clients
+      db.query("SELECT * FROM Telecalls WHERE id=?", [req.params.id], (err2, rows) => {
+        if (!err2 && rows.length > 0) {
+          const lead = rows[0];
+          // Sync client logic (Simplified version for this route)
+          db.query("SELECT id FROM clients WHERE phone = ?", [lead.mobile_number], (err3, result) => {
+            if (!err3 && result.length === 0) {
+              db.query(
+                "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [lead.customer_name, lead.mobile_number, lead.location_city, lead.service_name, lead.email, lead.gst_number || "", lead.created_by]
+              );
+            }
+            // Notify Admin
+            const io = req.app.get("io");
+            if (io && io.emitNotification) {
+              io.emitNotification("lead_converted", {
+                staffName: lead.staff_name || lead.creator_name || "Employee",
+                customerName: lead.customer_name || "A Lead",
+                convertedAt: new Date().toLocaleString()
+              }, null, true);
+            }
+          });
+        }
+      });
+      
+      res.json({ message: "Lead converted successfully" });
+    }
+  );
+});
+
+// PUT convert walkin
+router.put("/walkin/:id", (req, res) => {
+  const { walkin_status } = req.body;
+  db.query(
+    "UPDATE Walkins SET walkin_status=? WHERE id=?",
+    [walkin_status || "Converted", req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      db.query("SELECT * FROM Walkins WHERE id=?", [req.params.id], (err2, rows) => {
+        if (!err2 && rows.length > 0) {
+          const lead = rows[0];
+          db.query("SELECT id FROM clients WHERE phone = ?", [lead.mobile_number], (err3, result) => {
+            if (!err3 && result.length === 0) {
+              db.query(
+                "INSERT INTO clients (name, phone, address, service, email, created_by) VALUES (?, ?, ?, ?, ?, ?)",
+                [lead.customer_name, lead.mobile_number, lead.location_city, lead.service_name, lead.email, lead.created_by]
+              );
+            }
+            // Notify Admin
+            const io = req.app.get("io");
+            if (io && io.emitNotification) {
+              io.emitNotification("lead_converted", {
+                staffName: lead.staff_name || lead.creator_name || "Employee",
+                customerName: lead.customer_name || "A Lead",
+                convertedAt: new Date().toLocaleString()
+              }, null, true);
+            }
+          });
+        }
+      });
+      
+      res.json({ message: "Lead converted successfully" });
+    }
+  );
+});
+
+// PUT convert field
+router.put("/field/:id", (req, res) => {
+  const { field_outcome } = req.body;
+  db.query(
+    "UPDATE fields SET field_outcome=? WHERE id=?",
+    [field_outcome || "Converted", req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      db.query("SELECT * FROM fields WHERE id=?", [req.params.id], (err2, rows) => {
+        if (!err2 && rows.length > 0) {
+          const lead = rows[0];
+          db.query("SELECT id FROM clients WHERE phone = ?", [lead.mobile_number], (err3, result) => {
+            if (!err3 && result.length === 0) {
+              db.query(
+                "INSERT INTO clients (name, phone, address, service, email, created_by) VALUES (?, ?, ?, ?, ?, ?)",
+                [lead.customer_name, lead.mobile_number, lead.location_city, lead.service_name, lead.email, lead.created_by]
+              );
+            }
+            // Notify Admin
+            const io = req.app.get("io");
+            if (io && io.emitNotification) {
+              io.emitNotification("lead_converted", {
+                staffName: lead.staff_name || lead.creator_name || "Employee",
+                customerName: lead.customer_name || "A Lead",
+                convertedAt: new Date().toLocaleString()
+              }, null, true);
+            }
+          });
+        }
+      });
+      
+      res.json({ message: "Lead converted successfully" });
     }
   );
 });

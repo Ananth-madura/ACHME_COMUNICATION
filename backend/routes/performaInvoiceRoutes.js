@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
+const { verifyToken } = require("../middileware/authMiddleware");
 
 // GET ALL PERFORMA INVOICES (latest versions only)
-router.get("/", (req, res) => {
+router.get("/", verifyToken, (req, res) => {
+  const { id: user_id, role } = req.user;
   const sql = `
     SELECT
       p.id, p.invoice_date, p.grand_total, p.version, p.parent_id,
@@ -15,6 +17,7 @@ router.get("/", (req, res) => {
     JOIN customers c ON c.id = p.customer_id
     LEFT JOIN performainvoice_items pi ON pi.invoice_id = p.id
     WHERE p.is_latest = 1
+    ${role === 'employee' ? 'AND p.created_by = ?' : ''}
     GROUP BY p.id
     ORDER BY p.id DESC
   `;
@@ -25,7 +28,8 @@ router.get("/", (req, res) => {
 });
 
 // GET previous versions (history) for a given invoice id
-router.get("/version-history/:id", (req, res) => {
+router.get("/version-history/:id", verifyToken, (req, res) => {
+  const { id: user_id, role } = req.user;
   const sql = `
     SELECT p.id, p.invoice_date, p.grand_total, p.version, p.is_latest, p.parent_id,
            c.customer_name, c.mobile_number, c.email,
@@ -35,8 +39,13 @@ router.get("/version-history/:id", (req, res) => {
     WHERE p.is_latest = 0
       AND (p.parent_id = ? OR p.id = (SELECT parent_id FROM performainvoices WHERE id = ?)
            OR p.parent_id = (SELECT parent_id FROM performainvoices WHERE id = ? AND parent_id IS NOT NULL))
+      ${role === 'employee' ? 'AND p.created_by = ?' : ''}
     ORDER BY p.version DESC, p.id DESC`;
-  db.query(sql, [req.params.id, req.params.id, req.params.id], (err, rows) => {
+  
+  const params = [req.params.id, req.params.id, req.params.id];
+  if (role === 'employee') params.push(user_id);
+
+  db.query(sql, params, (err, rows) => {
     if (err) return res.status(500).json(err);
     const seen = new Set();
     res.json(rows.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; }));
@@ -44,7 +53,8 @@ router.get("/version-history/:id", (req, res) => {
 });
 
 /* GET PERFORMA INVOICE BY ID */
-router.get("/:id", (req, res) => {
+router.get("/:id", verifyToken, (req, res) => {
+  const { id: user_id, role } = req.user;
   const id = req.params.id;
   const sql = `
     SELECT 
@@ -67,8 +77,12 @@ router.get("/:id", (req, res) => {
     JOIN performainvoice_items pi ON pi.invoice_id = p.id
     LEFT JOIN pi_from_addresses fa ON fa.id = p.from_address_id
     WHERE p.id = ?
+    ${role === 'employee' ? 'AND p.created_by = ?' : ''}
   `;
-  db.query(sql, [id], (err, rows) => {
+  const params = [req.params.id];
+  if (role === 'employee') params.push(user_id);
+
+  db.query(sql, params, (err, rows) => {
     if (err) return res.status(500).json(err);
     if (!rows.length) return res.status(404).json([]);
     res.json(rows);
@@ -115,7 +129,7 @@ const validateInvoice = ({ customer, performaInvoice, items }) => {
   return null;
 };
 
-router.post("/create", (req, res) => {
+router.post("/create", verifyToken, (req, res) => {
   const error = validateInvoice(req.body);
   if (error) return res.status(400).json({ message: error });
 
@@ -145,8 +159,8 @@ router.post("/create", (req, res) => {
             exec_name, exec_phone, exec_email,
             terms_general, terms_tax, terms_project_period, terms_validity, terms_separate_orders,
             terms_payment, terms_payment_custom, terms_warranty, hsn_sac_code, supplier_branch,
-            bank_details_id, bank_company, bank_name, bank_account, bank_ifsc, bank_branch, custom_terms)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            bank_details_id, bank_company, bank_name, bank_account, bank_ifsc, bank_branch, custom_terms, created_by)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
           [
             customerId, performaInvoice.invoice_date,
             performaInvoice.total_cgst || 0, performaInvoice.total_sgst || 0, performaInvoice.total_igst || 0, performaInvoice.subtotal || 0,
@@ -161,6 +175,7 @@ router.post("/create", (req, res) => {
             ex.terms_payment || null, ex.terms_payment_custom || null, ex.terms_warranty || null,
             ex.hsn_sac_code || null, ex.supplier_branch || null,
             ex.bank_details_id || null, ex.bank_company || null, ex.bank_name || null, ex.bank_account || null, ex.bank_ifsc || null, ex.bank_branch || null, ex.custom_terms || null,
+            req.user.id
           ],
           (err, result) => {
             if (err) return db.rollback(() => res.status(500).json(err));
@@ -192,7 +207,7 @@ router.post("/create", (req, res) => {
 });
 
 // Update — creates a NEW version, preserving history
-router.put("/:id", (req, res) => {
+router.put("/:id", verifyToken, (req, res) => {
   const error = validateInvoice(req.body);
   if (error) return res.status(400).json({ message: error });
 
@@ -212,8 +227,12 @@ router.put("/:id", (req, res) => {
         if (err) return db.rollback(() => res.status(500).json(err));
 
         // Get current record info
-        db.query(`SELECT customer_id, parent_id, version, reference_no FROM performainvoices WHERE id=?`, [id], (err, rows) => {
+        db.query(`SELECT customer_id, parent_id, version, reference_no, created_by FROM performainvoices WHERE id=?`, [id], (err, rows) => {
           if (err || !rows.length) return db.rollback(() => res.status(500).json(err || { message: "Not found" }));
+          
+          if (req.user.role === 'employee' && rows[0].created_by !== req.user.id) {
+            return db.rollback(() => res.status(403).json({ message: "Access denied" }));
+          }
 
           const current = rows[0];
           const rootId = current.parent_id || id;
@@ -233,8 +252,8 @@ router.put("/:id", (req, res) => {
                 terms_general, terms_tax, terms_project_period, terms_validity, terms_separate_orders,
                 terms_payment, terms_payment_custom, terms_warranty,
                 hsn_sac_code, supplier_branch, bank_details_id, bank_company, bank_name, bank_account, bank_ifsc, bank_branch, custom_terms,
-                parent_id, version, is_latest)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                parent_id, version, is_latest, created_by)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
               [
                 current.customer_id, performaInvoice.invoice_date,
                 performaInvoice.total_cgst || 0, performaInvoice.total_sgst || 0, performaInvoice.total_igst || 0,
@@ -251,7 +270,7 @@ router.put("/:id", (req, res) => {
                 ex.terms_payment || null, ex.terms_payment_custom || null, ex.terms_warranty || null,
                 ex.hsn_sac_code || null, ex.supplier_branch || null,
                 ex.bank_details_id || null, ex.bank_company || null, ex.bank_name || null, ex.bank_account || null, ex.bank_ifsc || null, ex.bank_branch || null, ex.custom_terms || null,
-                rootId, newVersion, 1
+                rootId, newVersion, 1, current.created_by
               ],
               (err, result) => {
                 if (err) return db.rollback(() => res.status(500).json(err));
@@ -282,20 +301,30 @@ router.put("/:id", (req, res) => {
 });
 
 // DELETE
-router.delete("/:id", (req, res) => {
+router.delete("/:id", verifyToken, (req, res) => {
   const { id } = req.params;
+  const { id: user_id, role } = req.user;
+
   db.beginTransaction(err => {
     if (err) return res.status(500).json({ error: "Transaction failed" });
 
-    db.query("DELETE FROM performainvoice_items WHERE invoice_id = ?", [id], err => {
-      if (err) return db.rollback(() => res.status(500).json({ error: "Item delete failed" }));
+    // Check ownership
+    db.query("SELECT created_by FROM performainvoices WHERE id = ?", [id], (err, rows) => {
+      if (err || !rows.length) return db.rollback(() => res.status(404).json({ message: "Not found" }));
+      if (role === 'employee' && rows[0].created_by !== user_id) {
+        return db.rollback(() => res.status(403).json({ message: "Access denied" }));
+      }
 
-      db.query("DELETE FROM performainvoices WHERE id = ?", [id], err => {
-        if (err) return db.rollback(() => res.status(500).json({ error: "Delete failed" }));
+      db.query("DELETE FROM performainvoice_items WHERE invoice_id = ?", [id], err => {
+        if (err) return db.rollback(() => res.status(500).json({ error: "Item delete failed" }));
 
-        db.commit(err => {
-          if (err) return db.rollback(() => res.status(500).json({ error: "Commit failed" }));
-          res.json({ message: "Deleted successfully" });
+        db.query("DELETE FROM performainvoices WHERE id = ?", [id], err => {
+          if (err) return db.rollback(() => res.status(500).json({ error: "Delete failed" }));
+
+          db.commit(err => {
+            if (err) return db.rollback(() => res.status(500).json({ error: "Commit failed" }));
+            res.json({ message: "Deleted successfully" });
+          });
         });
       });
     });
@@ -307,14 +336,23 @@ const nodemailer = require("nodemailer");
 const { generateInvoicePdf } = require("../backendutil/generateInvoicePdf");
 
 // Download PDF directly
-router.get("/download-pdf/:id", async (req, res) => {
+router.get("/download-pdf/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
+  const { id: user_id, role } = req.user;
+
   const headerSql = `SELECT p.*, c.email, c.customer_name, c.mobile_number, c.location_city, c.gst_number,
     COALESCE(p.from_address_custom, fa.address) AS resolved_from_address
     FROM performainvoices p JOIN customers c ON p.customer_id = c.id
-    LEFT JOIN pi_from_addresses fa ON fa.id = p.from_address_id WHERE p.id = ?`;
+    LEFT JOIN pi_from_addresses fa ON fa.id = p.from_address_id 
+    WHERE p.id = ?
+    ${role === 'employee' ? 'AND p.created_by = ?' : ''}`;
+  
+  const params = [id];
+  if (role === 'employee') params.push(user_id);
+
   const itemsSql = `SELECT product_number, description, brand_model, hsn_sac, uom, price, quantity, tax, discount, subtotal FROM performainvoice_items WHERE invoice_id = ? ORDER BY product_number`;
-  db.query(headerSql, [id], (err, headerRows) => {
+  
+  db.query(headerSql, params, (err, headerRows) => {
     if (err || !headerRows.length) return res.status(404).json({ message: "Not found" });
     db.query(itemsSql, [id], async (err, items) => {
       if (err) return res.status(500).json(err);
@@ -330,8 +368,9 @@ router.get("/download-pdf/:id", async (req, res) => {
   });
 });
 
-router.post("/send-email/:id", (req, res) => {
+router.post("/send-email/:id", verifyToken, (req, res) => {
   const { id } = req.params;
+  const { id: user_id, role } = req.user;
   const { to, subject } = req.body;
 
   const headerSql = `
@@ -340,13 +379,17 @@ router.post("/send-email/:id", (req, res) => {
     FROM performainvoices p
     JOIN customers c ON p.customer_id = c.id
     LEFT JOIN pi_from_addresses fa ON fa.id = p.from_address_id
-    WHERE p.id = ?`;
+    WHERE p.id = ?
+    ${role === 'employee' ? 'AND p.created_by = ?' : ''}`;
+
+  const params = [id];
+  if (role === 'employee') params.push(user_id);
 
   const itemsSql = `
     SELECT product_number, description, brand_model, hsn_sac, uom, price, quantity, tax, discount, subtotal
     FROM performainvoice_items WHERE invoice_id = ? ORDER BY product_number`;
 
-  db.query(headerSql, [id], (err, headerRows) => {
+  db.query(headerSql, params, (err, headerRows) => {
     if (err) return res.status(500).json(err);
     if (!headerRows.length) return res.status(404).json({ message: "Performa Invoice not found" });
 

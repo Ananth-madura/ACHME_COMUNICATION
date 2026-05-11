@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { CheckCircle, XCircle, Clock, User, Edit, Lock } from "lucide-react";
+import { API } from "../config/api";
 
 const AdminNotifications = () => {
   const [notifications, setNotifications] = useState([]);
@@ -9,7 +10,7 @@ const AdminNotifications = () => {
 
   const fetchNotifications = async () => {
     try {
-      const res = await axios.get("http://localhost:3000/api/auth/notifications");
+      const res = await axios.get(`${API}/api/auth/notifications`);
       setNotifications(res.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -17,7 +18,7 @@ const AdminNotifications = () => {
 
   const fetchChangeRequests = async () => {
     try {
-      const res = await axios.get("http://localhost:3000/api/auth/profile-change-requests");
+      const res = await axios.get(`${API}/api/auth/profile-change-requests`);
       setChangeRequests(res.data);
     } catch (err) { console.error(err); }
   };
@@ -27,8 +28,8 @@ const AdminNotifications = () => {
   const handleAction = async (userId, action, notifId) => {
     if (!userId) { alert("User ID missing — cannot perform action"); return; }
     try {
-      await axios.put(`http://localhost:3000/api/auth/approve/${userId}`, { action });
-      await axios.put(`http://localhost:3000/api/auth/notifications/${notifId}/read`);
+      await axios.put(`${API}/api/auth/approve/${userId}`, { action });
+      await axios.put(`${API}/api/auth/notifications/${notifId}/read`);
       window.dispatchEvent(new Event("refresh-pending-count"));
       fetchNotifications();
     } catch (err) {
@@ -39,7 +40,7 @@ const AdminNotifications = () => {
 
   const handleProfileChange = async (requestId, action) => {
     try {
-      await axios.put(`http://localhost:3000/api/auth/handle-change-request/${requestId}`, { action });
+      await axios.put(`${API}/api/auth/handle-change-request/${requestId}`, { action });
       window.dispatchEvent(new Event("refresh-pending-count"));
       fetchChangeRequests();
     } catch (err) {
@@ -138,10 +139,16 @@ const AdminNotifications = () => {
                     <User size={18} className={n.status === "active" ? "text-green-600" : n.status === "rejected" ? "text-red-600" : "text-orange-600"} />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-800">{n.first_name} <span className="text-gray-400 font-normal text-sm">({n.email})</span></p>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Requested role: <span className="font-semibold text-gray-700 capitalize">{n.role}</span>
+                    <p className="font-semibold text-gray-800">
+                      {n.first_name || n.type?.replaceAll("_", " ") || "Notification"}
+                      {n.email && <span className="text-gray-400 font-normal text-sm"> ({n.email})</span>}
                     </p>
+                    {n.message && <p className="text-sm text-gray-600 mt-0.5">{n.message}</p>}
+                    {n.role && (
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        Requested role: <span className="font-semibold text-gray-700 capitalize">{n.role}</span>
+                      </p>
+                    )}
                     <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                       <Clock size={11} /> {formatDate(n.created_at)}
                     </p>

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
+const { verifyToken } = require("../middileware/authMiddleware");
 
 const getNotificationIO = () => {
   try {
@@ -12,32 +13,40 @@ const getNotificationIO = () => {
 };
 
 /* AUTO CREATE CLIENT IF CONVERTED */
-const syncClient = (data) => {
-  const { customer_name, mobile_number, location_city, purpose, email, field_outcome } = data;
+const syncClient = (data, userId) => {
+  const { customer_name, mobile_number, location_city, purpose, email, field_outcome, gst_number } = data;
 
   if (field_outcome === "Converted") {
     db.query("SELECT id FROM clients WHERE phone = ?", [mobile_number], (err, result) => {
-      if (err) return;
+      if (err) {
+        console.error("Error checking client existence:", err);
+        return;
+      }
+      
       if (result.length === 0) {
         db.query(
-          "INSERT INTO clients (name, phone, address, service, email) VALUES (?, ?, ?, ?, ?)",
-          [customer_name, mobile_number, location_city, purpose, email]
+          "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [customer_name, mobile_number, location_city, purpose, email, gst_number || "", userId],
+          (insertErr) => {
+            if (insertErr) console.error("Client conversion (field insert) failed:", insertErr);
+          }
         );
       } else {
         db.query(
-          "UPDATE clients SET name=?, address=?, service=?, email=? WHERE phone=?",
-          [customer_name, location_city, purpose, email, mobile_number]
+          "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, created_by=? WHERE phone=?",
+          [customer_name, location_city, purpose, email, gst_number || "", userId, mobile_number],
+          (updateErr) => {
+            if (updateErr) console.error("Client conversion (field update) failed:", updateErr);
+          }
         );
       }
     });
-  } else {
-    db.query("DELETE FROM clients WHERE phone = ?", [mobile_number]);
   }
 };
 
 /* CREATE FIELD */
-router.post("/new", (req, res) => {
-  const data = req.body;
+router.post("/new", verifyToken, (req, res) => {
+  const data = { ...req.body, created_by: req.user.id };
 
   if (!data.customer_name || !data.visit_date) {
     return res.status(400).json({ message: "Customer name & visit date required" });
@@ -45,7 +54,7 @@ router.post("/new", (req, res) => {
 
   db.query("INSERT INTO fields SET ?", data, (err, result) => {
     if (err) { console.error(err); return res.status(500).json({ message: "Insert failed" }); }
-    syncClient(data);
+    syncClient(data, req.user.id);
     const newId = result.insertId;
 
     // Notify when lead is converted
@@ -89,16 +98,24 @@ router.post("/new", (req, res) => {
 });
 
 /* UPDATE FIELD */
-router.put("/:id", (req, res) => {
+router.put("/:id", verifyToken, (req, res) => {
   const data = req.body;
 
-  db.query(
-    `UPDATE fields SET ? WHERE id=?`,
-    [data, req.params.id],
-    (err, result) => {
-      if (err) return res.status(500).json({ message: err.sqlMessage });
-      if (result.affectedRows === 0) return res.status(404).json({ message: "Field not found" });
-      syncClient(data);
+  // Check ownership
+  db.query("SELECT created_by FROM fields WHERE id = ?", [req.params.id], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (results.length === 0) return res.status(404).json({ message: "Not found" });
+    
+    if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    db.query(
+      `UPDATE fields SET ? WHERE id=?`,
+      [data, req.params.id],
+      (err, result) => {
+        if (err) return res.status(500).json({ message: err.sqlMessage });
+        syncClient(data, results[0].created_by || req.user.id);
       const id = req.params.id;
 
       // Notify when lead is converted on update
@@ -138,15 +155,21 @@ router.put("/:id", (req, res) => {
 });
 
 /* GET ALL */
-router.get("/", (req, res) => {
-  const { user_id, role, user_name } = req.query;
-  let sql = "SELECT * FROM fields";
+router.get("/", verifyToken, (req, res) => {
+  const { id: user_id, role, first_name: user_name } = req.user;
+  let sql = `
+    SELECT f.*, u.first_name as creator_name 
+    FROM fields f
+    LEFT JOIN users u ON f.created_by = u.id
+  `;
   const params = [];
-  if ((role === "user" || role === "employee") && user_name) {
-    sql += " WHERE staff_name LIKE ? OR assigned_to = ?";
-    params.push(`%${user_name}%`, user_id || 0);
+  
+  if (role === "employee") {
+    sql += " WHERE f.created_by = ? OR f.staff_name LIKE ? OR f.assigned_to = ?";
+    params.push(user_id, `%${user_name}%`, user_id);
   }
-  sql += " ORDER BY id DESC";
+  
+  sql += " ORDER BY f.id DESC";
   db.query(sql, params, (err, results) => {
     if (err) return res.status(500).json({ message: "Fetch failed" });
     res.json(results);
@@ -154,10 +177,20 @@ router.get("/", (req, res) => {
 });
 
 /* DELETE */
-router.delete("/:id", (req, res) => {
-  db.query("DELETE FROM fields WHERE id = ?", [req.params.id], (err) => {
-    if (err) return res.status(500).json({ message: "Delete failed" });
-    res.json({ message: "Field deleted" });
+router.delete("/:id", verifyToken, (req, res) => {
+  // Check ownership
+  db.query("SELECT created_by FROM fields WHERE id = ?", [req.params.id], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (results.length === 0) return res.status(404).json({ message: "Not found" });
+    
+    if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    db.query("DELETE FROM fields WHERE id = ?", [req.params.id], (err) => {
+      if (err) return res.status(500).json({ message: "Delete failed" });
+      res.json({ message: "Field deleted" });
+    });
   });
 });
 

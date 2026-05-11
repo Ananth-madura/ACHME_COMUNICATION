@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
+import { API } from "../config/api";
 import "../Styles/tailwind.css";
 
 const FollowupList = () => {
@@ -10,7 +11,7 @@ const FollowupList = () => {
 
   useEffect(() => {
     axios
-      .get(`http://localhost:3000/api/followups?type=${type}`)
+      .get(`${API}/api/followups?type=${type}`)
       .then(res => setFollowups(res.data))
       .catch(console.error);
   }, [type]);

@@ -20,6 +20,7 @@ import "../Styles/tailwind.css";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { API } from "../config/api";
 
 const Topbar = ({ onHamburgerClick, showSearch, onSearch, reminderData, reminderNotes, escalationCount = 0, escalations = [] }) => {
   const [openProfile, setOpenProfile] = useState(false);
@@ -34,6 +35,9 @@ const Topbar = ({ onHamburgerClick, showSearch, onSearch, reminderData, reminder
   const settingsRef = useRef(null);
   const reminderRef = useRef(null);
   const starRef = useRef(null);
+  const profileRef = useRef(null);
+  const { logout, user } = useAuth();
+  const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState("");
 
   const changeTheme = (theme) => {
@@ -46,10 +50,10 @@ const Topbar = ({ onHamburgerClick, showSearch, onSearch, reminderData, reminder
 
   useEffect(() => {
     axios
-      .get("http://localhost:3000/api/task/notifications")
+      .get(`${API}/api/task/notifications`, { params: user?.id ? { user_id: user.id } : {} })
       .then(res => setNotifications(res.data))
       .catch(console.error);
-  }, []);
+  }, [user?.id]);
 
   const unreadCount = notifications.filter(n => n.is_read === 0).length;
 
@@ -67,15 +71,11 @@ const Topbar = ({ onHamburgerClick, showSearch, onSearch, reminderData, reminder
 
   const handleNotificationClick = async (notification) => {
     await axios.put(
-      `http://localhost:3000/api/task/notifications/${notification.id}/read`
+      `${API}/api/task/notifications/${notification.id}/read`
     );
     setOpenBell(false);
     navigate(`/dashboard/task?taskId=${notification.task_id}`);
   };
-
-  const profileRef = useRef(null);
-  const { logout, user } = useAuth();
-  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();

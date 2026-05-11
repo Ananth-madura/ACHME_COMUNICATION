@@ -1,15 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
+const { verifyToken } = require("../middileware/authMiddleware");
 
 // FROM ADDRESSES (shared table)
-router.get("/from-addresses", (req, res) => {
+router.get("/from-addresses", verifyToken, (req, res) => {
   db.query("SELECT * FROM pi_from_addresses ORDER BY id ASC", (err, rows) => {
     if (err) return res.status(500).json(err);
     res.json(rows);
   });
 });
-router.post("/from-addresses", (req, res) => {
+router.post("/from-addresses", verifyToken, (req, res) => {
   const { label, address } = req.body;
   if (!label || !address) return res.status(400).json({ message: "Label and address required" });
   db.query("INSERT INTO pi_from_addresses (label, address) VALUES (?,?)", [label, address], (err, result) => {
@@ -17,15 +18,16 @@ router.post("/from-addresses", (req, res) => {
     res.json({ id: result.insertId, label, address });
   });
 });
-router.delete("/from-addresses/:id", (req, res) => {
+router.delete("/from-addresses/:id", verifyToken, (req, res) => {
   db.query("DELETE FROM pi_from_addresses WHERE id=?", [req.params.id], (err) => {
     if (err) return res.status(500).json(err);
     res.json({ message: "Deleted" });
   });
 });
 
-router.get("/", (req, res) => {
-  const sql = `
+router.get("/", verifyToken, (req, res) => {
+  const { id: user_id, role } = req.user;
+  let sql = `
     SELECT q.id, q.quotation_date AS invoice_date, q.grand_total, q.reference_no,
            q.version, q.is_latest, q.parent_id,
            c.customer_name, c.mobile_number, c.email,
@@ -34,17 +36,25 @@ router.get("/", (req, res) => {
     FROM quotations q
     JOIN customers c ON c.id = q.customer_id
     LEFT JOIN quotation_items qi ON qi.quotation_id = q.id
-    WHERE q.is_latest = 1
-    GROUP BY q.id ORDER BY q.id DESC`;
-  db.query(sql, (err, rows) => {
+    WHERE q.is_latest = 1`;
+  
+  const params = [];
+  if (role === "employee") {
+    sql += " AND q.created_by = ?";
+    params.push(user_id);
+  }
+
+  sql += " GROUP BY q.id ORDER BY q.id DESC";
+  db.query(sql, params, (err, rows) => {
     if (err) { console.error(err); return res.status(500).json(err); }
     res.json(rows);
   });
 });
 
 // GET all OLD versions of a quotation (history — excludes the current latest)
-router.get("/customer-history/:id", (req, res) => {
-  const sql = `
+router.get("/customer-history/:id", verifyToken, (req, res) => {
+  const { id: user_id, role } = req.user;
+  let sql = `
     SELECT q.id, q.quotation_date AS invoice_date, q.grand_total, q.reference_no,
            q.version, q.is_latest, q.parent_id,
            c.customer_name, c.mobile_number, c.email,
@@ -56,9 +66,16 @@ router.get("/customer-history/:id", (req, res) => {
         q.parent_id = ?
         OR q.id = (SELECT parent_id FROM quotations WHERE id = ?)
         OR q.parent_id = (SELECT parent_id FROM quotations WHERE id = ? AND parent_id IS NOT NULL)
-      )
-    ORDER BY q.version DESC, q.id DESC`;
-  db.query(sql, [req.params.id, req.params.id, req.params.id], (err, rows) => {
+      )`;
+  
+  const params = [req.params.id, req.params.id, req.params.id];
+  if (role === "employee") {
+    sql += " AND q.created_by = ?";
+    params.push(user_id);
+  }
+
+  sql += " ORDER BY q.version DESC, q.id DESC";
+  db.query(sql, params, (err, rows) => {
     if (err) return res.status(500).json(err);
     const seen = new Set();
     const unique = rows.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
@@ -69,9 +86,10 @@ router.get("/customer-history/:id", (req, res) => {
 
 
 /* GET INVOICE */
-router.get("/:id", (req, res) => {
+router.get("/:id", verifyToken, (req, res) => {
   const id = req.params.id;
-  const sql = `
+  const { id: user_id, role } = req.user;
+  let sql = `
     SELECT 
       q.id AS quotation_id,
       q.quotation_date AS invoice_date,
@@ -95,7 +113,14 @@ router.get("/:id", (req, res) => {
     LEFT JOIN pi_from_addresses fa ON fa.id = q.from_address_id
     WHERE q.id = ?
   `;
-  db.query(sql, [id], (err, rows) => {
+  
+  if (role === "employee") {
+    sql += " AND q.created_by = ?";
+  }
+
+  const params = role === "employee" ? [id, user_id] : [id];
+
+  db.query(sql, params, (err, rows) => {
     if (err) return res.status(500).json(err);
     if (!rows.length) return res.status(404).json([]);
     res.json(rows);
@@ -125,7 +150,7 @@ const validateQuotation = (body) => {
 };
 
 
-router.post("/create", (req, res) => {
+router.post("/create", verifyToken, (req, res) => {
   const error = validateQuotation(req.body);
   if (error) return res.status(400).json({ message: error });
 
@@ -192,8 +217,8 @@ router.post("/create", (req, res) => {
             tax_type, custom_tax, exec_name, exec_phone, exec_email,
             terms_general, terms_tax, terms_project_period, terms_validity, terms_separate_orders,
             terms_payment, terms_payment_custom, terms_warranty, hsn_sac_code, supplier_branch,
-            bank_details_id, bank_company, bank_name, bank_account, bank_ifsc, bank_branch, custom_terms)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            bank_details_id, bank_company, bank_name, bank_account, bank_ifsc, bank_branch, custom_terms, created_by)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
           [
             customerId, quotationDate,
             q.total_cgst || 0, q.total_sgst || 0, q.total_igst || 0, q.subtotal || 0,
@@ -208,6 +233,7 @@ router.post("/create", (req, res) => {
             ex.terms_payment || null, ex.terms_payment_custom || null, ex.terms_warranty || null,
             ex.hsn_sac_code || null, ex.supplier_branch || null,
             ex.bank_details_id || null, ex.bank_company || null, ex.bank_name || null, ex.bank_account || null, ex.bank_ifsc || null, ex.bank_branch || null, ex.custom_terms || null,
+            req.user.id
           ],
           (err, quotationResult) => {
             if (err) return db.rollback(() => res.status(500).json(err));
@@ -252,7 +278,7 @@ router.post("/create", (req, res) => {
 });
 
 // Update — creates a NEW version instead of overwriting, preserving history
-router.put("/:id", (req, res) => {
+router.put("/:id", verifyToken, (req, res) => {
   const error = validateQuotation(req.body);
   if (error) return res.status(400).json({ message: error });
 
@@ -302,7 +328,7 @@ router.put("/:id", (req, res) => {
                   terms_payment, terms_payment_custom, terms_warranty,
                   hsn_sac_code, supplier_branch,
                   bank_details_id, bank_company, bank_name, bank_account, bank_ifsc, bank_branch, custom_terms,
-                  parent_id, version, is_latest)
+                  parent_id, version, is_latest, created_by)
                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
                 [
                   current.customer_id, quotationDate,
@@ -318,7 +344,7 @@ router.put("/:id", (req, res) => {
                   ex.terms_payment || null, ex.terms_payment_custom || null, ex.terms_warranty || null,
                   ex.hsn_sac_code || null, ex.supplier_branch || null,
                   ex.bank_details_id || null, ex.bank_company || null, ex.bank_name || null, ex.bank_account || null, ex.bank_ifsc || null, ex.bank_branch || null, ex.custom_terms || null,
-                  rootId, newVersion, 1
+                  rootId, newVersion, 1, req.user.id
                 ],
                 (err, result) => {
                   if (err) return db.rollback(() => res.status(500).json(err));
@@ -353,7 +379,7 @@ router.put("/:id", (req, res) => {
 
 
 /// DELETE QUOTATION (SAFE)
-router.delete("/:id", (req, res) => {
+router.delete("/:id", verifyToken, (req, res) => {
   const { id } = req.params;
 
   db.beginTransaction(err => {
@@ -362,7 +388,16 @@ router.delete("/:id", (req, res) => {
       return res.status(500).json({ error: "Transaction failed" });
     }
 
-    // delete items first
+    // Check ownership
+    db.query("SELECT created_by FROM quotations WHERE id = ?", [id], (err, results) => {
+      if (err) return db.rollback(() => res.status(500).json(err));
+      if (results.length === 0) return db.rollback(() => res.status(404).json({ message: "Not found" }));
+      
+      if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) {
+        return db.rollback(() => res.status(403).json({ message: "Access denied" }));
+      }
+
+      // delete items first
     db.query(
       "DELETE FROM quotation_items WHERE quotation_id = ?",
       [id],

@@ -22,7 +22,10 @@ const Targets = () => {
 
   const fetchTeamMembers = async () => {
     try {
-      const res = await axios.get(`${API}/api/teammember/list`);
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API}/api/teammember`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setTeamMembers(res.data);
     } catch (err) {
       console.error("Fetch team members error:", err);
@@ -211,13 +214,13 @@ const Targets = () => {
                       name="user_name"
                       value={form.user_name}
                       onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1 bg-white"
+                      className="border rounded-md px-3 py-2 outline-none bg-white w-full text-sm"
                       required
                     >
-                      <option value="">-- Select User --</option>
+                      <option value="">-- Select Staff --</option>
                       {teamMembers.map(t => (
                         <option key={t.id} value={`${t.first_name} ${t.last_name || ""}`.trim()}>
-                          {t.first_name} {t.last_name || ""} - {t.job_title || "Staff"}
+                          {t.first_name} {t.last_name || ""} {t.job_title ? `(${t.job_title})` : ""}
                         </option>
                       ))}
                     </select>

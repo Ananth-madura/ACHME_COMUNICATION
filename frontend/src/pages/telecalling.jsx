@@ -1,9 +1,11 @@
+// Updated for RBAC and Creator Attribution
 import React,{useState,useEffect} from "react";
 import "../Styles/tailwind.css";
 import { Search, Plus, ChevronDown, X, Trash2, Edit, FileText, History, Bell, Clock } from "lucide-react";
 import axios from "axios";
 import {getToday} from "../utils/leadutil";
 import { useAuth } from "../auth/AuthContext";
+import { API } from "../config";
 
 
 const Telecall = () =>{
@@ -98,24 +100,18 @@ const formatReminderDate = (dateStr) => {
  
   // Fetch all data
 
-const fetchTelecalls = async () => {
-    const params = isAdmin ? {} : { user_id: user?.id, role: "user", user_name: user?.name };
-    const res = await axios.get("http://localhost:3000/api/Telecalls", { params });
-    // For non-admin users, ensure we only show their data
-    if (!isAdmin && user?.name) {
-      const filtered = res.data.filter(t => 
-        (t.staff_name && t.staff_name.toLowerCase().includes(user.name.toLowerCase())) ||
-        (t.created_by && t.created_by.toLowerCase().includes(user.name.toLowerCase()))
-      );
-      setTelecall(filtered);
-    } else {
+  const fetchTelecalls = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await axios.get(`${API}/api/Telecalls`, config);
       setTelecall(res.data);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const fetchMissedCounts = async () => {
     try {
-      const res = await axios.get("http://localhost:3000/api/leads/missed-counts/telecall");
+      const res = await axios.get(`${API}/api/leads/missed-counts/telecall`);
       const map = {};
       res.data.forEach(r => { map[r.lead_id] = r.missed_count; });
       setMissedCounts(map);
@@ -125,15 +121,15 @@ const fetchTelecalls = async () => {
   useEffect(() => {
     fetchTelecalls();
     fetchMissedCounts();
-    axios.get("http://localhost:3000/api/teammember").then(r => setTeamMembers(r.data)).catch(() => {});
+    axios.get(`${API}/api/teammember`).then(r => setTeamMembers(r.data)).catch(() => {});
   }, []);
 
   const openHistory = async (lead) => {
     setHistoryLead(lead);
     try {
       const [actRes, remRes] = await Promise.all([
-        axios.get(`http://localhost:3000/api/leads/activity/telecall/${lead.id}`),
-        axios.get(`http://localhost:3000/api/leads/reminders/telecall/${lead.id}`),
+        axios.get(`${API}/api/leads/activity/telecall/${lead.id}`),
+        axios.get(`${API}/api/leads/reminders/telecall/${lead.id}`),
       ]);
       setHistoryActivity(actRes.data);
       setHistoryReminders(remRes.data);
@@ -147,8 +143,8 @@ const fetchTelecalls = async () => {
     setNewReminderDate(""); setNewReminderTime(""); setNewReminderNote("");
     try {
       // Check for missed reminders before showing panel so status is always current
-      await axios.post("http://localhost:3000/api/leads/check-missed").catch(() => {});
-      const res = await axios.get(`http://localhost:3000/api/leads/reminders/telecall/${lead.id}`);
+      await axios.post(`${API}/api/leads/check-missed`).catch(() => {});
+      const res = await axios.get(`${API}/api/leads/reminders/telecall/${lead.id}`);
       setLeadReminders(res.data);
     } catch (_) { setLeadReminders([]); }
     setReminderOpen(true);
@@ -157,12 +153,12 @@ const fetchTelecalls = async () => {
   const saveReminder = async () => {
     if (!newReminderDate) return alert("Please select a date");
     try {
-      await axios.post("http://localhost:3000/api/leads/reminders", {
+      await axios.post(`${API}/api/leads/reminders`, {
         lead_id: reminderLeadId, lead_type: "telecall",
         reminder_date: newReminderDate, reminder_time: newReminderTime || null,
         reminder_notes: newReminderNote,
       });
-      const res = await axios.get(`http://localhost:3000/api/leads/reminders/telecall/${reminderLeadId}`);
+      const res = await axios.get(`${API}/api/leads/reminders/telecall/${reminderLeadId}`);
       setLeadReminders(res.data);
       fetchMissedCounts();
       setNewReminderDate(""); setNewReminderTime(""); setNewReminderNote("");
@@ -170,7 +166,7 @@ const fetchTelecalls = async () => {
   };
 
   const deleteReminder = async (id) => {
-    await axios.delete(`http://localhost:3000/api/leads/reminders/${id}`);
+    await axios.delete(`${API}/api/leads/reminders/${id}`);
     setLeadReminders(prev => prev.filter(r => r.id !== id));
     fetchMissedCounts();
   };
@@ -195,7 +191,7 @@ const saveTelecall = async (e) => {
 
   if (isEdit) {
     await axios.put(
-      `http://localhost:3000/api/Telecalls/${editId}`,
+      `${API}/api/Telecalls/${editId}`,
       payload );
     alert("Successfully Updated");
     // Clear follow-up and reminder fields after saving so next entry is fresh
@@ -210,7 +206,7 @@ const saveTelecall = async (e) => {
     }));
   } else {
     await axios.post(
-      "http://localhost:3000/api/Telecalls",
+      `${API}/api/Telecalls`,
       payload
     );
     alert("Successfully Created");
@@ -225,7 +221,7 @@ const saveTelecall = async (e) => {
 // Edit;
  const openEdit = async (id) => {
   try {
-    const res = await axios.get(`http://localhost:3000/api/Telecalls/${id}`);
+    const res = await axios.get(`${API}/api/Telecalls/${id}`);
     const data = res.data;
 
     setForm({
@@ -261,7 +257,7 @@ const saveTelecall = async (e) => {
 
  const deletefield = async (id) => {
   try {
-    await axios.delete(`http://localhost:3000/api/Telecalls/${id}`);
+    await axios.delete(`${API}/api/Telecalls/${id}`);
     fetchTelecalls();
       window.dispatchEvent(new Event("refresh-dashboard")); 
 
@@ -584,6 +580,7 @@ useEffect(() => {
          <th className="border px-4 py-3">Mobile Number</th>
          <th className="border px-4 py-3 w-[140px]">Call Date</th>
          <th className="border px-4 py-3">Staff</th>
+          <th className="border px-4 py-3">Created By</th>
          <th className="border px-4 py-3">Status</th>
          <th className="border px-4 py-3 w-[130px] text-center">Actions</th>
        </tr>
@@ -607,6 +604,13 @@ useEffect(() => {
            <td className="border px-4 py-2 whitespace-nowrap">{T.mobile_number}</td>
            <td className="border px-4 py-2">{formatDate(T.call_date)}</td>
            <td className="border px-4 py-2">{T.staff_name || "---"}</td>
+                         <td className="border px-4 py-2">
+               <div className="flex flex-col items-center">
+                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Added By</span>
+                 <span className="text-xs font-semibold text-blue-600">{T.creator_name || "Admin"}</span>
+               </div>
+             </td>
+
            <td className="border px-4 py-2">
              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${statusColors[T.call_outcome] || "bg-gray-100 text-gray-600"}`}>
                {T.call_outcome}
@@ -634,15 +638,8 @@ useEffect(() => {
                     }
                     if (!window.confirm(`Convert "${T.customer_name}" to Client?`)) return;
                     try {
-                      await axios.post("http://localhost:3000/api/client", {
-                        name: T.customer_name,
-                        phone: T.mobile_number,
-                        email: T.email || "",
-                        address: T.location_city || "",
-                        service: T.service_name || ""
-                      });
-                      // Update telecall status to "Converted"
-                      await axios.put(`http://localhost:3000/api/leads/telecall/${T.id}`, {
+                      // Update telecall status to "Converted" - Backend syncClient will handle client creation
+                      await axios.put(`${API}/api/leads/telecall/${T.id}`, {
                         ...T,
                         call_outcome: "Converted"
                       });
@@ -821,7 +818,7 @@ useEffect(() => {
                  <div className="flex items-center gap-2">
                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.status === "Missed" ? "bg-red-600 text-white" : r.status === "Done" ? "bg-green-600 text-white" : "bg-blue-600 text-white"}`}>{r.status}</span>
                    {r.status === "Pending" && (
-                     <button onClick={() => { axios.put(`http://localhost:3000/api/leads/reminders/${r.id}`, { status: "Done" }); setLeadReminders(prev => prev.map(x => x.id === r.id ? {...x, status: "Done"} : x)); }} className="text-xs bg-green-600 text-white px-2 py-0.5 rounded font-bold">Done</button>
+                     <button onClick={() => { axios.put(`${API}/api/leads/reminders/${r.id}`, { status: "Done" }); setLeadReminders(prev => prev.map(x => x.id === r.id ? {...x, status: "Done"} : x)); }} className="text-xs bg-green-600 text-white px-2 py-0.5 rounded font-bold">Done</button>
                    )}
                    <button onClick={() => deleteReminder(r.id)} className="text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
                  </div>

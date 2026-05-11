@@ -2,6 +2,7 @@ import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useState, createContext, useContext, useEffect } from "react";
 import axios from "axios";
+import { API } from "../config/api";
 
 import Topbar from "../components/navbar";
 import AdminSidebar from "../sidebars/adminsidebar";
@@ -23,8 +24,8 @@ export default function DashboardLayout() {
   useEffect(() => {
     const fetchEscalations = async () => {
       try {
-        await axios.post("http://localhost:3000/api/leads/check-missed");
-        const res = await axios.get("http://localhost:3000/api/leads/escalations");
+        await axios.post(`${API}/api/leads/check-missed`);
+        const res = await axios.get(`${API}/api/leads/escalations`);
         setEscalations(res.data);
       } catch (_) {}
     };

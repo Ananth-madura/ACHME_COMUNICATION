@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { Plus, Search, Download, X, Edit2, MinusCircle, PlusCircle, Trash2, Mail, MapPin, ChevronDown, History } from "lucide-react";
 import { calculateItemTotal, calculateTotals } from "../utils/invoicecal";
 import axios from "axios";
+import { API } from "../config";
+
 import html2pdf from "html2pdf.js";
 import "../Styles/tailwind.css";
 import Invoice from "../components/invoicetemplate";
@@ -104,22 +106,22 @@ const EstimateInvoice = () => {
   }, []);
 
   const fetchEstimateInvoices = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/estimate-invoice"); setEstimateInvoices(res.data); }
+    try { const res = await axios.get(`${API}/api/estimate-invoice`); setEstimateInvoices(res.data); }
     catch (err) { console.error(err); }
   };
   const fetchQuotations = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/quotations"); setQuotations(res.data); }
+    try { const res = await axios.get(`${API}/api/quotations`); setQuotations(res.data); }
     catch (err) { console.error(err); }
   };
   const fetchFromAddresses = async () => {
-    try { const res = await axios.get("http://localhost:3000/api/estimate-invoice/from-addresses"); setFromAddresses(res.data); }
+    try { const res = await axios.get(`${API}/api/estimate-invoice/from-addresses`); setFromAddresses(res.data); }
     catch (err) { console.error(err); }
   };
 
   const openHistory = async (e, invoiceId, customerName, parentId) => {
     e.stopPropagation();
     try {
-      const res = await axios.get(`http://localhost:3000/api/estimate-invoice/version-history/${invoiceId}`);
+      const res = await axios.get(`${API}/api/estimate-invoice/version-history/${invoiceId}`);
       setHistoryList(res.data);
       setHistoryCustomerName(customerName);
       setHistorySearch(""); setHistorySelectedId(null);
@@ -132,7 +134,7 @@ const EstimateInvoice = () => {
     e.stopPropagation();
     if (!window.confirm("Delete this version?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/estimate-invoice/${id}`);
+      await axios.delete(`${API}/api/estimate-invoice/${id}`);
       setHistoryList(prev => prev.filter(q => q.id !== id));
     } catch (err) { alert("Failed to delete"); }
   };
@@ -145,7 +147,7 @@ const EstimateInvoice = () => {
   const handleAddAddress = async () => {
     if (!newAddrLabel || !newAddrText) return alert("Label and address required");
     try {
-      const res = await axios.post("http://localhost:3000/api/estimate-invoice/from-addresses", { label: newAddrLabel, address: newAddrText });
+      const res = await axios.post(`${API}/api/estimate-invoice/from-addresses`, { label: newAddrLabel, address: newAddrText });
       setFromAddresses(prev => [...prev, res.data]);
       setNewAddrLabel(""); setNewAddrText(""); setShowAddAddress(false);
     } catch (err) { alert("Failed to add address"); }
@@ -154,7 +156,7 @@ const EstimateInvoice = () => {
   const handleDeleteAddress = async (id) => {
     if (!window.confirm("Remove this address?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/estimate-invoice/from-addresses/${id}`);
+      await axios.delete(`${API}/api/estimate-invoice/from-addresses/${id}`);
       setFromAddresses(prev => prev.filter(a => a.id !== id));
       if (extra.from_address_id === id) setExtra(e => ({ ...e, from_address_id: "" }));
     } catch (err) { alert("Failed to delete address"); }
@@ -163,7 +165,7 @@ const EstimateInvoice = () => {
   const handleSelectProposal = async (proposalId) => {
     if (!proposalId) return;
     try {
-      const res = await axios.get(`http://localhost:3000/api/quotations/${proposalId}`);
+      const res = await axios.get(`${API}/api/quotations/${proposalId}`);
       const rows = res.data;
       if (rows.length > 0) {
         const h = rows[0];
@@ -191,7 +193,7 @@ const EstimateInvoice = () => {
   };
 
   const handleEdit = async (id) => {
-    const res = await axios.get(`http://localhost:3000/api/estimate-invoice/${id}`);
+    const res = await axios.get(`${API}/api/estimate-invoice/${id}`);
     const rows = res.data;
     const h = rows[0];
     setCustomer({ customer_name: h.customer_name, mobile_number: h.mobile_number, email: h.email, gst_number: h.gst_number || "", location_city: h.location_city });
@@ -278,10 +280,10 @@ const EstimateInvoice = () => {
         extra,
       };
       if (editId) {
-        await axios.put(`http://localhost:3000/api/estimate-invoice/${editId}`, payload);
+        await axios.put(`${API}/api/estimate-invoice/${editId}`, payload);
         alert("Updated successfully");
       } else {
-        await axios.post("http://localhost:3000/api/estimate-invoice/create", payload);
+        await axios.post(`${API}/api/estimate-invoice/create`, payload);
         alert("Created successfully");
       }
       setOpen(false); resetForm(); fetchEstimateInvoices();
@@ -320,7 +322,7 @@ const EstimateInvoice = () => {
     if (!selectedId) return alert("Select an item to delete");
     if (!window.confirm("Are you sure?")) return;
     try {
-      await axios.delete(`http://localhost:3000/api/estimate-invoice/${selectedId}`);
+      await axios.delete(`${API}/api/estimate-invoice/${selectedId}`);
       setSelectedId(null); fetchEstimateInvoices();
     } catch (error) { console.error(error); }
   };
@@ -337,7 +339,7 @@ const EstimateInvoice = () => {
     if (!mailTo) return alert("Please enter recipient email");
     setMailSending(true);
     try {
-      await axios.post(`http://localhost:3000/api/estimate-invoice/send-email/${selectedId}`, { to: mailTo, subject: mailSubject });
+      await axios.post(`${API}/api/estimate-invoice/send-email/${selectedId}`, { to: mailTo, subject: mailSubject });
       alert("Email sent successfully"); setMailOpen(false);
     } catch (error) { alert(error.response?.data?.message || "Failed to send email"); }
     finally { setMailSending(false); }
@@ -380,7 +382,7 @@ const EstimateInvoice = () => {
               const id = viewId || selectedId;
               if (!id) return alert("Select an invoice first");
               try {
-                const res = await fetch(`http://localhost:3000/api/estimate-invoice/download-pdf/${id}`);
+                const res = await fetch(`${API}/api/estimate-invoice/download-pdf/${id}`);
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a"); a.href = url;

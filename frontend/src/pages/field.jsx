@@ -4,6 +4,7 @@ import { Search, Plus, X, ChevronDown, Trash2, Edit, FileText, History, Bell, Cl
 import axios from "axios";
 import {getToday} from "../utils/leadutil";
 import { useAuth } from "../auth/AuthContext";
+import { API } from "../config";
 
 
 const Fields = () =>{
@@ -55,23 +56,17 @@ const Fields = () =>{
  const [leadReminders, setLeadReminders] = useState([]);
 
 const fetchFields = async () => {
-  const params = isAdmin ? {} : { user_id: user?.id, role: "user", user_name: user?.name };
-  const res = await axios.get("http://localhost:3000/api/fields", { params });
-  // For non-admin users, ensure we only show their data
-  if (!isAdmin && user?.name) {
-    const filtered = res.data.filter(f => 
-      (f.staff_name && f.staff_name.toLowerCase().includes(user.name.toLowerCase())) ||
-      (f.created_by && f.created_by.toLowerCase().includes(user.name.toLowerCase()))
-    );
-    setFields(filtered);
-  } else {
+  try {
+    const token = localStorage.getItem("token");
+    const config = { headers: { Authorization: `Bearer ${token}` } };
+    const res = await axios.get(`${API}/api/fields`, config);
     setFields(res.data);
-  }
+  } catch (err) { console.error(err); }
 };
 
 const fetchMissedCounts = async () => {
   try {
-    const res = await axios.get("http://localhost:3000/api/leads/missed-counts/field");
+    const res = await axios.get(`${API}/api/leads/missed-counts/field`);
     const map = {};
     res.data.forEach(r => { map[r.lead_id] = r.missed_count; });
     setMissedCounts(map);
@@ -92,8 +87,8 @@ const openHistory = async (lead) => {
   setHistoryLead(lead);
   try {
     const [actRes, remRes] = await Promise.all([
-      axios.get(`http://localhost:3000/api/leads/activity/field/${lead.id}`),
-      axios.get(`http://localhost:3000/api/leads/reminders/field/${lead.id}`),
+      axios.get(`${API}/api/leads/activity/field/${lead.id}`),
+      axios.get(`${API}/api/leads/reminders/field/${lead.id}`),
     ]);
     setHistoryActivity(actRes.data);
     setHistoryReminders(remRes.data);
@@ -105,8 +100,8 @@ const openReminderPanel = async (lead) => {
   setReminderLeadId(lead.id); setReminderLeadName(lead.customer_name);
   setNewReminderDate(""); setNewReminderTime(""); setNewReminderNote("");
   try {
-    await axios.post("http://localhost:3000/api/leads/check-missed").catch(() => {});
-    const res = await axios.get(`http://localhost:3000/api/leads/reminders/field/${lead.id}`);
+    await axios.post(`${API}/api/leads/check-missed`).catch(() => {});
+    const res = await axios.get(`${API}/api/leads/reminders/field/${lead.id}`);
     setLeadReminders(res.data);
   } catch (_) { setLeadReminders([]); }
   setReminderOpen(true);
@@ -115,18 +110,18 @@ const openReminderPanel = async (lead) => {
 const saveReminder = async () => {
   if (!newReminderDate) return alert("Please select a date");
   try {
-    await axios.post("http://localhost:3000/api/leads/reminders", {
+    await axios.post(`${API}/api/leads/reminders`, {
       lead_id: reminderLeadId, lead_type: "field",
       reminder_date: newReminderDate, reminder_time: newReminderTime || null, reminder_notes: newReminderNote,
     });
-    const res = await axios.get(`http://localhost:3000/api/leads/reminders/field/${reminderLeadId}`);
+    const res = await axios.get(`${API}/api/leads/reminders/field/${reminderLeadId}`);
     setLeadReminders(res.data); fetchMissedCounts();
     setNewReminderDate(""); setNewReminderTime(""); setNewReminderNote("");
   } catch (_) { alert("Failed to save reminder"); }
 };
 
 const deleteReminder = async (id) => {
-  await axios.delete(`http://localhost:3000/api/leads/reminders/${id}`);
+  await axios.delete(`${API}/api/leads/reminders/${id}`);
   setLeadReminders(prev => prev.filter(r => r.id !== id)); fetchMissedCounts();
 };
 
@@ -148,7 +143,7 @@ const handleSubmit = async (e) => {
   };
 
   if (isEdit) {
-    await axios.put(`http://localhost:3000/api/fields/${editId}`, payload);
+    await axios.put(`${API}/api/fields/${editId}`, payload);
     alert("Successfully Updated");
     setForm(prev => ({
       ...prev,
@@ -156,7 +151,7 @@ const handleSubmit = async (e) => {
       reminder_required: "Default", reminder_date: "", reminder_notes: "",
     }));
   } else {
-    await axios.post("http://localhost:3000/api/fields/new", payload);
+    await axios.post(`${API}/api/fields/new`, payload);
     alert("Successfully Created");
   }
 
@@ -178,7 +173,7 @@ const formatDate = (date) => {
 // Edit 
 const openEdit = async (id) => {
   try {
-    const res = await axios.get(`http://localhost:3000/api/fields/${id}`);
+    const res = await axios.get(`${API}/api/fields/${id}`);
     const data = res.data;
 
     setForm({
@@ -220,7 +215,7 @@ const openEdit = async (id) => {
     const deletefield = async (id) => {
   if(!window.confirm("Are you sure?")) return;
   try {
-    await axios.delete(`http://localhost:3000/api/fields/${id}`);
+    await axios.delete(`${API}/api/fields/${id}`);
     fetchFields();
   } catch (err) {
     alert("message Deleted", err)
@@ -441,6 +436,7 @@ useEffect(() => {
                     <th className="px-4 py-3 border">Mobile Number</th>
                     <th className="px-4 py-3 border">Visit Date</th>
                     <th className="px-4 py-3 border">Staff Name</th>
+                     <th className="px-4 py-3 border">Created By</th>
                     <th className="px-4 py-3 border">Status</th>
                     <th className="px-4 py-3 border w-[130px]">Actions</th>
                    </tr>
@@ -461,6 +457,13 @@ useEffect(() => {
                     <td className="px-4 py-3 border">{f.mobile_number}</td>
                     <td className="px-4 py-3 border">{formatDate(f.visit_date)}</td>
                     <td className="px-4 py-3 border">{f.staff_name || "---"}</td>
+                                          <td className="border px-4 py-3 border">
+                       <div className="flex flex-col items-center">
+                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Added By</span>
+                         <span className="text-xs font-semibold text-blue-600">{f.creator_name || "Admin"}</span>
+                       </div>
+                     </td>
+
                     <td className="px-4 py-3 border">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${statusColors[f.field_outcome] || "bg-gray-100 text-gray-600"}`}>{f.field_outcome}</span>
                     </td>
@@ -480,18 +483,12 @@ useEffect(() => {
                             }
                             if (!window.confirm(`Convert "${f.customer_name}" to Client?`)) return;
                             try {
-                              await axios.post("http://localhost:3000/api/client", {
-                                name: f.customer_name,
-                                phone: f.mobile_number,
-                                email: f.email || "",
-                                address: f.location_city || "",
-                                service: f.purpose || ""
-                              });
-                              await axios.put(`http://localhost:3000/api/leads/field/${f.id}`, {
+                              // Update field status to "Converted" - Backend syncClient will handle client creation
+                              await axios.put(`${API}/api/leads/field/${f.id}`, {
                                 ...f,
                                 field_outcome: "Converted"
                               });
-                              alert("Lead converted to Client!");
+                              alert("Lead converted to Client successfully!");
                               fetchFields();
                               window.dispatchEvent(new Event("refresh-dashboard"));
                             } catch (err) {
@@ -583,7 +580,8 @@ useEffect(() => {
                <div><div className="font-semibold">{formatReminderDate(r.reminder_date)}{r.reminder_time ? ` at ${r.reminder_time.slice(0,5)}` : ""}</div>{r.reminder_notes && <div className="text-gray-500 text-xs mt-0.5">{r.reminder_notes}</div>}</div>
                <div className="flex items-center gap-2">
                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.status === "Missed" ? "bg-red-600 text-white" : r.status === "Done" ? "bg-green-600 text-white" : "bg-blue-600 text-white"}`}>{r.status}</span>
-                 {r.status === "Pending" && <button onClick={() => { axios.put(`http://localhost:3000/api/leads/reminders/${r.id}`, {status:"Done"}); setLeadReminders(prev => prev.map(x => x.id===r.id ? {...x,status:"Done"} : x)); }} className="text-xs bg-green-600 text-white px-2 py-0.5 rounded font-bold">Done</button>}
+                                   {r.status === "Pending" && <button onClick={() => { axios.put(`${API}/api/leads/reminders/${r.id}`, {status:"Done"}); setLeadReminders(prev => prev.map(x => x.id===r.id ? {...x,status:"Done"} : x)); }} className="text-xs bg-green-600 text-white px-2 py-0.5 rounded font-bold">Done</button>}
+
                  <button onClick={() => deleteReminder(r.id)} className="text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
                </div>
              </div>
