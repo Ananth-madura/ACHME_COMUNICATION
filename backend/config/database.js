@@ -356,9 +356,8 @@ async function ensureTablesAndColumns() {
     { table: "tasks", column: "project_priority", oldEnum: "'Low','Normal','High','Urgent'", newEnum: "'Low','Normal','Medium','High','Urgent'" }
   ];
 
-  for (const { table, column, definition, expectedType } of columnChecks) {
-    await ensureColumnAsync(table, column, definition, expectedType);
-  }
+  // NOTE: Tables must be created BEFORE column checks run.
+  // columnChecks are run again after tableStatements below.
 
   for (const { table, column, oldEnum, newEnum } of enumFixes) {
     try {
