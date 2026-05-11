@@ -326,20 +326,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* User Filter */}
-      <div className="max-w-4xl mx-auto mb-6 flex items-center gap-4">
-        <label className="text-sm font-medium text-slate">Filter by User:</label>
-        <select
-          value={selectedUser}
-          onChange={(e) => setSelectedUser(e.target.value)}
-          className="input text-sm"
-        >
-          <option value="all">All Users</option>
-          {uniqueStaff.map((staff, idx) => (
-            <option key={idx} value={staff}>{staff}</option>
-          ))}
-        </select>
-      </div>
 
       {/* LEAD SUMMARY CARD */}
       <div className={`max-w-4xl mx-auto p-6 md:p-8 rounded-xl card transition-all ${highlight("lead-summary")} ${dimmed("lead-summary")}`}>
