@@ -133,10 +133,10 @@ router.get("/", verifyToken, (req, res) => {
 });
 
 router.post("/", verifyToken, isAdmin, (req, res) => {
-  const { project_name, staff_name, task_title, project_status, project_priority, client_name, created_date, due_date, assigned_to } = req.body;
+  const { project_name, staff_name, task_title, project_status, project_priority, client_name, created_date, due_date, assigned_to, assigned_teammember_id } = req.body;
   const finalStaffName = assigned_to || staff_name || "";
-  db.query(`INSERT INTO tasks (project_name, task_title, project_status, project_priority, staff_name, client_name, created_date, due_date, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [project_name, task_title, project_status, project_priority, finalStaffName, client_name, created_date, due_date, assigned_to || null, req.user.id],
+  db.query(`INSERT INTO tasks (project_name, task_title, project_status, project_priority, staff_name, client_name, created_date, due_date, assigned_to, assigned_teammember_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [project_name, task_title, project_status, project_priority, finalStaffName, client_name, created_date, due_date, assigned_to || null, assigned_teammember_id || null, req.user.id],
     (err, result) => {
       if (err) { console.error("Task create error:", err); return res.status(500).json({ message: err.message }); }
       const taskId = result.insertId;
@@ -198,6 +198,21 @@ router.delete("/:id", verifyToken, isAdmin, (req, res) => {
 router.get("/dashboard/tasks", (req, res) => {
   db.query("SELECT id, task_title, project_status, project_priority, created_date FROM tasks ORDER BY created_date DESC LIMIT 5",
     (err, rows) => { if (err) return res.status(500).json(err); res.json(rows); });
+});
+
+// GET overdue tasks (admin dashboard)
+router.get("/overdue", verifyToken, isAdmin, (req, res) => {
+  db.query(
+    `SELECT t.*, tm.first_name as employee_name, tm.emp_email
+     FROM tasks t
+     LEFT JOIN teammember tm ON t.assigned_teammember_id = tm.id
+     WHERE t.due_date < CURDATE() AND t.project_status != 'Completed'
+     ORDER BY t.due_date ASC`,
+    (err, result) => {
+      if (err) return res.status(500).json(err);
+      res.json(result);
+    }
+  );
 });
 
 router.get("/targets", verifyToken, isAdmin, (req, res) => {

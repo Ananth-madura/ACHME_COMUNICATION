@@ -3,116 +3,81 @@ require("dotenv").config();
 
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
+  multipleStatements: true,
 });
 
-const sql = `
--- 1. Tasks Table
-CREATE TABLE IF NOT EXISTS tasks (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  project_name VARCHAR(255),
-  task_title VARCHAR(255),
-  project_status ENUM('New', 'Process', 'Completed', 'Expired') DEFAULT 'New',
-  project_priority ENUM('Low', 'Medium', 'High') DEFAULT 'Medium',
-  staff_name VARCHAR(255),
-  client_name VARCHAR(255),
-  created_date DATE,
-  due_date DATE,
-  assigned_to VARCHAR(255),
-  assigned_teammember_id INT DEFAULT NULL,
-  created_by INT DEFAULT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+const runQuery = (sql, desc) => {
+  return new Promise((resolve) => {
+    db.query(sql, (err) => {
+      if (err) {
+        if (err.message.includes("Duplicate column") || err.message.includes("already exists") || err.message.includes("Duplicate key") || err.message.includes("Data truncation") || err.message.includes("check") || err.message.includes("Multiple primary key")) {
+          console.log(`⚠️  ${desc} (skipped: ${err.message.split('\n')[0]})`);
+        } else {
+          console.error(`❌ ${desc}:`, err.message);
+        }
+      } else {
+        console.log(`✅ ${desc}`);
+      }
+      resolve();
+    });
+  });
+};
 
--- Add missing columns if table already exists
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_to VARCHAR(255) AFTER due_date;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_teammember_id INT DEFAULT NULL AFTER assigned_to;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_by INT DEFAULT NULL AFTER assigned_teammember_id;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER created_by;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at;
+async function runMigrations() {
+  try {
+    console.log("\n=== Task Tables ===");
 
--- Fix enum to include 'Expired' and 'Medium'
-ALTER TABLE tasks MODIFY COLUMN project_status ENUM('New', 'Process', 'Completed', 'Expired') DEFAULT 'New';
-ALTER TABLE tasks MODIFY COLUMN project_priority ENUM('Low', 'Medium', 'High') DEFAULT 'Medium';
+    // Tasks table columns
+    await runQuery("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_to VARCHAR(255) AFTER due_date", "tasks: added assigned_to");
+    await runQuery("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_teammember_id INT DEFAULT NULL AFTER assigned_to", "tasks: added assigned_teammember_id");
+    await runQuery("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_by INT DEFAULT NULL AFTER assigned_teammember_id", "tasks: added created_by");
+    await runQuery("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER created_by", "tasks: added created_at");
+    await runQuery("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at", "tasks: added updated_at");
+    await runQuery("ALTER TABLE tasks MODIFY COLUMN project_status ENUM('New', 'Process', 'Completed', 'Expired') DEFAULT 'New'", "tasks: updated project_status enum");
+    await runQuery("ALTER TABLE tasks MODIFY COLUMN project_priority ENUM('Low', 'Medium', 'High') DEFAULT 'Medium'", "tasks: updated project_priority enum");
 
--- Ensure teammember table has user_id and emp_id columns
-ALTER TABLE teammember ADD COLUMN IF NOT EXISTS user_id INT DEFAULT NULL AFTER quotation_count;
-ALTER TABLE teammember ADD COLUMN IF NOT EXISTS emp_id VARCHAR(100) DEFAULT NULL AFTER user_id;
+    // Teammember columns
+    await runQuery("ALTER TABLE teammember ADD COLUMN IF NOT EXISTS user_id INT DEFAULT NULL AFTER quotation_count", "teammember: added user_id");
+    await runQuery("ALTER TABLE teammember ADD COLUMN IF NOT EXISTS emp_id VARCHAR(100) DEFAULT NULL AFTER user_id", "teammember: added emp_id");
 
--- 2. Task Activity Table
-CREATE TABLE IF NOT EXISTS task_activity (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  task_id INT,
-  action VARCHAR(50),
-  message TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+    console.log("\n=== Lead Tables ===");
 
--- 3. Notifications Table
-CREATE TABLE IF NOT EXISTS notifications (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  task_id INT,
-  title VARCHAR(100),
-  description TEXT,
-  is_read TINYINT(1) DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+    // telecalls table
+    await runQuery("ALTER TABLE telecalls ADD COLUMN IF NOT EXISTS assigned_to INT DEFAULT NULL AFTER staff_name", "telecalls: added assigned_to");
+    await runQuery("ALTER TABLE telecalls ADD COLUMN IF NOT EXISTS email VARCHAR(150) DEFAULT NULL AFTER gst_number", "telecalls: added email");
+    await runQuery("ALTER TABLE telecalls ADD COLUMN IF NOT EXISTS created_by INT DEFAULT NULL AFTER email", "telecalls: added created_by");
+    await runQuery("ALTER TABLE telecalls ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER created_by", "telecalls: added created_at");
+    await runQuery("ALTER TABLE telecalls MODIFY COLUMN call_outcome ENUM('New','Hot Case','Warm Case','Cold Case','Not Required','Converted','Disqualified') DEFAULT 'New'", "telecalls: updated call_outcome enum");
+    await runQuery("ALTER TABLE telecalls MODIFY COLUMN followup_required ENUM('Default','Yes','No') DEFAULT 'Default'", "telecalls: fixed followup_required enum");
+    await runQuery("ALTER TABLE telecalls MODIFY COLUMN reminder_required ENUM('Default','Yes','No') DEFAULT 'Default'", "telecalls: fixed reminder_required enum");
 
--- 4. Task Targets Table
-CREATE TABLE IF NOT EXISTS task_targets (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT,
-  user_name VARCHAR(255),
-  yearly_target INT DEFAULT 0,
-  monthly_target INT DEFAULT 0,
-  created_by_admin VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+    // walkins table
+    await runQuery("ALTER TABLE Walkins ADD COLUMN IF NOT EXISTS assigned_to INT DEFAULT NULL AFTER staff_name", "walkins: added assigned_to");
+    await runQuery("ALTER TABLE Walkins ADD COLUMN IF NOT EXISTS email VARCHAR(150) DEFAULT NULL AFTER gst_number", "walkins: added email");
+    await runQuery("ALTER TABLE Walkins ADD COLUMN IF NOT EXISTS created_by INT DEFAULT NULL AFTER email", "walkins: added created_by");
+    await runQuery("ALTER TABLE Walkins MODIFY COLUMN walkin_status ENUM('New','Hot Case','Warm Case','Cold Case','Not Required','Converted','Disqualified') DEFAULT 'New'", "walkins: updated walkin_status enum");
+    await runQuery("ALTER TABLE Walkins MODIFY COLUMN followup_required ENUM('Default','Yes','No') DEFAULT 'Default'", "walkins: fixed followup_required enum");
+    await runQuery("ALTER TABLE Walkins MODIFY COLUMN reminder_required ENUM('Default','Yes','No') DEFAULT 'Default'", "walkins: fixed reminder_required enum");
 
--- 5. Task Achievements Table
-CREATE TABLE IF NOT EXISTS task_achievements (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT,
-  user_name VARCHAR(255),
-  target_id INT,
-  month_year VARCHAR(7),
-  achieved_count INT DEFAULT 0,
-  daily_achievements JSON,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+    // fields table
+    await runQuery("ALTER TABLE fields ADD COLUMN IF NOT EXISTS assigned_to INT DEFAULT NULL AFTER staff_name", "fields: added assigned_to");
+    await runQuery("ALTER TABLE fields ADD COLUMN IF NOT EXISTS email VARCHAR(150) DEFAULT NULL AFTER gst_number", "fields: added email");
+    await runQuery("ALTER TABLE fields ADD COLUMN IF NOT EXISTS created_by INT DEFAULT NULL AFTER email", "fields: added created_by");
+    await runQuery("ALTER TABLE fields MODIFY COLUMN field_outcome ENUM('New','Hot Case','Warm Case','Cold Case','Not Required','Converted','Disqualified') DEFAULT 'New'", "fields: updated field_outcome enum");
+    await runQuery("ALTER TABLE fields MODIFY COLUMN followup_required ENUM('Default','Yes','No') DEFAULT 'Default'", "fields: fixed followup_required enum");
+    await runQuery("ALTER TABLE fields MODIFY COLUMN reminder_required ENUM('Default','Yes','No') DEFAULT 'Default'", "fields: fixed reminder_required enum");
 
--- 6. Task Updates Table
-CREATE TABLE IF NOT EXISTS task_updates (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT,
-  user_name VARCHAR(255),
-  target_id INT,
-  month_year VARCHAR(7),
-  count INT,
-  description TEXT,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 7. Task Assignments Table
-CREATE TABLE IF NOT EXISTS task_assignments (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  task_id INT,
-  assigned_to_user_id INT,
-  assigned_to_user_name VARCHAR(255),
-  assigned_by VARCHAR(255),
-  status ENUM('Pending', 'In Progress', 'Completed') DEFAULT 'Pending',
-  assigned_date DATE,
-  due_date DATE,
-  priority ENUM('Low', 'Normal', 'High', 'Urgent') DEFAULT 'Normal',
-  notes TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-`;
+    console.log("\n🎉 All migrations completed!");
+  } catch (e) {
+    console.error("Migration error:", e);
+  } finally {
+    db.end();
+  }
+}
 
 db.connect((err) => {
   if (err) {
@@ -120,21 +85,5 @@ db.connect((err) => {
     process.exit(1);
   }
   console.log("✅ Connected to database:", process.env.DB_NAME);
-
-  // Split and run each query
-  const queries = sql.split(';').map(q => q.trim()).filter(q => q.length > 0);
-  
-  let completed = 0;
-  queries.forEach(query => {
-    db.query(query, (err) => {
-      if (err) console.error("❌ SQL Error:", err.message);
-      else console.log("✅ Query executed successfully.");
-      
-      completed++;
-      if (completed === queries.length) {
-        console.log("🎉 All tables verified/created!");
-        db.end();
-      }
-    });
-  });
+  runMigrations();
 });

@@ -43,6 +43,7 @@ const Fields = () =>{
  const [fields, setFields] = useState([]);
  const [searchTerm, setSearchTerm] = useState("");
  const [missedCounts, setMissedCounts] = useState({});
+ const [teamMembers, setTeamMembers] = useState([]);
  const [historyOpen, setHistoryOpen] = useState(false);
  const [historyLead, setHistoryLead] = useState(null);
  const [historyActivity, setHistoryActivity] = useState([]);
@@ -73,7 +74,9 @@ const fetchMissedCounts = async () => {
   } catch (_) {}
 };
 
-useEffect(() => { fetchFields(); fetchMissedCounts(); }, []);
+useEffect(() => { fetchFields(); fetchMissedCounts();
+  axios.get(`${API}/api/teammember`).then(r => setTeamMembers(r.data)).catch(() => {});
+}, []);
 
 const formatReminderDate = (dateStr) => {
   if (!dateStr) return "---";
@@ -323,7 +326,17 @@ useEffect(() => {
                 {/*  */}
                 <div className="grid grid-cols-4 items-center gap-6">
                    <label htmlFor="" className="text-sm text-gray-600 text-left">Staff Name</label>
-                   <input type="text" name="staff_name" value={form.staff_name} onChange={handleChange} placeholder="e.g. Anbu Selvan" onKeyDown={e => { if (/[0-9]/.test(e.key)) e.preventDefault(); }} className="col-span-3 border rounded-md px-3 py-2 outline-none bg-white w-[100%]"/>
+                   <div className="col-span-3">
+                     <select name="staff_name" value={form.staff_name} onChange={handleChange}
+                       className="border rounded-md px-3 py-2 outline-none bg-white w-full text-sm">
+                       <option value="">-- Select Staff --</option>
+                       {teamMembers.map(t => (
+                         <option key={t.id} value={`${t.first_name} ${t.last_name || ""}`.trim()}>
+                           {t.first_name} {t.last_name || ""} {t.job_title ? `(${t.job_title})` : ""}
+                         </option>
+                       ))}
+                     </select>
+                   </div>
                 </div>
 
                 {/* Reference */}
@@ -483,13 +496,9 @@ useEffect(() => {
                             }
                             if (!window.confirm(`Convert "${f.customer_name}" to Client?`)) return;
                             try {
-                              // Update field status to "Converted" - Backend syncClient will handle client creation
-                              await axios.put(`${API}/api/leads/field/${f.id}`, {
-                                ...f,
-                                field_outcome: "Converted"
-                              });
+                              await axios.put(`${API}/api/leads/field/${f.id}`, { field_outcome: "Converted" });
                               alert("Lead converted to Client successfully!");
-                              window.location.href = "/dashboard/clients";
+                              fetchFields();
                             } catch (err) {
                               alert("Failed to convert: " + (err.response?.data?.message || err.message));
                             }

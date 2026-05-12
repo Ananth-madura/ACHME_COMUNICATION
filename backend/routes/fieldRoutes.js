@@ -13,28 +13,37 @@ const getNotificationIO = () => {
 };
 
 /* AUTO CREATE CLIENT IF CONVERTED */
-const syncClient = (data, userId) => {
+const syncClient = (data, userId, leadId, teammemberId) => {
   const { customer_name, mobile_number, location_city, purpose, email, field_outcome, gst_number } = data;
 
   if (field_outcome === "Converted") {
-    db.query("SELECT id FROM clients WHERE phone = ?", [mobile_number], (err, result) => {
+    db.query("SELECT id FROM clients WHERE original_lead_id = ? AND original_lead_type = 'field'", [leadId], (err, result) => {
       if (err) {
         console.error("Error checking client existence:", err);
         return;
       }
-      
+
       if (result.length === 0) {
-        db.query(
-          "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          [customer_name, mobile_number, location_city, purpose, email, gst_number || "", userId],
-          (insertErr) => {
-            if (insertErr) console.error("Client conversion (field insert) failed:", insertErr);
+        db.query("SELECT id FROM clients WHERE phone = ? AND (original_lead_id IS NULL OR original_lead_type != 'field')", [mobile_number], (err2, phoneResult) => {
+          if (!err2 && phoneResult.length > 0) {
+            db.query(
+              "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, original_lead_id=?, original_lead_type='field', assigned_teammember_id=? WHERE id=?",
+              [customer_name, location_city, purpose, email, gst_number || "", leadId, teammemberId || null, phoneResult[0].id]
+            );
+          } else {
+            db.query(
+              "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by, assigned_teammember_id, original_lead_id, original_lead_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'field')",
+              [customer_name, mobile_number, location_city, purpose, email, gst_number || "", userId, teammemberId || null, leadId],
+              (insertErr) => {
+                if (insertErr) console.error("Client conversion (field insert) failed:", insertErr);
+              }
+            );
           }
-        );
+        });
       } else {
         db.query(
-          "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, created_by=? WHERE phone=?",
-          [customer_name, location_city, purpose, email, gst_number || "", userId, mobile_number],
+          "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, assigned_teammember_id=? WHERE original_lead_id=? AND original_lead_type='field'",
+          [customer_name, location_city, purpose, email, gst_number || "", teammemberId || null, leadId],
           (updateErr) => {
             if (updateErr) console.error("Client conversion (field update) failed:", updateErr);
           }
@@ -54,8 +63,8 @@ router.post("/new", verifyToken, (req, res) => {
 
   db.query("INSERT INTO fields SET ?", data, (err, result) => {
     if (err) { console.error(err); return res.status(500).json({ message: "Insert failed" }); }
-    syncClient(data, req.user.id);
     const newId = result.insertId;
+    syncClient(data, req.user.id, newId, data.teammember_id || null);
 
     // Notify when lead is converted
     if (data.field_outcome === "Converted") {
@@ -115,7 +124,7 @@ router.put("/:id", verifyToken, (req, res) => {
       [data, req.params.id],
       (err, result) => {
         if (err) return res.status(500).json({ message: err.sqlMessage });
-        syncClient(data, results[0].created_by || req.user.id);
+        syncClient(data, results[0].created_by || req.user.id, req.params.id, data.teammember_id || null);
       const id = req.params.id;
 
       // Notify when lead is converted on update
@@ -152,6 +161,21 @@ router.put("/:id", verifyToken, (req, res) => {
       res.json({ message: "Field updated successfully" });
     }
   );
+  });
+});
+
+/* GET single field by id */
+router.get("/:id", verifyToken, (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ message: "Invalid ID" });
+  db.query("SELECT * FROM fields WHERE id = ?", [id], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (results.length === 0) return res.status(404).json({ message: "Not found" });
+    const lead = results[0];
+    if (req.user.role !== "admin" && lead.created_by !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    res.json(lead);
   });
 });
 

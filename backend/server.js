@@ -22,12 +22,14 @@ module.exports = app;
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 // In production set ALLOWED_ORIGIN in your .env, e.g. https://yourdomain.com
-const allowedOrigin = process.env.ALLOWED_ORIGIN || "http://localhost:3000";
-const corsOrigins = allowedOrigin.split(",").map((origin) => origin.trim()).filter(Boolean);
+// For self-hosted: set ALLOWED_ORIGIN=* or leave blank to allow all origins
+const allowedOrigin = process.env.ALLOWED_ORIGIN || "*";
+const corsOrigins = allowedOrigin === "*" ? "*" : allowedOrigin.split(",").map((o) => o.trim()).filter(Boolean);
 app.use(cors({
-  origin: process.env.NODE_ENV === "production" ? corsOrigins : "*",
+  origin: corsOrigins,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: corsOrigins !== "*",
 }));
 
 app.use(express.json());
@@ -70,6 +72,7 @@ app.use("/api/quotations", require("./routes/quotationRoutes"));
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/task", require("./routes/taskRoutes"));
 app.use("/api/Fields", require("./routes/fieldRoutes"));
+app.use("/api/fields", require("./routes/fieldRoutes")); // lowercase alias
 app.use("/api/client", require("./routes/newclient"));
 app.use("/api/invoice", require("./routes/invoice"));
 app.use("/api/payments", require("./routes/payment"));
@@ -86,6 +89,7 @@ app.use("/api/leads", require("./routes/leadManagementRoutes"));
 app.use("/api/targets", require("./routes/targetRoutes"));
 app.use("/api/amc", require("./routes/amcRoutes"));
 app.use("/api/reports", require("./routes/reportRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 app.use("/uploads", express.static("uploads"));
 
@@ -101,8 +105,8 @@ server.on("error", (error) => {
 });
 
 db.ready.then(() => {
-  const io = initSocket(server, process.env.NODE_ENV === "production" ? corsOrigins : "*");
-  const notificationIO = initNotificationsSocket(io, process.env.NODE_ENV === "production" ? corsOrigins : "*");
+  const io = initSocket(server, corsOrigins);
+  const notificationIO = initNotificationsSocket(io, corsOrigins);
   app.set("io", io);
   app.set("notificationIO", io);
   require("./backendutil/reminderScheduler");

@@ -49,6 +49,34 @@ router.get("/list", (req,res)=>{
   });
 });
 
+/* GET by user_id - Get team member linked to a user account */
+router.get("/by-user/:userId", verifyToken, (req, res) => {
+  db.query(
+    "SELECT * FROM teammember WHERE user_id = ?",
+    [req.params.userId],
+    (err, result) => {
+      if (err) return res.status(500).json(err);
+      res.json(result[0] || null);
+    }
+  );
+});
+
+/* GET single by id */
+router.get("/:id", verifyToken, (req, res) => {
+  db.query(
+    `SELECT t.*, u.email, u.role as user_role 
+     FROM teammember t 
+     LEFT JOIN users u ON t.user_id = u.id 
+     WHERE t.id = ?`,
+    [req.params.id],
+    (err, result) => {
+      if (err) return res.status(500).json(err);
+      if (result.length === 0) return res.status(404).json({ message: "Not found" });
+      res.json(result[0]);
+    }
+  );
+});
+
 
 // Edit - Admin only
 router.put("/:id", verifyToken, isAdmin, (req,res)=>{

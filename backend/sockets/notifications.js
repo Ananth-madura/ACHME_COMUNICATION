@@ -5,6 +5,12 @@ function initNotificationsSocket(io, corsOrigin = "*") {
   const notifIO = io.of("/notifications");
 
   notifIO.on("connection", (socket) => {
+    // Support both join patterns
+    socket.on("join", ({ userId, role } = {}) => {
+      if (userId) socket.join(`notifications:${userId}`);
+      if (role === "admin") socket.join("admin_notifications");
+    });
+
     socket.on("join_notifications", (userId) => {
       if (!userId) return;
       socket.join(`notifications:${userId}`);
@@ -138,6 +144,15 @@ function initNotificationsSocket(io, corsOrigin = "*") {
   };
 
   io.sendToAdmin = (event, data) => {
+    notifIO.to("admin_notifications").emit(event, data);
+  };
+
+  // Named helpers matching the plan
+  io.emitToEmployee = (userId, event, data) => {
+    notifIO.to(`notifications:${userId}`).emit(event, data);
+  };
+
+  io.emitToAdmins = (event, data) => {
     notifIO.to("admin_notifications").emit(event, data);
   };
 

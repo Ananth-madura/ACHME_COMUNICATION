@@ -638,13 +638,9 @@ useEffect(() => {
                     }
                     if (!window.confirm(`Convert "${T.customer_name}" to Client?`)) return;
                     try {
-                      // Update telecall status to "Converted" - Backend syncClient will handle client creation
-                      await axios.put(`${API}/api/leads/telecall/${T.id}`, {
-                        ...T,
-                        call_outcome: "Converted"
-                      });
+                      await axios.put(`${API}/api/leads/telecall/${T.id}`, { call_outcome: "Converted" });
                       alert("Lead converted to Client successfully!");
-                      window.location.href = "/dashboard/clients";
+                      fetchTelecalls();
                     } catch (err) {
                       alert("Failed to convert: " + (err.response?.data?.message || err.message));
                     }

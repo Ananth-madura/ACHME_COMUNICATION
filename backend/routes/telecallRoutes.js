@@ -38,28 +38,39 @@ router.get("/", verifyToken, (req, res) => {
   });
 });
 
-const syncClient = (data, userId) => {
+const syncClient = (data, userId, leadId, teammemberId) => {
   const { customer_name, mobile_number, location_city, service_name, email, call_outcome, gst_number } = data;
 
   if (call_outcome === "Converted") {
-    db.query("SELECT id FROM clients WHERE phone = ?", [mobile_number], (err, result) => {
+    db.query("SELECT id FROM clients WHERE original_lead_id = ? AND original_lead_type = 'telecall'", [leadId], (err, result) => {
       if (err) {
         console.error("Error checking client existence:", err);
         return;
       }
-      
+
       if (result.length === 0) {
-        db.query(
-          "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          [customer_name, mobile_number, location_city, service_name, email, gst_number || "", userId],
-          (insertErr) => {
-            if (insertErr) console.error("Client conversion (insert) failed:", insertErr);
+        // Also check by phone as fallback
+        db.query("SELECT id FROM clients WHERE phone = ? AND (original_lead_id IS NULL OR original_lead_type != 'telecall')", [mobile_number], (err2, phoneResult) => {
+          if (!err2 && phoneResult.length > 0) {
+            // Update existing client to link to this lead
+            db.query(
+              "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, original_lead_id=?, original_lead_type='telecall', assigned_teammember_id=? WHERE id=?",
+              [customer_name, location_city, service_name, email, gst_number || "", leadId, teammemberId || null, phoneResult[0].id]
+            );
+          } else {
+            db.query(
+              "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by, assigned_teammember_id, original_lead_id, original_lead_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'telecall')",
+              [customer_name, mobile_number, location_city, service_name, email, gst_number || "", userId, teammemberId || null, leadId],
+              (insertErr) => {
+                if (insertErr) console.error("Client conversion (insert) failed:", insertErr);
+              }
+            );
           }
-        );
+        });
       } else {
         db.query(
-          "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, created_by=? WHERE phone=?",
-          [customer_name, location_city, service_name, email, gst_number || "", userId, mobile_number],
+          "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, assigned_teammember_id=? WHERE original_lead_id=? AND original_lead_type='telecall'",
+          [customer_name, location_city, service_name, email, gst_number || "", teammemberId || null, leadId],
           (updateErr) => {
             if (updateErr) console.error("Client conversion (update) failed:", updateErr);
           }
@@ -161,8 +172,8 @@ router.post("/", verifyToken, (req, res) => {
     ],
     (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
-      syncClient(req.body, req.user.id);
       const newId = result.insertId;
+      syncClient(req.body, req.user.id, newId, req.body.teammember_id || null);
 
       // Notify when lead is converted
       if (call_outcome === "Converted") {
@@ -286,8 +297,7 @@ router.put("/:id", verifyToken, (req, res) => {
           console.error("Update error:", err);
           return res.status(500).json({ error: err.message });
         }
-        syncClient(req.body, results[0].created_by || req.user.id);
-
+        syncClient(req.body, results[0].created_by || req.user.id, req.params.id, req.body.teammember_id || null);
       const id = req.params.id;
 
       // Notify when lead is converted on update
@@ -340,13 +350,10 @@ router.put("/:id", verifyToken, (req, res) => {
       res.json({ message: "Telecall updated successfully" });
     }
   );
-  });
 });
 
-
-
-  // Delete;
-  router.delete("/:id", verifyToken, (req,res) =>{
+// Delete;
+router.delete("/:id", verifyToken, (req,res) =>{
     // Check ownership
     db.query("SELECT created_by FROM Telecalls WHERE id = ?", [req.params.id], (err, results) => {
       if (err) return res.status(500).json({ error: err.message });

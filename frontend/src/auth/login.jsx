@@ -86,7 +86,7 @@ export default function Login() {
       <div className="w-full max-w-[420px] relative z-10 bg-white rounded-2xl shadow-2xl p-8">
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <img src={logoImage} alt="Logo" className="h-16 w-auto" />
+          <img src={logoImage} alt="Logo" className="w-auto" style={{ height: "184px" }} />
         </div>
 
         {/* Header */}

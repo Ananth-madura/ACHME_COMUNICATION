@@ -34,28 +34,37 @@ router.get("/", verifyToken, (req, res) => {
   });
 });
 
-const syncClient = (data, userId) => {
+const syncClient = (data, userId, leadId, teammemberId) => {
   const { customer_name, mobile_number, location_city, purpose, email, walkin_status, gst_number } = data;
 
   if (walkin_status === "Converted") {
-    db.query("SELECT id FROM clients WHERE phone = ?", [mobile_number], (err, result) => {
+    db.query("SELECT id FROM clients WHERE original_lead_id = ? AND original_lead_type = 'walkin'", [leadId], (err, result) => {
       if (err) {
         console.error("Error checking client existence:", err);
         return;
       }
 
       if (result.length === 0) {
-        db.query(
-          "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          [customer_name, mobile_number, location_city, purpose, email, gst_number || "", userId],
-          (insertErr) => {
-            if (insertErr) console.error("Client conversion (walkin insert) failed:", insertErr);
+        db.query("SELECT id FROM clients WHERE phone = ? AND (original_lead_id IS NULL OR original_lead_type != 'walkin')", [mobile_number], (err2, phoneResult) => {
+          if (!err2 && phoneResult.length > 0) {
+            db.query(
+              "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, original_lead_id=?, original_lead_type='walkin', assigned_teammember_id=? WHERE id=?",
+              [customer_name, location_city, purpose, email, gst_number || "", leadId, teammemberId || null, phoneResult[0].id]
+            );
+          } else {
+            db.query(
+              "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by, assigned_teammember_id, original_lead_id, original_lead_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'walkin')",
+              [customer_name, mobile_number, location_city, purpose, email, gst_number || "", userId, teammemberId || null, leadId],
+              (insertErr) => {
+                if (insertErr) console.error("Client conversion (walkin insert) failed:", insertErr);
+              }
+            );
           }
-        );
+        });
       } else {
         db.query(
-          "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, created_by=? WHERE phone=?",
-          [customer_name, location_city, purpose, email, gst_number || "", userId, mobile_number],
+          "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, assigned_teammember_id=? WHERE original_lead_id=? AND original_lead_type='walkin'",
+          [customer_name, location_city, purpose, email, gst_number || "", teammemberId || null, leadId],
           (updateErr) => {
             if (updateErr) console.error("Client conversion (walkin update) failed:", updateErr);
           }
@@ -132,7 +141,7 @@ router.post("/", verifyToken, (req, res) => {
     ],
     (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
-      syncClient(req.body, req.user.id);
+      syncClient(req.body, req.user.id, result.insertId, req.body.teammember_id || null);
       const newId = result.insertId;
 
       // Notify when lead is converted
@@ -277,7 +286,7 @@ router.put("/:id", verifyToken, (req, res) => {
           console.error("Update error:", err);
           return res.status(500).json({ error: err.message });
         }
-        syncClient(req.body, results[0].created_by || req.user.id);
+        syncClient(req.body, results[0].created_by || req.user.id, req.params.id, req.body.teammember_id || null);
       const id = req.params.id;
 
       // Notify when lead is converted on update

@@ -502,13 +502,9 @@ const openEdit = async (id) => {
                           }
                           if (!window.confirm(`Convert "${W.customer_name}" to Client?`)) return;
                           try {
-                            // Update walkin status to "Converted" - Backend syncClient will handle client creation
-                            await axios.put(`${API}/api/leads/walkin/${W.id}`, {
-                              ...W,
-                              walkin_status: "Converted"
-                            });
+                            await axios.put(`${API}/api/leads/walkin/${W.id}`, { walkin_status: "Converted" });
                             alert("Lead converted to Client successfully!");
-                            window.location.href = "/dashboard/clients";
+                            fetchWalkins();
                           } catch (err) {
                             alert("Failed to convert: " + (err.response?.data?.message || err.message));
                           }
