@@ -91,7 +91,7 @@ const Topbar = ({ onHamburgerClick, showSearch, onSearch, reminderData, reminder
   return (
     <header className="flex items-center justify-between px-3 md:px-6 h-16 z-50 bg-shell text-shell-text">
       {/* Left: hamburger + brand */}
-      <div className="flex items-center gap-2 md:gap-4">
+      <div className="flex items-center gap-2 md:gap-3">
         <button
           className="text-gray-600 p-2 lg:hidden cursor-pointer hover:bg-gray-100 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           onClick={onHamburgerClick}
@@ -99,7 +99,12 @@ const Topbar = ({ onHamburgerClick, showSearch, onSearch, reminderData, reminder
         >
           <Menu size={22} />
         </button>
-        <img src={backheadImage} alt="Madhura Softwares" className="h-9 w-auto object-contain" />
+        <img
+          src={backheadImage}
+          alt="Madhura Softwares"
+          className="object-contain"
+          style={{ height: "44px", width: "auto", maxWidth: "220px" }}
+        />
       </div>
 
       {/* Search bar - only on Dashboard */}

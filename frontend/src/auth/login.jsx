@@ -4,6 +4,7 @@ import axios from "axios";
 import { useAuth } from "../auth/AuthContext";
 import "../Styles/tailwind.css";
 import logoImage from "../images/logo.png";
+import loginBg from "../images/login-image.jpg";
 import { API } from "../config/api";
 
 const API_BACKEND = API;
@@ -70,31 +71,22 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 font-sans text-[#1a1a1a] relative overflow-hidden">
-      {/* Watermark logo */}
-      <div
-        className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
-        aria-hidden="true"
-      >
-        <img
-          src={logoImage}
-          alt=""
-          className="w-[340px] h-auto opacity-[0.06] grayscale"
-          style={{ animation: "watermarkPulse 6s ease-in-out infinite" }}
-        />
-      </div>
-      <style>{`
-        @keyframes watermarkPulse {
-          0%, 100% { opacity: 0.06; transform: scale(1); }
-          50% { opacity: 0.10; transform: scale(1.03); }
-        }
-      `}</style>
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-4 font-sans text-[#1a1a1a] relative overflow-hidden"
+      style={{
+        backgroundImage: `url(${loginBg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {/* Dark overlay */}
+      <div className="absolute inset-0" style={{ background: "rgba(10,10,20,0.68)" }} aria-hidden="true" />
 
       {/* Container */}
-      <div className="w-full max-w-[400px] relative z-10">
+      <div className="w-full max-w-[420px] relative z-10 bg-white rounded-2xl shadow-2xl p-8">
         {/* Logo */}
-        <div className="flex justify-center mb-10">
-          <img src={logoImage} alt="Logo" className="h-12 w-auto grayscale opacity-80" />
+        <div className="flex justify-center mb-8">
+          <img src={logoImage} alt="Logo" className="h-16 w-auto" />
         </div>
 
         {/* Header */}
@@ -191,7 +183,7 @@ export default function Login() {
         </div>
 
         {/* Footer Links */}
-        <div className="mt-10 pt-6 border-t border-[#ede9e4] text-center space-y-3">
+        <div className="mt-8 pt-5 border-t border-[#ede9e4] text-center space-y-3">
           <p className="text-[14px] text-[#787671]">
             New to the platform?{" "}
             <Link to="/register" className="text-[#5645d4] hover:underline font-medium">

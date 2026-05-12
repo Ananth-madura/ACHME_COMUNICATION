@@ -48,6 +48,7 @@ const CallReport = () => {
     service_date: new Date().toISOString().slice(0, 10),
     start_time: "",
     end_time: "",
+    duration_limit: "",
     km: "",
     technician: "",
     sales_person: "",
@@ -60,6 +61,16 @@ const CallReport = () => {
     total_expenses: "",
     status: "Completed"
   });
+
+  // Returns true if actual duration (minutes) exceeds the selected limit
+  const isDurationExceeded = () => {
+    const { start_time, end_time, duration_limit } = serviceForm;
+    if (!start_time || !end_time || !duration_limit) return false;
+    const [sh, sm] = start_time.split(":").map(Number);
+    const [eh, em] = end_time.split(":").map(Number);
+    const actual = (eh * 60 + em) - (sh * 60 + sm);
+    return actual > parseInt(duration_limit);
+  };
 
   // Call Report Modal
   const [callReportModalOpen, setCallReportModalOpen] = useState(false);
@@ -222,6 +233,10 @@ const CallReport = () => {
 
   const saveService = async (e) => {
     e.preventDefault();
+    if (isDurationExceeded() && !serviceForm.remarks.trim()) {
+      alert("Remark is required when service duration exceeds the selected limit.");
+      return;
+    }
     try {
       const payload = {
         ...serviceForm,
@@ -288,8 +303,15 @@ const CallReport = () => {
       mobile_number: "",
       location_city: "",
       service_date: new Date().toISOString().slice(0, 10),
+      start_time: "",
+      end_time: "",
+      duration_limit: "",
+      km: "",
+      technician: "",
+      sales_person: "",
       service_person: "",
       description: "",
+      remarks: "",
       petrol_charges: "",
       spare_parts_price: "",
       labour_charges: "",
@@ -616,6 +638,30 @@ const CallReport = () => {
                 <div><label className="text-sm font-medium text-gray-600">Start Time</label><input type="time" name="start_time" value={serviceForm.start_time} onChange={handleServiceChange} className="w-full border rounded-lg p-2 mt-1" /></div>
                 <div><label className="text-sm font-medium text-gray-600">End Time</label><input type="time" name="end_time" value={serviceForm.end_time} onChange={handleServiceChange} className="w-full border rounded-lg p-2 mt-1" /></div>
               </div>
+
+              {/* Duration limit + mandatory remark */}
+              <div>
+                <label className="text-sm font-medium text-gray-600">Expected Duration</label>
+                <select name="duration_limit" value={serviceForm.duration_limit} onChange={handleServiceChange}
+                  className="w-full border rounded-lg p-2 mt-1" style={{ borderColor: "#c8c4be" }}>
+                  <option value="">— No limit —</option>
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60">60 minutes</option>
+                </select>
+              </div>
+
+              {isDurationExceeded() && (
+                <div className="rounded-lg border p-3" style={{ background: "#fef7d6", borderColor: "#f5d75e" }}>
+                  <p className="text-xs font-semibold mb-1" style={{ color: "#793400" }}>
+                    ⚠ Service time exceeded {serviceForm.duration_limit} min limit — remark is required
+                  </p>
+                  <textarea name="remarks" value={serviceForm.remarks} onChange={handleServiceChange}
+                    className="w-full border rounded-lg p-2 text-sm outline-none"
+                    style={{ borderColor: "#dd5b00" }}
+                    rows={2} placeholder="Explain why the service took longer…" required />
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label className="text-sm font-medium text-gray-600">KM (Kilometers)</label><input type="number" name="km" value={serviceForm.km} onChange={handleServiceChange} className="w-full border rounded-lg p-2 mt-1" placeholder="Enter kilometers" /></div>
