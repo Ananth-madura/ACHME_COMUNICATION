@@ -31,7 +31,7 @@ router.get("/", verifyToken, (req, res) => {
     SELECT q.id, q.quotation_date AS invoice_date, q.grand_total, q.reference_no,
            q.version, q.is_latest, q.parent_id,
            c.customer_name, c.mobile_number, c.email,
-           COALESCE(q.client_city, c.location_city) AS location_city,
+           COALESCE(c.location_city, q.client_city) AS location_city,
            MIN(qi.description) AS description
     FROM quotations q
     JOIN customers c ON c.id = q.customer_id
