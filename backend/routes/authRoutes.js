@@ -261,4 +261,133 @@ router.post("/reset-password/:id", isAdmin, (req, res) => {
   });
 });
 
+/* ================= ADMIN: GET REGISTRATION NOTIFICATIONS ================= */
+router.get("/notifications", verifyToken, isAdmin, (req, res) => {
+  const { type, limit } = req.query;
+  const params = [];
+  let sql = `SELECT an.*, u.first_name, u.email, u.role, u.emp_id, u.status as user_status 
+             FROM admin_notifications an 
+             LEFT JOIN users u ON an.user_id = u.id 
+             WHERE 1=1`;
+  
+  if (type) { sql += " AND an.type = ?"; params.push(type); }
+  sql += " ORDER BY an.created_at DESC";
+  if (limit) { sql += " LIMIT ?"; params.push(parseInt(limit)); }
+  
+  db.query(sql, params, (err, rows) => {
+    if (err) return res.status(500).json(err);
+    res.json(rows);
+  });
+});
+
+/* ================= ADMIN: APPROVE/REJECT USER ================= */
+router.put("/approve/:userId", verifyToken, isAdmin, (req, res) => {
+  const { action } = req.body;
+  const { userId } = req.params;
+  if (!["active", "rejected"].includes(action)) return res.status(400).json({ message: "Invalid action" });
+
+  db.query("UPDATE users SET status = ? WHERE id = ?", [action, userId], (err) => {
+    if (err) return res.status(500).json({ message: "Update failed" });
+    
+    if (action === "active") {
+      db.query("UPDATE admin_notifications SET is_read = 1 WHERE user_id = ? AND type = 'registration'", [userId]);
+      const userRes = db.query("SELECT first_name, email FROM users WHERE id = ?", [userId], (e2, rows) => {
+        if (!e2 && rows.length) {
+          const notificationIO = getNotificationIO();
+          if (notificationIO) {
+            notificationIO.sendToUser(rows[0].id, "new_notification", {
+              dbId: rows[0].id,
+              type: "registration_approved",
+              timestamp: new Date().toISOString(),
+              is_read: 0,
+              data: {
+                message: "Your account has been approved. You can now log in.",
+                type: "registration_approved"
+              }
+            });
+          }
+        }
+      });
+    } else {
+      db.query("UPDATE admin_notifications SET is_read = 1 WHERE user_id = ? AND type = 'registration'", [userId]);
+    }
+
+    res.json({ message: `User ${action === "active" ? "approved" : "rejected"} successfully` });
+  });
+});
+
+/* ================= ADMIN: GET PROFILE CHANGE REQUESTS ================= */
+router.get("/profile-change-requests", verifyToken, isAdmin, (req, res) => {
+  db.query(
+    `SELECT pcr.*, u.first_name, u.email 
+     FROM profile_change_requests pcr 
+     LEFT JOIN users u ON pcr.user_id = u.id 
+     ORDER BY pcr.created_at DESC`,
+    (err, rows) => {
+      if (err) return res.status(500).json(err);
+      res.json(rows);
+    }
+  );
+});
+
+/* ================= ADMIN: HANDLE PROFILE CHANGE REQUEST ================= */
+router.put("/handle-change-request/:requestId", verifyToken, isAdmin, (req, res) => {
+  const { action } = req.body;
+  const { requestId } = req.params;
+  if (!["approved", "declined"].includes(action)) return res.status(400).json({ message: "Invalid action" });
+
+  db.query("SELECT * FROM profile_change_requests WHERE id = ?", [requestId], (err, rows) => {
+    if (err || !rows.length) return res.status(404).json({ message: "Request not found" });
+    const req_data = rows[0];
+
+    if (action === "approved") {
+      const fieldMap = {
+        first_name: "first_name",
+        email: "email",
+        mobile_number: "mobile_number",
+        emp_address: "emp_address",
+        password: "user_password"
+      };
+      const dbField = fieldMap[req_data.field];
+      if (dbField) {
+        if (dbField === "user_password") {
+          bcrypt.hash(req_data.new_value, 10, (hashErr, hash) => {
+            if (hashErr) return res.status(500).json({ message: "Hash failed" });
+            db.query("UPDATE users SET ?? = ? WHERE id = ?", [dbField, hash, req_data.user_id], (upErr) => {
+              if (upErr) return res.status(500).json({ message: "Update failed" });
+            });
+          });
+        } else if (["mobile_number"].includes(dbField)) {
+          db.query("UPDATE teammember SET ?? = ? WHERE user_id = ?", [dbField, req_data.new_value, req_data.user_id]);
+        } else {
+          db.query("UPDATE users SET ?? = ? WHERE id = ?", [dbField, req_data.new_value, req_data.user_id], (upErr, upRes) => {
+            if (upErr) return res.status(500).json({ message: "Update failed" });
+            if (dbField === "email") {
+              db.query("UPDATE teammember SET emp_email = ? WHERE user_id = ?", [req_data.new_value, req_data.user_id]);
+            }
+          });
+        }
+      }
+      db.query("UPDATE profile_change_requests SET status = ? WHERE id = ?", [action, requestId]);
+    } else {
+      db.query("UPDATE profile_change_requests SET status = ? WHERE id = ?", [action, requestId]);
+    }
+
+    const notificationIO = getNotificationIO();
+    if (notificationIO) {
+      notificationIO.sendToUser(req_data.user_id, "new_notification", {
+        type: action === "approved" ? "profile_change_approved" : "profile_change_declined",
+        timestamp: new Date().toISOString(),
+        is_read: 0,
+        data: {
+          message: `Your profile change request (${req_data.field}) has been ${action}.`,
+          field: req_data.field
+        }
+      });
+    }
+
+    res.json({ message: `Request ${action}` });
+  });
+});
+
 module.exports = router;

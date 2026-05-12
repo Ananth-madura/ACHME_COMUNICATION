@@ -91,7 +91,10 @@ const AdminNotifications = () => {
 
   const fetchNotifications = async () => {
     try {
-      const res = await axios.get(`${API}/api/auth/notifications`);
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API}/api/auth/notifications`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setNotifications(res.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -99,7 +102,10 @@ const AdminNotifications = () => {
 
   const fetchChangeRequests = async () => {
     try {
-      const res = await axios.get(`${API}/api/auth/profile-change-requests`);
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API}/api/auth/profile-change-requests`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setChangeRequests(res.data);
     } catch (err) { console.error(err); }
   };
@@ -109,8 +115,10 @@ const AdminNotifications = () => {
   const handleAction = async (userId, action, notifId) => {
     if (!userId) { alert("User ID missing"); return; }
     try {
-      await axios.put(`${API}/api/auth/approve/${userId}`, { action });
-      await axios.put(`${API}/api/auth/notifications/${notifId}/read`);
+      const token = localStorage.getItem("token");
+      const headers = { Authorization: `Bearer ${token}` };
+      await axios.put(`${API}/api/auth/approve/${userId}`, { action }, { headers });
+      await axios.put(`${API}/api/notifications/admin/${notifId}/read`, {}, { headers });
       window.dispatchEvent(new Event("refresh-pending-count"));
       fetchNotifications();
     } catch (err) { alert(err.response?.data?.message || "Action failed"); }
@@ -118,7 +126,10 @@ const AdminNotifications = () => {
 
   const handleProfileChange = async (requestId, action) => {
     try {
-      await axios.put(`${API}/api/auth/handle-change-request/${requestId}`, { action });
+      const token = localStorage.getItem("token");
+      await axios.put(`${API}/api/auth/handle-change-request/${requestId}`, { action }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       window.dispatchEvent(new Event("refresh-pending-count"));
       fetchChangeRequests();
     } catch (err) { alert(err.response?.data?.message || "Action failed"); }
