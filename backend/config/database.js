@@ -384,7 +384,8 @@ async function ensureTablesAndColumns() {
     { table: "call_reports", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "clients", column: "gst_number", definition: "gst_number VARCHAR(50) DEFAULT NULL" },
     { table: "clients", column: "company_name", definition: "company_name VARCHAR(150) DEFAULT NULL" },
-    { table: "clients", column: "service", definition: "service VARCHAR(255) DEFAULT NULL" }
+    { table: "clients", column: "service", definition: "service VARCHAR(255) DEFAULT NULL" },
+    { table: "users", column: "emp_id", definition: "emp_id VARCHAR(50) DEFAULT NULL", uniqueKey: "emp_id" }
   ];
 
   const enumFixes = [
@@ -460,7 +461,7 @@ async function seedDefaultEmployees() {
     try {
       await queryAsync(
         `INSERT INTO users (first_name, email, user_password, role, status)
-         VALUES (?, ?, ?, 'user', 'active')
+         VALUES (?, ?, ?, 'employee', 'active')
          ON DUPLICATE KEY UPDATE first_name = VALUES(first_name)`,
         [employee.first_name, employee.email, hash]
       );

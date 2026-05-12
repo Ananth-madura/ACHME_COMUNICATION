@@ -60,11 +60,11 @@ router.post("/send-email-otp", (req, res) => {
 
 /*  REGISTER  */
 router.post("/register", async (req, res) => {
-  const { first_name, otp, user_password, role, emp_id } = req.body;
+  const { first_name, otp, user_password, emp_id } = req.body;
   const email = req.body.email?.trim().toLowerCase();
 
-  if (!first_name || !email || !otp || !user_password) {
-    return res.status(400).json({ message: "All fields required" });
+  if (!first_name || !email || !otp || !user_password || !emp_id) {
+    return res.status(400).json({ message: "All fields required (Name, Email, Employee ID, OTP, Password)" });
   }
 
   db.query(
@@ -76,17 +76,19 @@ router.post("/register", async (req, res) => {
       }
 
       const hash = await bcrypt.hash(user_password, 10);
-      const userRole = role || "user";
-      // All new registrations start as pending — admin must approve
+      const userRole = "employee";
       const status = "pending";
 
       db.query(
         `INSERT INTO users (first_name, email, user_password, role, status, emp_id) VALUES (?,?,?,?,?,?)`,
-        [first_name, email, hash, userRole, status, emp_id || null],
+        [first_name.trim(), email, hash, userRole, status, emp_id.trim()],
         (err, result) => {
           if (err) {
             if (err.code === "ER_DUP_ENTRY") {
               return res.status(409).json({ message: "Email already registered" });
+            }
+            if (err.code === "ER_DUP_ENTRY" && err.message.includes("emp_id")) {
+              return res.status(409).json({ message: "Employee ID already registered" });
             }
             return res.status(500).json({ message: "Server error" });
           }
@@ -94,10 +96,14 @@ router.post("/register", async (req, res) => {
           const newUserId = result.insertId;
           db.query(`DELETE FROM email_otp WHERE email=?`, [email]);
 
-          // Create admin notification
+          db.query(
+            `INSERT INTO teammember (first_name, emp_email, emp_id, job_title, emp_role, user_id) VALUES (?,?,?,?,?,?)`,
+            [first_name.trim(), email, emp_id.trim(), "Sales", "Sales", newUserId]
+          );
+
           db.query(
             `INSERT INTO admin_notifications (type, user_id, message) VALUES ('registration', ?, ?)`,
-            [newUserId, `New ${userRole} registration: ${first_name} (${email}) is waiting for approval.`]
+            [newUserId, `New employee registration: ${first_name} (${email}, EMP: ${emp_id}) is waiting for approval.`]
           );
 
           const notificationIO = getNotificationIO();
@@ -112,11 +118,12 @@ router.post("/register", async (req, res) => {
                 userId: newUserId,
                 userName: first_name,
                 email,
+                emp_id: emp_id,
                 type: "user",
-                message: `New ${userRole} registration: ${first_name} (${email}) is waiting for approval.`
+                message: `New employee registration: ${first_name} (${email}, EMP: ${emp_id}) is waiting for approval.`
               },
               userId: newUserId,
-              message: `New ${userRole} registration: ${first_name} (${email}) is waiting for approval.`
+              message: `New employee registration: ${first_name} (${email}, EMP: ${emp_id}) is waiting for approval.`
             });
           }
 

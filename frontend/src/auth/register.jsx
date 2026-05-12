@@ -19,7 +19,6 @@ export default function Register() {
     email: "",
     otp: "",
     emp_id: "",
-    role: "employee",
   });
 
   const sendOtp = async () => {
@@ -169,20 +168,7 @@ export default function Register() {
             </div>
           )}
 
-          <div>
-            <label className="block text-[13px] font-semibold text-[#37352f] mb-1.5 uppercase tracking-wider">
-              Role
-            </label>
-            <select
-              className="w-full h-11 px-3 bg-white border border-[#e5e3df] rounded-lg outline-none focus:border-[#5645d4] focus:ring-[1px] focus:ring-[#5645d4] transition-all text-[15px] appearance-none cursor-pointer"
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-              disabled={loading}
-            >
-              <option value="employee">Employee</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
+          
 
           <div>
             <label className="block text-[13px] font-semibold text-[#37352f] mb-1.5 uppercase tracking-wider">
