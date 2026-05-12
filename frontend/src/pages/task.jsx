@@ -144,14 +144,14 @@ const Task = () => {
 
   const [form, setForm] = useState({
     project_name: "", task_title: "", client_name: "", staff_name: "",
-    assigned_to: "",
+    assigned_to: "", assigned_teammember_id: "",
     created_date: new Date().toISOString().slice(0, 10),
     due_date: new Date().toISOString().slice(0, 10),
     project_status: "New", project_priority: "Medium",
   });
 
   const resetForm = () => {
-    setForm({ project_name: "", task_title: "", client_name: "", staff_name: "", assigned_to: "",
+    setForm({ project_name: "", task_title: "", client_name: "", staff_name: "", assigned_to: "", assigned_teammember_id: "",
       created_date: new Date().toISOString().slice(0, 10), due_date: new Date().toISOString().slice(0, 10),
       project_status: "New", project_priority: "Medium" });
     setSelectedTask(null);
@@ -258,7 +258,11 @@ const Task = () => {
     const token = localStorage.getItem("token");
     const cfg = { headers: { Authorization: `Bearer ${token}` } };
     try {
-      const data = { ...form, staff_name: form.assigned_to || form.staff_name || user?.name };
+      const data = {
+        ...form,
+        staff_name: form.assigned_to || form.staff_name || user?.name,
+        assigned_teammember_id: form.assigned_teammember_id || null
+      };
       if (selectedTask) {
         await axios.put(`${API}/api/task/${selectedTask.id}`, data, cfg);
         socket?.emit("task_updated", { taskId: selectedTask.id });
@@ -741,11 +745,14 @@ const Task = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Assign To</label>
-                  <select name="assigned_to" value={form.assigned_to} onChange={e => setForm({...form,assigned_to:e.target.value})}
+                  <select name="assigned_to" value={form.assigned_to} onChange={e => {
+                    const m = teamMembers.find(t => String(t.user_id || t.id) === e.target.value);
+                    setForm({...form, assigned_to: m ? `${m.first_name} ${m.last_name||""}`.trim() : e.target.value, assigned_teammember_id: m ? (m.user_id || m.id) : "" });
+                  }}
                     className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
                     <option value="">— Select Staff —</option>
                     {teamMembers.map(t => (
-                      <option key={t.id} value={t.user_id || `${t.first_name} ${t.last_name||""}`.trim()}>
+                      <option key={t.id} value={String(t.user_id || t.id)}>
                         {t.first_name} {t.last_name||""}
                       </option>
                     ))}
@@ -832,16 +839,16 @@ const Task = () => {
             <form onSubmit={handleTargetSubmit} className="p-4 space-y-3">
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Select Employee *</label>
-                <select value={targetForm.user_id || targetForm.user_name}
+                <select value={targetForm.user_id || targetForm.user_name || ""}
                   onChange={e => {
                     const val = e.target.value;
-                    const m = teamMembers.find(m => m.user_id == val || m.id == val);
+                    const m = teamMembers.find(m => String(m.user_id || m.id) === val);
                     setTargetForm({ ...targetForm, user_id: m?.user_id || m?.id || "", user_name: m ? `${m.first_name} ${m.last_name||""}`.trim() : val });
                   }}
                   className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }} required>
                   <option value="">— Select Staff —</option>
                   {teamMembers.map(t => (
-                    <option key={t.id} value={t.user_id || t.id}>{t.first_name} {t.last_name||""}</option>
+                    <option key={t.id} value={String(t.user_id || t.id)}>{t.first_name} {t.last_name||""}</option>
                   ))}
                 </select>
               </div>

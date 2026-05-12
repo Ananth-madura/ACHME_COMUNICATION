@@ -22,43 +22,60 @@ const Targets = () => {
 
   const fetchTeamMembers = async () => {
     try {
-      const res = await axios.get(`${API}/api/teammember`);
-      setTeamMembers(res.data);
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API}/api/teammember`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      setTeamMembers(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Fetch team members error:", err);
+      setTeamMembers([]);
     }
   };
 
   const fetchAllTargets = async () => {
     try {
-      const res = await axios.get(`${API}/api/targets`);
-      setTargets(res.data);
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API}/api/targets`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      setTargets(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Fetch targets error:", err);
+      setTargets([]);
     }
   };
 
   const fetchMyTarget = async () => {
     try {
-      const res = await axios.get(`${API}/api/targets/my?user_name=${encodeURIComponent(user?.name || "")}`);
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API}/api/targets/my?user_name=${encodeURIComponent(user?.name || "")}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       setMyTarget(res.data);
     } catch (err) {
       console.error("Fetch my target error:", err);
+      setMyTarget(null);
     }
   };
 
   const fetchHistory = async () => {
     try {
-      const res = await axios.get(`${API}/api/targets/history?user_name=${encodeURIComponent(user?.name || "")}&months=12`);
-      setHistory(res.data);
-      const graph = res.data.map(h => ({
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API}/api/targets/history?user_name=${encodeURIComponent(user?.name || "")}&months=12`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      setHistory(Array.isArray(res.data) ? res.data : []);
+      const graph = (res.data || []).map(h => ({
         month: h.month_year,
-        achieved: parseFloat(h.achieved_amount) || 0,
-        target: parseFloat(h.monthly_target) || 0
+        achieved: parseFloat(h.achieved_amount || h.achieved_count || 0),
+        target: parseFloat(h.monthly_target || 0)
       }));
       setGraphData(graph.reverse());
     } catch (err) {
       console.error("Fetch history error:", err);
+      setHistory([]);
+      setGraphData([]);
     }
   };
 
@@ -88,22 +105,39 @@ const Targets = () => {
   const [form, setForm] = useState({
     user_name: "",
     yearly_target: "",
-    monthly_target: ""
+    monthly_target: "",
+    user_id: ""
   });
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "user_name_select") {
+      const m = teamMembers.find(t => String(t.user_id || t.id) === value);
+      if (m) {
+        setForm({ ...form, user_id: m.user_id || m.id, user_name: `${m.first_name} ${m.last_name || ""}`.trim() });
+      } else {
+        setForm({ ...form, user_id: "", user_name: value });
+      }
+    } else {
+      setForm({ ...form, [name]: value });
+    }
+  };
 
   const saveTarget = async (e) => {
     e.preventDefault();
+    if (!form.user_name) return alert("Please select an employee");
+    if (!form.yearly_target) return alert("Please enter yearly target");
     try {
-      const selectedUser = teamMembers.find(t => `${t.first_name} ${t.last_name || ""}`.trim() === form.user_name);
       await axios.post(`${API}/api/targets`, {
-        ...form,
-        user_id: selectedUser?.id,
+        user_id: form.user_id || null,
+        user_name: form.user_name,
+        yearly_target: parseFloat(form.yearly_target),
+        monthly_target: form.monthly_target ? parseFloat(form.monthly_target) : Math.round(parseFloat(form.yearly_target) / 12),
         created_by_admin: user?.name || "Admin"
-      });
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
       alert("Target saved successfully");
       setOpen(false);
+      setForm({ user_name: "", yearly_target: "", monthly_target: "", user_id: "" });
       fetchAllTargets();
     } catch (err) {
       alert("Failed to save target: " + (err.response?.data?.error || err.message));
@@ -113,7 +147,7 @@ const Targets = () => {
   const updateAchievement = async () => {
     if (!updateAmount) return alert("Please enter amount");
     try {
-      await axios.post(`${API}/api/targets/update`, {
+      await axios.post(`${API}/api/task/targets/update`, {
         user_id: user?.id,
         user_name: user?.name,
         amount: parseFloat(updateAmount),
@@ -208,15 +242,15 @@ const Targets = () => {
                   <div>
                     <label className="text-sm font-medium text-gray-600">Select User</label>
                     <select
-                      name="user_name"
-                      value={form.user_name}
+                      name="user_name_select"
+                      value={form.user_id || form.user_name || ""}
                       onChange={handleChange}
                       className="border rounded-md px-3 py-2 outline-none bg-white w-full text-sm"
                       required
                     >
                       <option value="">-- Select Staff --</option>
                       {teamMembers.map(t => (
-                        <option key={t.id} value={`${t.first_name} ${t.last_name || ""}`.trim()}>
+                        <option key={t.id} value={String(t.user_id || t.id)}>
                           {t.first_name} {t.last_name || ""} {t.job_title ? `(${t.job_title})` : ""}
                         </option>
                       ))}

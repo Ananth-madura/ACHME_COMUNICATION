@@ -1,4 +1,4 @@
-import { API as API_CONSTANT } from "../config";
+import { API as API_CONSTANT } from "./index";
 
 export const API = API_CONSTANT;
 export const API_PROXY_URL = API_CONSTANT;

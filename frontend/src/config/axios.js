@@ -1,16 +1,13 @@
 import axios from "axios";
-import { API } from "./api";
-
-const API_PROXY = API;
+import { API } from "./index";
 
 const api = axios.create({
-  baseURL: API_PROXY,
+  baseURL: API,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Add token to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
@@ -21,5 +18,4 @@ api.interceptors.request.use((config) => {
 
 export default api;
 
-// For backward compatibility
-export const API_PROXY_URL = API_PROXY;
+export const API_PROXY_URL = API;

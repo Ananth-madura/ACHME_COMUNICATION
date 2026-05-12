@@ -14,13 +14,33 @@ CREATE TABLE IF NOT EXISTS tasks (
   id INT AUTO_INCREMENT PRIMARY KEY,
   project_name VARCHAR(255),
   task_title VARCHAR(255),
-  project_status ENUM('New', 'Process', 'Completed') DEFAULT 'New',
-  project_priority ENUM('Normal', 'Low', 'High', 'Urgent') DEFAULT 'Normal',
+  project_status ENUM('New', 'Process', 'Completed', 'Expired') DEFAULT 'New',
+  project_priority ENUM('Low', 'Medium', 'High') DEFAULT 'Medium',
   staff_name VARCHAR(255),
   client_name VARCHAR(255),
   created_date DATE,
-  due_date DATE
+  due_date DATE,
+  assigned_to VARCHAR(255),
+  assigned_teammember_id INT DEFAULT NULL,
+  created_by INT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+-- Add missing columns if table already exists
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_to VARCHAR(255) AFTER due_date;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assigned_teammember_id INT DEFAULT NULL AFTER assigned_to;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_by INT DEFAULT NULL AFTER assigned_teammember_id;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER created_by;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at;
+
+-- Fix enum to include 'Expired' and 'Medium'
+ALTER TABLE tasks MODIFY COLUMN project_status ENUM('New', 'Process', 'Completed', 'Expired') DEFAULT 'New';
+ALTER TABLE tasks MODIFY COLUMN project_priority ENUM('Low', 'Medium', 'High') DEFAULT 'Medium';
+
+-- Ensure teammember table has user_id and emp_id columns
+ALTER TABLE teammember ADD COLUMN IF NOT EXISTS user_id INT DEFAULT NULL AFTER quotation_count;
+ALTER TABLE teammember ADD COLUMN IF NOT EXISTS emp_id VARCHAR(100) DEFAULT NULL AFTER user_id;
 
 -- 2. Task Activity Table
 CREATE TABLE IF NOT EXISTS task_activity (
