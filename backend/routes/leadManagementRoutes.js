@@ -271,6 +271,7 @@ router.get("/missed-counts/:leadType", (req, res) => {
 
 // Helper function to create/update client from lead
 const createClientFromLead = (lead, leadType, callback) => {
+  const leadIdDisplay = `${leadType.charAt(0).toUpperCase()}-${lead.id}`;
   const leadData = {
     name: lead.customer_name || "",
     phone: lead.mobile_number || "",
@@ -285,7 +286,9 @@ const createClientFromLead = (lead, leadType, callback) => {
     lead_reference: lead.reference || "",
     lead_purpose: lead.purpose || lead.service_name || "",
     client_status: "converted",
-    converted_at: new Date()
+    converted_at: new Date(),
+    lead_staff_name: lead.staff_name || "",
+    lead_id_display: leadIdDisplay
   };
 
   db.query("SELECT id FROM clients WHERE original_lead_id=? AND original_lead_type=?", [lead.id, leadType], (err3, existing) => {
@@ -295,11 +298,12 @@ const createClientFromLead = (lead, leadType, callback) => {
           db.query(
             `UPDATE clients SET name=?, email=?, address=?, service=?, gst_number=?, 
              original_lead_id=?, original_lead_type=?, lead_email=?, lead_city=?, 
-             lead_reference=?, lead_purpose=?, client_status='converted', converted_at=NOW()
+             lead_reference=?, lead_purpose=?, client_status='converted', converted_at=NOW(),
+             lead_staff_name=?, lead_id_display=?
              WHERE id=?`,
             [leadData.name, leadData.email, leadData.address, leadData.service, leadData.gst_number,
              leadData.original_lead_id, leadData.original_lead_type, leadData.lead_email, leadData.lead_city,
-             leadData.lead_reference, leadData.lead_purpose, byPhone[0].id],
+             leadData.lead_reference, leadData.lead_purpose, leadData.lead_staff_name, leadData.lead_id_display, byPhone[0].id],
             (err5) => {
               if (err5) console.error("Error updating client:", err5);
               else callback(byPhone[0].id);
@@ -309,11 +313,12 @@ const createClientFromLead = (lead, leadType, callback) => {
           db.query(
             `INSERT INTO clients (name, phone, email, address, service, gst_number, 
              created_by, original_lead_id, original_lead_type, lead_email, lead_city, 
-             lead_reference, lead_purpose, client_status, converted_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'converted', NOW())`,
+             lead_reference, lead_purpose, client_status, converted_at, lead_staff_name, lead_id_display) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'converted', NOW(), ?, ?)`,
             [leadData.name, leadData.phone, leadData.email, leadData.address, leadData.service,
-             leadData.gst_number, lead.created_by || null, leadData.original_lead_id, leadData.original_lead_type,
-             leadData.lead_email, leadData.lead_city, leadData.lead_reference, leadData.lead_purpose],
+             leadData.gst_number, lead.created_by || lead.staff_name || null, leadData.original_lead_id, leadData.original_lead_type,
+             leadData.lead_email, leadData.lead_city, leadData.lead_reference, leadData.lead_purpose,
+             leadData.lead_staff_name, leadData.lead_id_display],
             (err5, result) => {
               if (err5) console.error("Error creating client:", err5);
               else callback(result.insertId);
@@ -434,7 +439,9 @@ router.get("/converted", (req, res) => {
              WHEN 'field' THEN 'Field Visit'
              ELSE 'Unknown'
            END as lead_source,
-           DATE_FORMAT(c.converted_at, '%Y-%m-%d %H:%i') as converted_date
+           DATE_FORMAT(c.converted_at, '%Y-%m-%d %H:%i') as converted_date,
+           c.lead_staff_name as converted_by_name,
+           c.lead_id_display as lead_reference_id
     FROM clients c
     LEFT JOIN users u ON c.created_by = u.id
     WHERE c.client_status = 'converted' AND c.original_lead_id IS NOT NULL

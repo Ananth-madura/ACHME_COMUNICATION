@@ -15,7 +15,9 @@ const migration = async () => {
     { col: "lead_city", type: "VARCHAR(100) DEFAULT NULL" },
     { col: "lead_reference", type: "VARCHAR(255) DEFAULT NULL" },
     { col: "lead_purpose", type: "VARCHAR(255) DEFAULT NULL" },
-    { col: "client_status", type: "ENUM('active','inactive','converted') DEFAULT 'active'" }
+    { col: "client_status", type: "ENUM('active','inactive','converted') DEFAULT 'active'" },
+    { col: "lead_staff_name", type: "VARCHAR(150) DEFAULT NULL" },
+    { col: "lead_id_display", type: "VARCHAR(50) DEFAULT NULL" }
   ];
 
   for (const alt of alterations) {

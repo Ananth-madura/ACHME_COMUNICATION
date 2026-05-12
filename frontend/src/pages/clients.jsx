@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, X, Edit, Trash2, FileText, FileSignature, Users, UserCheck } from "lucide-react";
+import { Search, X, Edit, Trash2, FileText, FileSignature, Users, UserCheck, Phone, Calendar, User } from "lucide-react";
 import "../Styles/tailwind.css";
 import axios from "axios";
 import { useAuth } from "../auth/AuthContext";
@@ -9,10 +9,11 @@ const Clients = () => {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState([]);
-  const [convertedLeads, setConvertedLeads] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSource, setFilterSource] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
+  const [selectedClientDetails, setSelectedClientDetails] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const fetchClients = async () => {
     try {
@@ -25,22 +26,11 @@ const Clients = () => {
     }
   };
 
-  const fetchConvertedLeads = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const response = await axios.get(`${API}/api/leads/converted`, config);
-      setConvertedLeads(response.data);
-    } catch (err) {
-      console.log("Fetch Converted Leads Error:", err);
-    }
-  };
-
   const downloadExcel = () => {
     const data = filteredClients.length > 0 ? filteredClients : clients;
     if (!data.length) return alert("No client data to export");
 
-    const headers = ["ID", "Name", "Email", "Phone", "City", "Service", "Source", "Status"];
+    const headers = ["ID", "Name", "Email", "Phone", "City", "Service", "Source", "Converted By", "Converted Date", "Status"];
     const rows = data.map(c => [
       c.id,
       c.name || "",
@@ -49,6 +39,8 @@ const Clients = () => {
       c.address || "",
       c.service || "",
       c.original_lead_type ? `${c.original_lead_type.charAt(0).toUpperCase() + c.original_lead_type.slice(1)} Lead` : "Direct",
+      c.lead_staff_name || c.creator_name || "Admin",
+      c.converted_at ? new Date(c.converted_at).toLocaleDateString() : "",
       c.client_status || "active"
     ]);
 
@@ -67,7 +59,6 @@ const Clients = () => {
 
   useEffect(() => {
     fetchClients();
-    fetchConvertedLeads();
   }, []);
 
   const deleteClient = async (id) => {
@@ -77,7 +68,6 @@ const Clients = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       await axios.delete(`${API}/api/client/${id}`, config);
       fetchClients();
-      fetchConvertedLeads();
     } catch (err) {
       console.log("delete error", err);
     }
@@ -140,6 +130,11 @@ const Clients = () => {
     setOpen(true);
   };
 
+  const openDetailsModal = (client) => {
+    setSelectedClientDetails(client);
+    setShowDetailsModal(true);
+  };
+
   useEffect(() => {
     if (open) {
       document.body.classList.add("modal-open");
@@ -164,7 +159,8 @@ const Clients = () => {
     const matchesSearch =
       c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone?.includes(searchTerm);
+      c.phone?.includes(searchTerm) ||
+      c.lead_staff_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSource = filterSource === "all" || c.original_lead_type === filterSource;
     const isConverted = c.original_lead_id !== null && c.original_lead_type !== null;
     
@@ -205,13 +201,13 @@ const Clients = () => {
           onClick={() => setActiveTab("converted")}
           className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition ${activeTab === "converted" ? "bg-green-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
         >
-          <UserCheck size={16} /> Converted Leads ({convertedCount})
+          <UserCheck size={16} /> Converted ({convertedCount})
         </button>
         <button
           onClick={() => setActiveTab("direct")}
           className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition ${activeTab === "direct" ? "bg-purple-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
         >
-          <Users size={16} /> Direct Clients ({directCount})
+          <Users size={16} /> Direct ({directCount})
         </button>
       </div>
 
@@ -247,60 +243,80 @@ const Clients = () => {
         </button>
       </div>
 
-      <div className="bg-white shadow rounded-xl overflow-hidden">
-        <table className="w-full text-sm border-collapse">
+      <div className="bg-white shadow rounded-xl overflow-hidden overflow-x-auto">
+        <table className="w-full text-sm border-collapse min-w-[900px]">
           <thead className="bg-gray-50">
             <tr className="text-gray-600 uppercase text-xs border-b">
               <th className="px-4 py-3 border text-left">ID</th>
               <th className="px-4 py-3 border text-left">Name</th>
-              <th className="px-4 py-3 border text-left">Email</th>
               <th className="px-4 py-3 border text-left">Phone</th>
-              <th className="px-4 py-3 border text-left">City</th>
-              <th className="px-4 py-3 border text-left">Service</th>
               <th className="px-4 py-3 border text-left">Source</th>
+              <th className="px-4 py-3 border text-left">Lead ID</th>
+              <th className="px-4 py-3 border text-left">Converted By</th>
+              <th className="px-4 py-3 border text-left">Date</th>
               <th className="px-4 py-3 border text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredClients.map((c) => (
-              <tr key={c.id} className="border-b border-gray-200 hover:bg-gray-50 transition">
+              <tr key={c.id} className="border-b border-gray-200 hover:bg-gray-50 transition cursor-pointer" onClick={() => openDetailsModal(c)}>
                 <td className="px-4 py-3 border">{c.id}</td>
-                <td className="px-4 py-3 border font-medium">{c.name}</td>
-                <td className="px-4 py-3 border">{c.email}</td>
-                <td className="px-4 py-3 border">{c.phone}</td>
-                <td className="px-4 py-3 border">{c.address}</td>
-                <td className="px-4 py-3 border">{c.service}</td>
+                <td className="px-4 py-3 border font-medium">
+                  <div>{c.name}</div>
+                  <div className="text-xs text-gray-400">{c.email}</div>
+                </td>
+                <td className="px-4 py-3 border">
+                  <div className="flex items-center gap-1">
+                    <Phone size={12} className="text-gray-400" />
+                    {c.phone}
+                  </div>
+                </td>
                 <td className="px-4 py-3 border">{getSourceBadge(c.original_lead_type || "direct")}</td>
-                <td className="px-4 py-3 border text-center">
-                  <div className="flex justify-center items-center gap-3">
+                <td className="px-4 py-3 border">
+                  {c.lead_id_display ? (
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{c.lead_id_display}</span>
+                  ) : (
+                    <span className="text-gray-400 text-xs">-</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 border">
+                  <div className="flex items-center gap-1">
+                    <User size={12} className="text-gray-400" />
+                    <span className="text-sm">{c.lead_staff_name || c.creator_name || "Admin"}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3 border">
+                  <div className="flex items-center gap-1">
+                    <Calendar size={12} className="text-gray-400" />
+                    <span className="text-xs">{c.converted_at ? new Date(c.converted_at).toLocaleDateString() : "-"}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3 border text-center" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-center items-center gap-2">
                     <button
                       onClick={() => window.location.href = `/proposal?client_name=${encodeURIComponent(c.name)}&client_email=${encodeURIComponent(c.email || '')}`}
-                      className="text-blue-600 hover:text-blue-800 transition"
+                      className="text-blue-600 hover:text-blue-800 transition p-1"
                       title="Create Proposal"
                     >
                       <FileText size={18} />
                     </button>
                     <button
                       onClick={() => window.location.href = `/contract?client_name=${encodeURIComponent(c.name)}&client_email=${encodeURIComponent(c.email || '')}`}
-                      className="text-green-600 hover:text-green-800 transition"
+                      className="text-green-600 hover:text-green-800 transition p-1"
                       title="Create Contract"
                     >
                       <FileSignature size={18} />
                     </button>
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Added By</span>
-                      <span className="text-xs font-semibold text-blue-600">{c.creator_name || "Admin"}</span>
-                    </div>
                     <button
                       onClick={() => openEditModal(c)}
-                      className="text-amber-600 hover:text-amber-800 transition"
+                      className="text-amber-600 hover:text-amber-800 transition p-1"
                       title="Edit"
                     >
                       <Edit size={18} />
                     </button>
                     <button
                       onClick={() => deleteClient(c.id)}
-                      className="text-red-600 hover:text-red-800 transition"
+                      className="text-red-600 hover:text-red-800 transition p-1"
                       title="Delete"
                     >
                       <Trash2 size={18} />
@@ -318,6 +334,95 @@ const Clients = () => {
         </table>
       </div>
 
+      {/* Client Details Modal */}
+      {showDetailsModal && selectedClientDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="px-6 py-4 border-b flex justify-between items-center bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+              <h2 className="text-xl font-bold">Client Details</h2>
+              <button onClick={() => setShowDetailsModal(false)} className="text-white hover:text-gray-200">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase">Name</label>
+                  <p className="font-semibold text-gray-800">{selectedClientDetails.name}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase">Phone</label>
+                  <p className="font-semibold text-gray-800">{selectedClientDetails.phone}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase">Email</label>
+                  <p className="font-semibold text-gray-800">{selectedClientDetails.email || "-"}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase">City</label>
+                  <p className="font-semibold text-gray-800">{selectedClientDetails.address || selectedClientDetails.lead_city || "-"}</p>
+                </div>
+              </div>
+              
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-bold text-gray-600 mb-3">Conversion Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase">Source</label>
+                    <p className="mt-1">{getSourceBadge(selectedClientDetails.original_lead_type)}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase">Lead ID</label>
+                    <p className="font-mono text-sm mt-1">{selectedClientDetails.lead_id_display || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase">Converted By</label>
+                    <p className="font-semibold text-gray-800">{selectedClientDetails.lead_staff_name || selectedClientDetails.creator_name || "Admin"}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase">Converted Date</label>
+                    <p className="font-semibold text-gray-800">
+                      {selectedClientDetails.converted_at ? new Date(selectedClientDetails.converted_at).toLocaleString() : "-"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {selectedClientDetails.lead_reference && (
+                <div className="border-t pt-4">
+                  <label className="text-xs font-bold text-gray-400 uppercase">Reference</label>
+                  <p className="font-semibold text-gray-800">{selectedClientDetails.lead_reference}</p>
+                </div>
+              )}
+              
+              {selectedClientDetails.lead_purpose && (
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase">Purpose / Service</label>
+                  <p className="font-semibold text-gray-800">{selectedClientDetails.lead_purpose || selectedClientDetails.service}</p>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  openEditModal(selectedClientDetails);
+                }}
+                className="bg-amber-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-600 transition"
+              >
+                Edit Client
+              </button>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -330,88 +435,46 @@ const Clients = () => {
             <form onSubmit={saveClient} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
+                <input type="text" name="name" value={form.name} onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-                <input
-                  type="text"
-                  name="company_name"
-                  value={form.company_name}
-                  onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="text" name="company_name" value={form.company_name} onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="email" name="email" value={form.email} onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input
-                  type="text"
-                  name="phone"
-                  value={form.phone}
-                  onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
+                <input type="text" name="phone" value={form.phone} onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">City/Address</label>
-                <input
-                  type="text"
-                  name="address"
-                  value={form.address}
-                  onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="text" name="address" value={form.address} onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Service Interests</label>
-                <input
-                  type="text"
-                  name="service"
-                  value={form.service}
-                  onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="text" name="service" value={form.service} onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">GST Number</label>
-                <input
-                  type="text"
-                  name="gst_number"
-                  value={form.gst_number}
-                  onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="text" name="gst_number" value={form.gst_number} onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div className="pt-4 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-200 transition"
-                >
+                <button type="button" onClick={() => setOpen(false)}
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-200 transition">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition shadow-lg"
-                >
+                <button type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition shadow-lg">
                   {isEdit ? "Update Client" : "Save Client"}
                 </button>
               </div>
