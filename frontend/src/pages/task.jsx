@@ -171,7 +171,7 @@ const Task = () => {
 
       let tasksRes, targetsRes, teamRes;
 
-      const teamResPromise = axios.get(`${API}/api/teammember`, config).catch(() => ({ data: [] }));
+      const teamResPromise = axios.get(`${API}/api/teammember`).catch(() => ({ data: [] }));
 
       if (isAdmin) {
         [tasksRes, targetsRes, teamRes] = await Promise.all([

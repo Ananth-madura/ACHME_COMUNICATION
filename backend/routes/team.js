@@ -25,10 +25,18 @@ router.post("/new", verifyToken, isAdmin, (req,res)=>{
 });
 
 
-/* GET ALL - Admin only */
-router.get("/", verifyToken, isAdmin, (req,res)=>{
-  db.query("SELECT * FROM teammember ORDER BY id DESC",(err,result)=>{
-    if(err) return res.status(500).json(err);
+/* GET ALL - Public (for dropdowns in forms) - No auth required */
+router.get("/", (req, res) => {
+  db.query("SELECT id, first_name, last_name, emp_email, job_title, emp_role, user_id, emp_id, mobile, emp_address FROM teammember ORDER BY first_name", (err, result) => {
+    if (err) return res.status(500).json(err);
+    res.json(result);
+  });
+});
+
+/* GET ALL - Admin only (full data) */
+router.get("/admin", require("../middileware/authMiddleware").verifyToken, require("../middileware/authMiddleware").isAdmin, (req, res) => {
+  db.query("SELECT * FROM teammember ORDER BY id DESC", (err, result) => {
+    if (err) return res.status(500).json(err);
     res.json(result);
   });
 });

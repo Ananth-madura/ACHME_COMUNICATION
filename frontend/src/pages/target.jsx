@@ -22,10 +22,7 @@ const Targets = () => {
 
   const fetchTeamMembers = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${API}/api/teammember`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await axios.get(`${API}/api/teammember`);
       setTeamMembers(res.data);
     } catch (err) {
       console.error("Fetch team members error:", err);
