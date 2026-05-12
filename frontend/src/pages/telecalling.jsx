@@ -189,33 +189,33 @@ const saveTelecall = async (e) => {
     call_date: form.call_date || today,
   };
 
-  if (isEdit) {
-    await axios.put(
-      `${API}/api/Telecalls/${editId}`,
-      payload );
-    alert("Successfully Updated");
-    // Clear follow-up and reminder fields after saving so next entry is fresh
-    setForm(prev => ({
-      ...prev,
-      followup_required: "Default",
-      followup_date: "",
-      followup_notes: "",
-      reminder_required: "Default",
-      reminder_date: "",
-      reminder_notes: "",
-    }));
-  } else {
-    await axios.post(
-      `${API}/api/Telecalls`,
-      payload
-    );
-    alert("Successfully Created");
-  }
+  try {
+    if (isEdit) {
+      await axios.put(`${API}/api/Telecalls/${editId}`, payload);
+      alert("Successfully Updated");
+      setForm(prev => ({
+        ...prev,
+        followup_required: "Default",
+        followup_date: "",
+        followup_notes: "",
+        reminder_required: "Default",
+        reminder_date: "",
+        reminder_notes: "",
+      }));
+    } else {
+      await axios.post(`${API}/api/Telecalls`, payload);
+      alert("Successfully Created");
+    }
 
-  fetchTelecalls();
-  window.dispatchEvent(new Event("refresh-dashboard")); 
-  setOpen(false);
-  setIsEdit(false);
+    fetchTelecalls();
+    window.dispatchEvent(new Event("refresh-dashboard"));
+    setOpen(false);
+    setIsEdit(false);
+  } catch (err) {
+    console.error("Error saving telecall:", err);
+    const msg = err.response?.data?.error || err.response?.data?.message || err.message || "Failed to save telecall";
+    alert(msg);
+  }
 };
 
 // Edit;
@@ -631,20 +631,22 @@ useEffect(() => {
                 {/* Convert to Client */}
                 <button 
                   type="button" 
-                  onClick={async () => {
-                    if (!T.customer_name) {
-                      alert("Cannot convert: Customer name is missing");
-                      return;
-                    }
-                    if (!window.confirm(`Convert "${T.customer_name}" to Client?`)) return;
-                    try {
-                      await axios.put(`${API}/api/leads/telecall/${T.id}`, { call_outcome: "Converted" });
-                      alert("Lead converted to Client successfully!");
-                      fetchTelecalls();
-                    } catch (err) {
-                      alert("Failed to convert: " + (err.response?.data?.message || err.message));
-                    }
-                  }} 
+onClick={async () => {
+                     if (!T.customer_name) {
+                       alert("Cannot convert: Customer name is missing");
+                       return;
+                     }
+                     if (!window.confirm(`Convert "${T.customer_name}" to Client?`)) return;
+                     try {
+                       await axios.put(`${API}/api/leads/telecall/${T.id}`, { call_outcome: "Converted" });
+                       alert("Lead converted to Client successfully!");
+                       fetchTelecalls();
+                     } catch (err) {
+                       console.error("Convert error:", err);
+                       const msg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to convert lead";
+                       alert("Conversion failed: " + msg);
+                     }
+                   }}
                   title="Convert to Client" 
                   className="text-blue-600 hover:text-blue-800"
                 >

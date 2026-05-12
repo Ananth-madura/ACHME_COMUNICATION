@@ -145,39 +145,40 @@ router.post("/register", async (req, res) => {
 /* ================= LOGIN with Password or OTP ================= */
 router.post("/login", (req, res) => {
   const { email, password, otp } = req.body;
-  if (!email) return res.status(400).json({ message: "Email required" });
+  if (!email) return res.status(400).json({ message: "Email / Employee Code required" });
   const emailLower = email.trim().toLowerCase();
 
-  db.query(`SELECT id, first_name, email, role, status, user_password FROM users WHERE email=?`, [emailLower], (err, rows) => {
-    if (err || !rows.length) {
-      return res.status(404).json({ message: "No account found with this email" });
-    }
+  db.query(
+    `SELECT id, first_name, last_name, email, role, status, user_password FROM users WHERE email=? OR emp_id=?`,
+    [emailLower, emailLower],
+    (err, rows) => {
+      if (err || !rows.length) {
+        return res.status(404).json({ message: "No account found with this email or employee code" });
+      }
 
-    const user = rows[0];
-    if (user.status === "pending") return res.status(403).json({ message: "Account waiting for admin approval" });
-    if (user.status === "banned") return res.status(403).json({ message: "Account has been banned" });
+      const user = rows[0];
+      if (user.status === "pending") return res.status(403).json({ message: "Account waiting for admin approval" });
+      if (user.status === "banned") return res.status(403).json({ message: "Account has been banned" });
 
-    // Password login
-    if (password) {
-      bcrypt.compare(password, user.user_password, (err, match) => {
-        if (err || !match) return res.status(401).json({ message: "Invalid password" });
+      if (password) {
+        bcrypt.compare(password, user.user_password, (err, match) => {
+          if (err || !match) return res.status(401).json({ message: "Invalid password" });
+          const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "14d" });
+          return res.json({ token, user: { id: user.id, name: user.first_name, email: user.email, role: user.role } });
+        });
+        return;
+      }
+
+      if (!otp) return res.status(400).json({ message: "Please provide OTP or password" });
+
+      db.query(`SELECT * FROM email_otp WHERE email=? AND otp=? AND expires_at > NOW()`, [emailLower, otp], (err2, otpRows) => {
+        if (err2 || !otpRows.length) return res.status(401).json({ message: "Invalid or expired OTP" });
+        db.query(`DELETE FROM email_otp WHERE email=?`, [emailLower]);
         const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "14d" });
         return res.json({ token, user: { id: user.id, name: user.first_name, email: user.email, role: user.role } });
       });
-      return;
     }
-
-    // OTP login
-    if (!otp) return res.status(400).json({ message: "Please provide OTP or password" });
-
-    db.query(`SELECT * FROM email_otp WHERE email=? AND otp=? AND expires_at > NOW()`, [emailLower, otp], (err2, otpRows) => {
-      if (err2 || !otpRows.length) return res.status(401).json({ message: "Invalid or expired OTP" });
-
-      db.query(`DELETE FROM email_otp WHERE email=?`, [emailLower]);
-      const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "14d" });
-      return res.json({ token, user: { id: user.id, name: user.first_name, email: user.email, role: user.role } });
-    });
-  });
+  );
 });
 
 /* ================= ADMIN: CREATE USER ================= */

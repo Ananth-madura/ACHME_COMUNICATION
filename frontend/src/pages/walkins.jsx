@@ -150,25 +150,31 @@ const saveWalkins = async (e) => {
     walkin_date: form.walkin_date || today, 
   };
 
-  if (isEdit) {
-    await axios.put(`${API}/api/Walkins/${editId}`, payload);
-    alert("Successfully Updated");
-    setForm(prev => ({
-      ...prev,
-      followup_required: "Default", followup_date: "", followup_notes: "",
-      reminder_required: "Default", reminder_date: "", reminder_notes: "",
-    }));
-  } else {
-    await axios.post(
-      `${API}/api/Walkins`,
-      payload
-    );
-    alert("Successfully Created");
-  }
+  try {
+    if (isEdit) {
+      await axios.put(`${API}/api/Walkins/${editId}`, payload);
+      alert("Successfully Updated");
+      setForm(prev => ({
+        ...prev,
+        followup_required: "Default", followup_date: "", followup_notes: "",
+        reminder_required: "Default", reminder_date: "", reminder_notes: "",
+      }));
+    } else {
+      await axios.post(
+        `${API}/api/Walkins`,
+        payload
+      );
+      alert("Successfully Created");
+    }
 
-  fetchWalkins();
-  setOpen(false);
-  setIsEdit(false);
+    fetchWalkins();
+    setOpen(false);
+    setIsEdit(false);
+  } catch (err) {
+    console.error("Error saving walkin:", err);
+    const msg = err.response?.data?.error || err.response?.data?.message || err.message || "Failed to save walkin";
+    alert(msg);
+  }
 };
 
 // Edit Model;
@@ -506,7 +512,9 @@ const openEdit = async (id) => {
                             alert("Lead converted to Client successfully!");
                             fetchWalkins();
                           } catch (err) {
-                            alert("Failed to convert: " + (err.response?.data?.message || err.message));
+                            console.error("Convert error:", err);
+                            const msg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to convert lead";
+                            alert("Conversion failed: " + msg);
                           }
                         }} 
                         title="Convert to Client" 

@@ -39,7 +39,8 @@ router.get("/", verifyToken, (req, res) => {
 });
 
 const syncClient = (data, userId, leadId, teammemberId) => {
-  const { customer_name, mobile_number, location_city, service_name, email, call_outcome, gst_number } = data;
+  const { customer_name, mobile_number, location_city, service_name, email, call_outcome, gst_number, staff_name } = data;
+  const leadIdDisplay = `T-${leadId}`;
 
   if (call_outcome === "Converted") {
     db.query("SELECT id FROM clients WHERE original_lead_id = ? AND original_lead_type = 'telecall'", [leadId], (err, result) => {
@@ -49,30 +50,38 @@ const syncClient = (data, userId, leadId, teammemberId) => {
       }
 
       if (result.length === 0) {
-        // Also check by phone as fallback
         db.query("SELECT id FROM clients WHERE phone = ? AND (original_lead_id IS NULL OR original_lead_type != 'telecall')", [mobile_number], (err2, phoneResult) => {
           if (!err2 && phoneResult.length > 0) {
-            // Update existing client to link to this lead
             db.query(
-              "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, original_lead_id=?, original_lead_type='telecall', assigned_teammember_id=? WHERE id=?",
-              [customer_name, location_city, service_name, email, gst_number || "", leadId, teammemberId || null, phoneResult[0].id]
+              `UPDATE clients SET name=?, phone=?, address=?, service=?, email=?, gst_number=?, 
+               original_lead_id=?, original_lead_type='telecall', assigned_teammember_id=?,
+               lead_staff_name=?, lead_id_display=?, client_status='converted', converted_at=NOW()
+               WHERE id=?`,
+              [customer_name, mobile_number, location_city, service_name, email, gst_number || "", leadId, teammemberId || null,
+               staff_name || "", leadIdDisplay, phoneResult[0].id]
             );
           } else {
             db.query(
-              "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by, assigned_teammember_id, original_lead_id, original_lead_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'telecall')",
-              [customer_name, mobile_number, location_city, service_name, email, gst_number || "", userId, teammemberId || null, leadId],
+              `INSERT INTO clients (name, phone, address, service, email, gst_number, created_by, assigned_teammember_id, 
+               original_lead_id, original_lead_type, lead_staff_name, lead_id_display, client_status, converted_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'telecall', ?, ?, 'converted', NOW())`,
+              [customer_name, mobile_number, location_city, service_name, email, gst_number || "", userId, teammemberId || null,
+               leadId, staff_name || "", leadIdDisplay],
               (insertErr) => {
-                if (insertErr) console.error("Client conversion (insert) failed:", insertErr);
+                if (insertErr) console.error("Client conversion (telecall insert) failed:", insertErr);
               }
             );
           }
         });
       } else {
         db.query(
-          "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, assigned_teammember_id=? WHERE original_lead_id=? AND original_lead_type='telecall'",
-          [customer_name, location_city, service_name, email, gst_number || "", teammemberId || null, leadId],
+          `UPDATE clients SET name=?, phone=?, address=?, service=?, email=?, gst_number=?, 
+           assigned_teammember_id=?, lead_staff_name=?, lead_id_display=?
+           WHERE original_lead_id=? AND original_lead_type='telecall'`,
+          [customer_name, mobile_number, location_city, service_name, email, gst_number || "", teammemberId || null,
+           staff_name || "", leadIdDisplay, leadId],
           (updateErr) => {
-            if (updateErr) console.error("Client conversion (update) failed:", updateErr);
+            if (updateErr) console.error("Client conversion (telecall update) failed:", updateErr);
           }
         );
       }
@@ -297,7 +306,7 @@ db.query(
             console.error("Update error:", err);
             return res.status(500).json({ error: err.message });
           }
-          syncClient(req.body, results[0].created_by || req.user.id, req.params.id, req.body.teammember_id || null);
+          syncClient(req.body, results[0].created_by || req.user.id, Number(req.params.id), req.body.teammember_id || null);
           const id = req.params.id;
 
           if (call_outcome === "Converted") {

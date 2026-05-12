@@ -14,7 +14,8 @@ const getNotificationIO = () => {
 
 /* AUTO CREATE CLIENT IF CONVERTED */
 const syncClient = (data, userId, leadId, teammemberId) => {
-  const { customer_name, mobile_number, location_city, purpose, email, field_outcome, gst_number } = data;
+  const { customer_name, mobile_number, location_city, purpose, email, field_outcome, gst_number, staff_name } = data;
+  const leadIdDisplay = `F-${leadId}`;
 
   if (field_outcome === "Converted") {
     db.query("SELECT id FROM clients WHERE original_lead_id = ? AND original_lead_type = 'field'", [leadId], (err, result) => {
@@ -27,13 +28,20 @@ const syncClient = (data, userId, leadId, teammemberId) => {
         db.query("SELECT id FROM clients WHERE phone = ? AND (original_lead_id IS NULL OR original_lead_type != 'field')", [mobile_number], (err2, phoneResult) => {
           if (!err2 && phoneResult.length > 0) {
             db.query(
-              "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, original_lead_id=?, original_lead_type='field', assigned_teammember_id=? WHERE id=?",
-              [customer_name, location_city, purpose, email, gst_number || "", leadId, teammemberId || null, phoneResult[0].id]
+              `UPDATE clients SET name=?, phone=?, address=?, service=?, email=?, gst_number=?, 
+               original_lead_id=?, original_lead_type='field', assigned_teammember_id=?,
+               lead_staff_name=?, lead_id_display=?, client_status='converted', converted_at=NOW()
+               WHERE id=?`,
+              [customer_name, mobile_number, location_city, purpose, email, gst_number || "", leadId, teammemberId || null,
+               staff_name || "", leadIdDisplay, phoneResult[0].id]
             );
           } else {
             db.query(
-              "INSERT INTO clients (name, phone, address, service, email, gst_number, created_by, assigned_teammember_id, original_lead_id, original_lead_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'field')",
-              [customer_name, mobile_number, location_city, purpose, email, gst_number || "", userId, teammemberId || null, leadId],
+              `INSERT INTO clients (name, phone, address, service, email, gst_number, created_by, assigned_teammember_id, 
+               original_lead_id, original_lead_type, lead_staff_name, lead_id_display, client_status, converted_at) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'field', ?, ?, 'converted', NOW())`,
+              [customer_name, mobile_number, location_city, purpose, email, gst_number || "", userId, teammemberId || null,
+               leadId, staff_name || "", leadIdDisplay],
               (insertErr) => {
                 if (insertErr) console.error("Client conversion (field insert) failed:", insertErr);
               }
@@ -42,8 +50,11 @@ const syncClient = (data, userId, leadId, teammemberId) => {
         });
       } else {
         db.query(
-          "UPDATE clients SET name=?, address=?, service=?, email=?, gst_number=?, assigned_teammember_id=? WHERE original_lead_id=? AND original_lead_type='field'",
-          [customer_name, location_city, purpose, email, gst_number || "", teammemberId || null, leadId],
+          `UPDATE clients SET name=?, phone=?, address=?, service=?, email=?, gst_number=?, 
+           assigned_teammember_id=?, lead_staff_name=?, lead_id_display=?
+           WHERE original_lead_id=? AND original_lead_type='field'`,
+          [customer_name, mobile_number, location_city, purpose, email, gst_number || "", teammemberId || null,
+           staff_name || "", leadIdDisplay, leadId],
           (updateErr) => {
             if (updateErr) console.error("Client conversion (field update) failed:", updateErr);
           }

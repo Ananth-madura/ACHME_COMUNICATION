@@ -333,12 +333,14 @@ async function ensureTablesAndColumns() {
     { table: "teammember", column: "emp_id", definition: "emp_id VARCHAR(50) DEFAULT NULL" },
     { table: "teammember", column: "user_id", definition: "user_id INT DEFAULT NULL" },
     { table: "teammember", column: "emp_address", definition: "emp_address TEXT DEFAULT NULL" },
-    { table: "Telecalls", column: "assigned_to", definition: "assigned_to INT DEFAULT NULL" },
     { table: "Telecalls", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "Telecalls", column: "email", definition: "email VARCHAR(150) DEFAULT NULL" },
     { table: "Walkins", column: "assigned_to", definition: "assigned_to INT DEFAULT NULL" },
     { table: "Walkins", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "Walkins", column: "email", definition: "email VARCHAR(150) DEFAULT NULL" },
     { table: "fields", column: "assigned_to", definition: "assigned_to INT DEFAULT NULL" },
     { table: "fields", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "fields", column: "email", definition: "email VARCHAR(150) DEFAULT NULL" },
     { table: "quotations", column: "lead_id", definition: "lead_id INT DEFAULT NULL" },
     { table: "quotations", column: "lead_type", definition: "lead_type VARCHAR(20) DEFAULT NULL" },
     { table: "contracts", column: "contract_type", definition: "contract_type VARCHAR(20) DEFAULT 'Service'" },
@@ -385,12 +387,16 @@ async function ensureTablesAndColumns() {
     { table: "clients", column: "gst_number", definition: "gst_number VARCHAR(50) DEFAULT NULL" },
     { table: "clients", column: "company_name", definition: "company_name VARCHAR(150) DEFAULT NULL" },
     { table: "clients", column: "service", definition: "service VARCHAR(255) DEFAULT NULL" },
-    { table: "users", column: "emp_id", definition: "emp_id VARCHAR(50) DEFAULT NULL", uniqueKey: "emp_id" }
+    { table: "users", column: "emp_id", definition: "emp_id VARCHAR(50) DEFAULT NULL", uniqueKey: "emp_id" },
+    { table: "users", column: "last_name", definition: "last_name VARCHAR(100) DEFAULT NULL" }
   ];
 
   const enumFixes = [
     { table: "tasks", column: "project_priority", oldEnum: "'Low','Normal','High','Urgent'", newEnum: "'Low','Normal','Medium','High','Urgent'" },
-    { table: "teammember", column: "emp_role", oldEnum: "'Developer','BDM'", newEnum: "'Developer','BDM','Manager','Sales'" }
+    { table: "teammember", column: "emp_role", oldEnum: "'Developer','BDM'", newEnum: "'Developer','BDM','Manager','Sales'" },
+    { table: "telecalls", column: "call_outcome", oldEnum: "'New','Converted','Disqualified'", newEnum: "'New','Hot Case','Warm Case','Cold Case','Not Required','Converted'" },
+    { table: "Walkins", column: "walkin_status", oldEnum: "'New','Converted','Disqualified'", newEnum: "'New','Hot Case','Warm Case','Cold Case','Not Required','Converted'" },
+    { table: "fields", column: "field_outcome", oldEnum: "'New','Converted','Disqualified'", newEnum: "'New','Hot Case','Warm Case','Cold Case','Not Required','Converted'" }
   ];
 
   for (const { table, column, definition, expectedType } of columnChecks) {
@@ -447,36 +453,65 @@ function queryAsync(sql, params = []) {
 }
 
 async function seedDefaultEmployees() {
-  const password = process.env.DEFAULT_TEST_PASSWORD || "Test@12345";
-  const hash = await bcrypt.hash(password, 10);
+  try {
+    await new Promise((resolve) => {
+      db.query("ALTER TABLE users MODIFY COLUMN role ENUM('admin','employee','user') DEFAULT 'employee'", (err) => {
+        if (err) console.log("Alter users role:", err.message);
+        else console.log("Users role column updated");
+        resolve();
+      });
+    });
+    await new Promise((resolve) => {
+      db.query("ALTER TABLE teammember MODIFY COLUMN emp_role ENUM('Developer','BDM','Manager','Sales') DEFAULT 'Sales'", (err) => {
+        if (err) console.log("Alter teammember emp_role:", err.message);
+        else console.log("Teammember emp_role updated");
+        resolve();
+      });
+    });
+  } catch (e) { console.log("Seed alter skip:", e.message); }
+
   const employees = [
-    { first_name: "John", last_name: "Smith", email: "john.smith@test.local", mobile: "9000000001", job_title: "Developer", emp_role: "Developer" },
-    { first_name: "Sarah", last_name: "Johnson", email: "sarah.j@test.local", mobile: "9000000002", job_title: "BDM", emp_role: "BDM" },
-    { first_name: "Mike", last_name: "Williams", email: "mike.w@test.local", mobile: "9000000003", job_title: "Sales", emp_role: "BDM" },
-    { first_name: "Emily", last_name: "Brown", email: "emily.b@test.local", mobile: "9000000004", job_title: "Designer", emp_role: "Developer" },
-    { first_name: "David", last_name: "Lee", email: "david.l@test.local", mobile: "9000000005", job_title: "Manager", emp_role: "Developer" }
+    { first_name: "Princee", last_name: "SD", emp_id: "AC055", email: "info@achmecommunication.com", mobile: "", job_title: "Sales", emp_role: "Sales" },
+    { first_name: "Vimal", last_name: "", emp_id: "AC051", email: "sales1@technostore.co.in", mobile: "", job_title: "Sales", emp_role: "Sales" },
+    { first_name: "Moorthi", last_name: "", emp_id: "AC015", email: "sales5@technostore.co.in", mobile: "", job_title: "Sales", emp_role: "Sales" },
+    { first_name: "Uma", last_name: "Kalyani", emp_id: "AC010", email: "uma@achmecommunication.com", mobile: "", job_title: "Sales", emp_role: "Sales" },
+    { first_name: "Nagaraj", last_name: "", emp_id: "AC014", email: "nagaraj@technostore.co.in", mobile: "", job_title: "Sales", emp_role: "Sales" },
+    { first_name: "Priyanka", last_name: "", emp_id: "AC099", email: "service@achmecommunication.com", mobile: "", job_title: "Sales", emp_role: "Sales" }
   ];
 
   for (const employee of employees) {
+    const hash = await bcrypt.hash(`Achme@${employee.first_name}`, 10);
     try {
-      await queryAsync(
-        `INSERT INTO users (first_name, email, user_password, role, status)
-         VALUES (?, ?, ?, 'employee', 'active')
-         ON DUPLICATE KEY UPDATE first_name = VALUES(first_name)`,
-        [employee.first_name, employee.email, hash]
-      );
-    } catch (e) { console.log("User exists:", employee.email); }
+      const existing = await queryAsync(`SELECT id FROM users WHERE email = ?`, [employee.email]);
+      if (existing.length > 0) {
+        await queryAsync(
+          `UPDATE users SET first_name=?, last_name=?, emp_id=?, user_password=?, role='employee', status='active' WHERE email=?`,
+          [employee.first_name, employee.last_name, employee.emp_id, hash, employee.email]
+        );
+      } else {
+        await queryAsync(
+          `INSERT INTO users (first_name, last_name, emp_id, email, user_password, role, status)
+           VALUES (?, ?, ?, ?, ?, 'employee', 'active')`,
+          [employee.first_name, employee.last_name, employee.emp_id, employee.email, hash]
+        );
+      }
+    } catch (e) { console.log("User seed:", employee.email, e.message); }
 
     const checkExist = await queryAsync(`SELECT id FROM teammember WHERE emp_email = ?`, [employee.email]);
     if (checkExist.length === 0) {
       await queryAsync(
-        `INSERT INTO teammember (first_name, last_name, emp_email, mobile, job_title, emp_role, quotation_count)
-         VALUES (?, ?, ?, ?, ?, ?, 0)`,
-        [employee.first_name, employee.last_name, employee.email, employee.mobile, employee.job_title, employee.emp_role]
+        `INSERT INTO teammember (first_name, last_name, emp_id, emp_email, mobile, job_title, emp_role, quotation_count, user_id)
+         SELECT ?, ?, ?, ?, ?, ?, ?, 0, id FROM users WHERE email = ? LIMIT 1`,
+        [employee.first_name, employee.last_name, employee.emp_id, employee.email, employee.mobile, employee.job_title, employee.emp_role, employee.email]
+      );
+    } else {
+      await queryAsync(
+        `UPDATE teammember SET first_name = ?, last_name = ?, emp_id = ?, user_id = (SELECT id FROM users WHERE email = ? LIMIT 1) WHERE emp_email = ?`,
+        [employee.first_name, employee.last_name, employee.emp_id, employee.email, employee.email]
       );
     }
   }
-  console.log(`Default test employees ready (password: ${password})`);
+  console.log("Default employees seeded successfully.");
 }
 
 const ready = new Promise((resolve, reject) => {

@@ -115,11 +115,11 @@ export default function Login() {
         <div className="space-y-6">
           <div>
             <label className="block text-[13px] font-semibold text-[#37352f] mb-1.5 uppercase tracking-wider">
-              Email
+              Email / Employee Code
             </label>
             <input
-              type="email"
-              placeholder="Enter your email..."
+              type="text"
+              placeholder="Enter email or employee code..."
               className="w-full h-11 px-3 bg-white border border-[#e5e3df] rounded-lg outline-none focus:border-[#5645d4] focus:ring-[1px] focus:ring-[#5645d4] transition-all text-[15px]"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

@@ -145,22 +145,28 @@ const handleSubmit = async (e) => {
     visit_date: form.visit_date || today,
   };
 
-  if (isEdit) {
-    await axios.put(`${API}/api/fields/${editId}`, payload);
-    alert("Successfully Updated");
-    setForm(prev => ({
-      ...prev,
-      followup_required: "Default", followup_date: "", followup_notes: "",
-      reminder_required: "Default", reminder_date: "", reminder_notes: "",
-    }));
-  } else {
-    await axios.post(`${API}/api/fields/new`, payload);
-    alert("Successfully Created");
-  }
+  try {
+    if (isEdit) {
+      await axios.put(`${API}/api/fields/${editId}`, payload);
+      alert("Successfully Updated");
+      setForm(prev => ({
+        ...prev,
+        followup_required: "Default", followup_date: "", followup_notes: "",
+        reminder_required: "Default", reminder_date: "", reminder_notes: "",
+      }));
+    } else {
+      await axios.post(`${API}/api/fields/new`, payload);
+      alert("Successfully Created");
+    }
 
-  fetchFields();
-  setOpen(false);
-  setIsEdit(false);
+    fetchFields();
+    setOpen(false);
+    setIsEdit(false);
+  } catch (err) {
+    console.error("Error saving field:", err);
+    const msg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to save field";
+    alert(msg);
+  }
 };
 
   // Date Time
@@ -500,7 +506,9 @@ useEffect(() => {
                               alert("Lead converted to Client successfully!");
                               fetchFields();
                             } catch (err) {
-                              alert("Failed to convert: " + (err.response?.data?.message || err.message));
+                              console.error("Convert error:", err);
+                              const msg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to convert lead";
+                              alert("Conversion failed: " + msg);
                             }
                           }} 
                           title="Convert to Client" 
