@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middileware/authMiddleware");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 // FROM ADDRESSES (shared table)
 router.get("/from-addresses", verifyToken, (req, res) => {

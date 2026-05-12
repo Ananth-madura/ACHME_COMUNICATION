@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken, isAdmin } = require("../middileware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 // CREATE - Admin only
 router.post("/new", verifyToken, isAdmin, (req,res)=>{
@@ -34,7 +34,7 @@ router.get("/", (req, res) => {
 });
 
 /* GET ALL - Admin only (full data) */
-router.get("/admin", require("../middileware/authMiddleware").verifyToken, require("../middileware/authMiddleware").isAdmin, (req, res) => {
+router.get("/admin", verifyToken, isAdmin, (req, res) => {
   db.query("SELECT * FROM teammember ORDER BY id DESC", (err, result) => {
     if (err) return res.status(500).json(err);
     res.json(result);

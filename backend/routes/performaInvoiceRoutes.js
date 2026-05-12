@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middileware/authMiddleware");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 // GET ALL PERFORMA INVOICES (latest versions only)
 router.get("/", verifyToken, (req, res) => {

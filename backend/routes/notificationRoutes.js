@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken, isAdmin } = require("../middileware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 // GET employee notifications for current user
 router.get("/", verifyToken, (req, res) => {

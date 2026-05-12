@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middileware/authMiddleware");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 const getNotificationIO = () => {
   try {
@@ -254,124 +254,115 @@ router.put("/:id", verifyToken, (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    db.query(
-      `UPDATE Telecalls SET
-        customer_name=?,
-        mobile_number=?,
-        location_city=?,
-        call_date=?,
-        service_name=?,
-        staff_name=?,
-        call_outcome=?,
-        followup_required=?,
-        followup_date=?,
-        followup_notes=?,
-        reminder_required=?,
-        reminder_date=?,
-        reminder_notes=?,
-        reference=?,
-        gst_number=?,
-        email=?
-       WHERE id=?`,
-      [
-        customer_name,
-        mobile_number,
-        location_city,
-        toDateOnly(call_date),
-        service_name,
-        staff_name,
-        call_outcome,
-        followup_required,
-        toDateOnly(followup_date),
-        followup_notes,
-        reminder_required,
-        toDateOnly(reminder_date),
-        reminder_notes,
-        reference,
-        gst_number,
-        email,
-        req.params.id
-      ],
-      (err, result) => {
-        if (err) {
-          console.error("Update error:", err);
-          return res.status(500).json({ error: err.message });
-        }
-        syncClient(req.body, results[0].created_by || req.user.id, req.params.id, req.body.teammember_id || null);
-      const id = req.params.id;
+db.query(
+        `UPDATE Telecalls SET
+          customer_name=?,
+          mobile_number=?,
+          location_city=?,
+          call_date=?,
+          service_name=?,
+          staff_name=?,
+          call_outcome=?,
+          followup_required=?,
+          followup_date=?,
+          followup_notes=?,
+          reminder_required=?,
+          reminder_date=?,
+          reminder_notes=?,
+          reference=?,
+          gst_number=?,
+          email=?
+         WHERE id=?`,
+        [
+          customer_name,
+          mobile_number,
+          location_city,
+          toDateOnly(call_date),
+          service_name,
+          staff_name,
+          call_outcome,
+          followup_required,
+          toDateOnly(followup_date),
+          followup_notes,
+          reminder_required,
+          toDateOnly(reminder_date),
+          reminder_notes,
+          reference,
+          gst_number,
+          email,
+          req.params.id
+        ],
+        (err) => {
+          if (err) {
+            console.error("Update error:", err);
+            return res.status(500).json({ error: err.message });
+          }
+          syncClient(req.body, results[0].created_by || req.user.id, req.params.id, req.body.teammember_id || null);
+          const id = req.params.id;
 
-      // Notify when lead is converted on update
-      if (call_outcome === "Converted") {
-        const notificationIO = getNotificationIO();
-        if (notificationIO) {
-          const time = new Date().toLocaleString();
-          notificationIO.emitNotification("lead_converted", {
-            id: id,
-            customerName: customer_name,
-            mobileNumber: mobile_number,
-            staffName: staff_name,
-            leadType: "Telecalling",
-            convertedAt: time,
-            type: "lead"
-          }, null, true);
-        }
-      }
-
-      // Log status change activity
-      db.query(
-        "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
-        [id, "telecall", "Status Updated", `Outcome: ${call_outcome || "New"}`]
-      );
-
-      // If follow-up set, log it as activity
-      if (followup_required === "Yes" && followup_date) {
-        db.query(
-          "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
-          [id, "telecall", "Follow-up Scheduled", `Date: ${toDateOnly(followup_date)}${followup_notes ? " | Notes: " + followup_notes : ""}`]
-        );
-      }
-
-      // If reminder set, add to lead_reminders table (history) AND log activity
-      if (reminder_required === "Yes" && reminder_date) {
-        db.query(
-          "INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status) VALUES (?,?,?,?,'Pending')",
-          [id, "telecall", toDateOnly(reminder_date), reminder_notes || ""],
-          (e, r) => {
-            if (!e) {
-              db.query(
-                "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
-                [id, "telecall", "Reminder Added", `Date: ${toDateOnly(reminder_date)}${reminder_notes ? " | " + reminder_notes : ""}`]
-              );
+          if (call_outcome === "Converted") {
+            const notificationIO = getNotificationIO();
+            if (notificationIO) {
+              const time = new Date().toLocaleString();
+              notificationIO.emitNotification("lead_converted", {
+                id: id,
+                customerName: customer_name,
+                mobileNumber: mobile_number,
+                staffName: staff_name,
+                leadType: "Telecalling",
+                convertedAt: time,
+                type: "lead"
+              }, null, true);
             }
           }
-        );
-      }
 
-      res.json({ message: "Telecall updated successfully" });
-    }
-  );
-});
+          db.query(
+            "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
+            [id, "telecall", "Status Updated", `Outcome: ${call_outcome || "New"}`]
+          );
 
-// Delete;
-router.delete("/:id", verifyToken, (req,res) =>{
-    // Check ownership
-    db.query("SELECT created_by FROM Telecalls WHERE id = ?", [req.params.id], (err, results) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (results.length === 0) return res.status(404).json({ message: "Not found" });
-      
-      if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+          if (followup_required === "Yes" && followup_date) {
+            db.query(
+              "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
+              [id, "telecall", "Follow-up Scheduled", `Date: ${toDateOnly(followup_date)}${followup_notes ? " | Notes: " + followup_notes : ""}`]
+            );
+          }
 
-      db.query(
-        "DELETE FROM Telecalls WHERE id = ?",
-        [req.params.id],
-      (err) => {
-        if (err) return res.status(500).json({ message: "Delete failed" });
-        res.json({ message: "Field deleted" });
-      }
+          if (reminder_required === "Yes" && reminder_date) {
+            db.query(
+              "INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status) VALUES (?,?,?,?,'Pending')",
+              [id, "telecall", toDateOnly(reminder_date), reminder_notes || ""],
+              (e) => {
+                if (!e) {
+                  db.query(
+                    "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
+                    [id, "telecall", "Reminder Added", `Date: ${toDateOnly(reminder_date)}${reminder_notes ? " | " + reminder_notes : ""}`]
+                  );
+                }
+              }
+            );
+          }
+
+          res.json({ message: "Telecall updated successfully" });
+        }
       );
     });
-  })
+});
+
+router.delete("/:id", verifyToken, (req, res) => {
+  db.query("SELECT created_by FROM Telecalls WHERE id = ?", [req.params.id], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (results.length === 0) return res.status(404).json({ message: "Not found" });
+
+    if (req.user.role !== "admin" && results[0].created_by !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    db.query("DELETE FROM Telecalls WHERE id = ?", [req.params.id], (err2) => {
+      if (err2) return res.status(500).json({ message: "Delete failed" });
+      res.json({ message: "Telecall deleted" });
+    });
+  });
+});
 
 module.exports = router;
