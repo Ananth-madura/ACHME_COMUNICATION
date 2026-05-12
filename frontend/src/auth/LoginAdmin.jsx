@@ -46,9 +46,28 @@ export default function LoginAdmin() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 font-sans text-[#1a1a1a]">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 font-sans text-[#1a1a1a] relative overflow-hidden">
+      {/* Watermark logo */}
+      <div
+        className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
+        aria-hidden="true"
+      >
+        <img
+          src={logoImage}
+          alt=""
+          className="w-[340px] h-auto opacity-[0.06] grayscale"
+          style={{ animation: "watermarkPulse 6s ease-in-out infinite" }}
+        />
+      </div>
+      <style>{`
+        @keyframes watermarkPulse {
+          0%, 100% { opacity: 0.06; transform: scale(1); }
+          50% { opacity: 0.10; transform: scale(1.03); }
+        }
+      `}</style>
+
       {/* Container */}
-      <div className="w-full max-w-[400px]">
+      <div className="w-full max-w-[400px] relative z-10">
         {/* Logo */}
         <div className="flex justify-center mb-10">
           <img src={logoImage} alt="Logo" className="h-12 w-auto grayscale opacity-80" />

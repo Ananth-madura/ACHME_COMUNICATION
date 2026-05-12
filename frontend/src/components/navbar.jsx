@@ -21,6 +21,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API } from "../config/api";
+import backheadImage from "../images/backhead1.png";
 
 const Topbar = ({ onHamburgerClick, showSearch, onSearch, reminderData, reminderNotes, escalationCount = 0, escalations = [] }) => {
   const [openProfile, setOpenProfile] = useState(false);
@@ -98,9 +99,7 @@ const Topbar = ({ onHamburgerClick, showSearch, onSearch, reminderData, reminder
         >
           <Menu size={22} />
         </button>
-        <div className="text-yellow-600 font-extrabold text-lg md:text-2xl tracking-wide border-left">
-          MADHURA SOFTWARES
-        </div>
+        <img src={backheadImage} alt="Madhura Softwares" className="h-9 w-auto object-contain" />
       </div>
 
       {/* Search bar - only on Dashboard */}
