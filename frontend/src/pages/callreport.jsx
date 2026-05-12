@@ -62,14 +62,22 @@ const CallReport = () => {
     status: "Completed"
   });
 
-  // Returns true if actual duration (minutes) exceeds the selected limit
-  const isDurationExceeded = () => {
-    const { start_time, end_time, duration_limit } = serviceForm;
-    if (!start_time || !end_time || !duration_limit) return false;
+  // Returns actual duration in minutes between start and end time
+  const calcTotalMinutes = () => {
+    const { start_time, end_time } = serviceForm;
+    if (!start_time || !end_time) return null;
     const [sh, sm] = start_time.split(":").map(Number);
     const [eh, em] = end_time.split(":").map(Number);
-    const actual = (eh * 60 + em) - (sh * 60 + sm);
-    return actual > parseInt(duration_limit);
+    const diff = (eh * 60 + em) - (sh * 60 + sm);
+    return diff > 0 ? diff : null;
+  };
+
+  // Returns true if actual duration exceeds the selected limit
+  const isDurationExceeded = () => {
+    const { duration_limit } = serviceForm;
+    if (!duration_limit) return false;
+    const actual = calcTotalMinutes();
+    return actual !== null && actual > parseInt(duration_limit);
   };
 
   // Call Report Modal
@@ -639,7 +647,15 @@ const CallReport = () => {
                 <div><label className="text-sm font-medium text-gray-600">End Time</label><input type="time" name="end_time" value={serviceForm.end_time} onChange={handleServiceChange} className="w-full border rounded-lg p-2 mt-1" /></div>
               </div>
 
-              {/* Duration limit + mandatory remark */}
+              {/* Total time display */}
+              {calcTotalMinutes() !== null && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium" style={{ background: "#dcecfa", color: "#0075de" }}>
+                  <Clock size={15} />
+                  Total service time: <span className="font-bold">{Math.floor(calcTotalMinutes() / 60) > 0 ? `${Math.floor(calcTotalMinutes() / 60)}h ` : ""}{calcTotalMinutes() % 60}min</span>
+                </div>
+              )}
+
+              {/* Expected Duration dropdown */}
               <div>
                 <label className="text-sm font-medium text-gray-600">Expected Duration</label>
                 <select name="duration_limit" value={serviceForm.duration_limit} onChange={handleServiceChange}
@@ -651,17 +667,24 @@ const CallReport = () => {
                 </select>
               </div>
 
-              {isDurationExceeded() && (
-                <div className="rounded-lg border p-3" style={{ background: "#fef7d6", borderColor: "#f5d75e" }}>
-                  <p className="text-xs font-semibold mb-1" style={{ color: "#793400" }}>
-                    ⚠ Service time exceeded {serviceForm.duration_limit} min limit — remark is required
-                  </p>
-                  <textarea name="remarks" value={serviceForm.remarks} onChange={handleServiceChange}
-                    className="w-full border rounded-lg p-2 text-sm outline-none"
-                    style={{ borderColor: "#dd5b00" }}
-                    rows={2} placeholder="Explain why the service took longer…" required />
-                </div>
-              )}
+              {/* Remarks — always visible but required when duration exceeded */}
+              <div>
+                <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                  Remarks
+                  {isDurationExceeded() && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "#fef7d6", color: "#793400" }}>
+                      ⚠ Required — exceeded {serviceForm.duration_limit} min limit
+                    </span>
+                  )}
+                </label>
+                <textarea name="remarks" value={serviceForm.remarks} onChange={handleServiceChange}
+                  className="w-full border rounded-lg p-2 mt-1 text-sm outline-none"
+                  style={{ borderColor: isDurationExceeded() ? "#dd5b00" : "#c8c4be" }}
+                  rows={2}
+                  placeholder={isDurationExceeded() ? "Explain why the service took longer…" : "Additional remarks..."}
+                  required={isDurationExceeded()}
+                />
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label className="text-sm font-medium text-gray-600">KM (Kilometers)</label><input type="number" name="km" value={serviceForm.km} onChange={handleServiceChange} className="w-full border rounded-lg p-2 mt-1" placeholder="Enter kilometers" /></div>
