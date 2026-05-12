@@ -36,7 +36,7 @@ const Targets = () => {
   const fetchAllTargets = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API}/api/targets`, {
+      const res = await axios.get(`${API}/api/task/targets`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       setTargets(Array.isArray(res.data) ? res.data : []);
@@ -49,7 +49,7 @@ const Targets = () => {
   const fetchMyTarget = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get(`${API}/api/targets/my?user_name=${encodeURIComponent(user?.name || "")}`, {
+      const res = await axios.get(`${API}/api/targets/my`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       setMyTarget(res.data);
@@ -99,24 +99,31 @@ const Targets = () => {
       }
     };
     socket.on("data_changed", handleChange);
-    return () => socket.off("data_changed", handleChange);
+    socket.on("target_updated", handleChange);
+    socket.on("new_target", handleChange);
+    return () => {
+      socket.off("data_changed", handleChange);
+      socket.off("target_updated", handleChange);
+      socket.off("new_target", handleChange);
+    };
   }, [isAdmin]);
 
   const [form, setForm] = useState({
     user_name: "",
     yearly_target: "",
     monthly_target: "",
-    user_id: ""
+    user_id: "",
+    teammember_id: ""
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "user_name_select") {
-      const m = teamMembers.find(t => String(t.user_id || t.id) === value);
+      const m = teamMembers.find(t => String(t.id) === value);
       if (m) {
-        setForm({ ...form, user_id: m.user_id || m.id, user_name: `${m.first_name} ${m.last_name || ""}`.trim() });
+        setForm({ ...form, user_id: m.user_id || m.id, user_name: `${m.first_name} ${m.last_name || ""}`.trim(), teammember_id: m.id });
       } else {
-        setForm({ ...form, user_id: "", user_name: value });
+        setForm({ ...form, user_id: "", user_name: value, teammember_id: "" });
       }
     } else {
       setForm({ ...form, [name]: value });
@@ -128,16 +135,17 @@ const Targets = () => {
     if (!form.user_name) return alert("Please select an employee");
     if (!form.yearly_target) return alert("Please enter yearly target");
     try {
-      await axios.post(`${API}/api/targets`, {
+      await axios.post(`${API}/api/task/targets`, {
         user_id: form.user_id || null,
         user_name: form.user_name,
+        teammember_id: form.teammember_id || null,
         yearly_target: parseFloat(form.yearly_target),
         monthly_target: form.monthly_target ? parseFloat(form.monthly_target) : Math.round(parseFloat(form.yearly_target) / 12),
         created_by_admin: user?.name || "Admin"
       }, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
       alert("Target saved successfully");
       setOpen(false);
-      setForm({ user_name: "", yearly_target: "", monthly_target: "", user_id: "" });
+      setForm({ user_name: "", yearly_target: "", monthly_target: "", user_id: "", teammember_id: "" });
       fetchAllTargets();
     } catch (err) {
       alert("Failed to save target: " + (err.response?.data?.error || err.message));
@@ -243,14 +251,14 @@ const Targets = () => {
                     <label className="text-sm font-medium text-gray-600">Select User</label>
                     <select
                       name="user_name_select"
-                      value={form.user_id || form.user_name || ""}
+                      value={form.teammember_id || ""}
                       onChange={handleChange}
                       className="border rounded-md px-3 py-2 outline-none bg-white w-full text-sm"
                       required
                     >
                       <option value="">-- Select Staff --</option>
                       {teamMembers.map(t => (
-                        <option key={t.id} value={String(t.user_id || t.id)}>
+                        <option key={t.id} value={String(t.id)}>
                           {t.first_name} {t.last_name || ""} {t.job_title ? `(${t.job_title})` : ""}
                         </option>
                       ))}
