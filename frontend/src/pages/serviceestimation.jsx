@@ -5,15 +5,10 @@ import axios from "axios";
 import html2pdf from "html2pdf.js";
 import "../Styles/tailwind.css";
 import Invoice from "../components/invoicetemplate";
-
 import { API } from "../config";
+import { BRANCH_DATA, BRANCH_OPTIONS, BANK_DETAILS } from "../config/branchConfig";
 
 const UOM_OPTIONS = ["Nos", "Units", "Pieces", "Boxes", "Sets", "Meters", "Kg", "Liters"];
-const BRANCH_OPTIONS = [
-  { value: "Chennai", label: "Chennai", state: "Tamil Nadu" },
-  { value: "Coimbatore", label: "Coimbatore", state: "Tamil Nadu" },
-  { value: "Bangalore", label: "Bangalore", state: "Karnataka" },
-];
 const INDIAN_STATES = [
   "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
 ];
@@ -33,9 +28,9 @@ const GST_STATE_MAP = {
   "36": "Telangana", "37": "Andhra Pradesh", "38": "Ladakh"
 };
 
-const BANK_DETAILS = [
-  { id: "1", company: "Achme Communication", bank: "KOTAK MAHINDRA BANK", account: "12345667", ifsc: "34DJFHJDH", branch: "Test, Coimbatore" },
-  { id: "2", company: "Achme Communication", bank: "DUMMY BANK", account: "00000000", ifsc: "DUMMY001", branch: "Dummy Branch" }
+const BANK_DETAILS_CONFIG = [
+  { id: "hdfc", company: "ACHME COMMUNICATION", bank: "HDFC BANK", account: "00312320005822", ifsc: "HDFC0000031", branch: "Coimbatore" },
+  { id: "kotak", company: "Achme Communication", bank: "KOTAK MAHINDRA BANK", account: "9211242667", ifsc: "KKBK0000491", branch: "Avinashi Road, Coimbatore" }
 ];
 
 const emptyExtra = () => ({
@@ -49,13 +44,13 @@ const emptyExtra = () => ({
   terms_validity: "15 days",
   terms_separate_orders: { material: false, installation: false, usd: false, boq: false },
   terms_payment: "", terms_payment_custom: "", terms_warranty: "",
-  supplier_branch: "Chennai",
-  bank_details_id: "1",
-  bank_company: "Achme Communication",
-  bank_name: "KOTAK MAHINDRA BANK",
-  bank_account: "12345667",
-  bank_ifsc: "34DJFHJDH",
-  bank_branch: "Test, Coimbatore",
+  supplier_branch: "Coimbatore",
+  bank_details_id: "hdfc",
+  bank_company: "ACHME COMMUNICATION",
+  bank_name: "HDFC BANK",
+  bank_account: "00312320005822",
+  bank_ifsc: "HDFC0000031",
+  bank_branch: "Coimbatore",
   custom_terms: "",
 });
 
@@ -214,7 +209,13 @@ const ServiceEstimation = () => {
       terms_separate_orders: h.terms_separate_orders ? JSON.parse(h.terms_separate_orders) : { material: false, installation: false, usd: false, boq: false },
       terms_payment: h.terms_payment || "", terms_payment_custom: h.terms_payment_custom || "",
       terms_warranty: h.terms_warranty || "",
-      supplier_branch: h.supplier_branch || "Chennai",
+      supplier_branch: h.supplier_branch || "Coimbatore",
+      bank_details_id: h.bank_details_id || "hdfc",
+      bank_company: h.bank_company || "ACHME COMMUNICATION",
+      bank_name: h.bank_name || "HDFC BANK",
+      bank_account: h.bank_account || "00312320005822",
+      bank_ifsc: h.bank_ifsc || "HDFC0000031",
+      bank_branch: h.bank_branch || "Coimbatore",
     });
     setEditId(id);
     setOpen(true);
@@ -469,50 +470,60 @@ const ServiceEstimation = () => {
             <SectionTitle>From Address</SectionTitle>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-500 uppercase">Supplier Branch</label>
+                <label className="text-xs font-bold text-gray-500 uppercase">Branch</label>
                 <select value={extra.supplier_branch} onChange={e => {
                   const branch = e.target.value;
-                  const matchingAddr = fromAddresses.find(a => a.label.toLowerCase().includes(branch.toLowerCase()));
+                  const branchInfo = BRANCH_DATA[branch];
                   setExtra(ex => ({ 
                     ...ex, 
                     supplier_branch: branch,
-                    from_address_id: matchingAddr ? String(matchingAddr.id) : ex.from_address_id
+                    from_address_custom: branchInfo ? `${branchInfo.address} | GSTIN: ${branchInfo.gstin}` : ex.from_address_custom,
+                    from_address_id: ""
                   }));
                 }}
                   className="border rounded-lg px-3 py-2 outline-none bg-white text-sm">
+                  <option value="">-- Select Branch --</option>
                   {BRANCH_OPTIONS.map(b => (
                     <option key={b.value} value={b.value}>{b.label} ({b.state})</option>
                   ))}
                 </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-500 uppercase">Select Office Address</label>
-                <select value={extra.from_address_id} onChange={e => setExtra(ex => ({ ...ex, from_address_id: e.target.value === "ADD_NEW" ? "" : e.target.value, from_address_custom: "" }))}
-                  className="border rounded-lg px-3 py-2 outline-none bg-white text-sm">
-                  <option value="">-- Select Address --</option>
-                  {fromAddresses.map(a => (
-                    <option key={a.id} value={a.id}>{a.label} — {a.address.substring(0, 40)}...</option>
-                  ))}
-                  <option value="ADD_NEW">+ Add New Address</option>
-                </select>
-                {extra.from_address_id && extra.from_address_id !== "" && (
-                  <div className="flex gap-2 mt-1 flex-wrap">
-                    {fromAddresses.filter(a => String(a.id) === String(extra.from_address_id)).map(a => (
-                      <div key={a.id} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-800 flex-1">
-                        <MapPin size={12} /> <span>{a.address}</span>
-                        <button type="button" onClick={() => handleDeleteAddress(a.id)} className="ml-auto text-red-400 hover:text-red-600"><X size={12} /></button>
-                      </div>
-                    ))}
+                {extra.supplier_branch && BRANCH_DATA[extra.supplier_branch] && (
+                  <div className="mt-1 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-800 flex items-center gap-2">
+                    <MapPin size={12} />
+                    <span>{BRANCH_DATA[extra.supplier_branch].address}</span>
+                    <span className="ml-2 font-mono font-bold">| GSTIN: {BRANCH_DATA[extra.supplier_branch].gstin}</span>
                   </div>
                 )}
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-500 uppercase">Custom Address (Optional)</label>
-                <textarea value={extra.from_address_custom} onChange={e => setExtra(ex => ({ ...ex, from_address_custom: e.target.value }))}
-                  placeholder="Enter custom address..." className="border rounded-lg px-3 py-2 outline-none text-sm min-h-[70px]" />
+                <label className="text-xs font-bold text-gray-500 uppercase">Office Address</label>
+                <select value={extra.from_address_id} onChange={e => {
+                  const val = e.target.value;
+                  if (val === "ADD_NEW") {
+                    setExtra(ex => ({ ...ex, from_address_id: "", from_address_custom: "" }));
+                  } else if (BRANCH_DATA[val]) {
+                    const branchInfo = BRANCH_DATA[val];
+                    setExtra(ex => ({ ...ex, from_address_id: "", from_address_custom: `${branchInfo.address} | GSTIN: ${branchInfo.gstin}` }));
+                  } else {
+                    setExtra(ex => ({ ...ex, from_address_id: val, from_address_custom: "" }));
+                  }
+                }}
+                  className="border rounded-lg px-3 py-2 outline-none bg-white text-sm">
+                  <option value="">-- Select Address --</option>
+                  {BRANCH_OPTIONS.map(b => (
+                    <option key={b.value} value={b.value}>{b.label}: {BRANCH_DATA[b.value].address.substring(0, 50)}...</option>
+                  ))}
+                  <option disabled>─────────────</option>
+                  {fromAddresses.map(a => (
+                    <option key={a.id} value={a.id}>{a.label} — {a.address.substring(0, 40)}...</option>
+                  ))}
+                  <option value="ADD_NEW">+ Add New Custom Address</option>
+                </select>
+                {extra.from_address_custom && (
+                  <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-800 flex-wrap mt-1">
+                    <MapPin size={12} /> <span>{extra.from_address_custom}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -541,11 +552,11 @@ const ServiceEstimation = () => {
                   Bank Details
                 </h4>
                 <div className="flex items-center gap-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Template:</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Bank A/C:</label>
                   <select 
                     value={extra.bank_details_id} 
                     onChange={e => {
-                      const b = BANK_DETAILS.find(x => x.id === e.target.value);
+                      const b = BANK_DETAILS_CONFIG.find(x => x.id === e.target.value);
                       if (b) {
                         setExtra(ex => ({ 
                           ...ex, 
@@ -560,8 +571,8 @@ const ServiceEstimation = () => {
                     }}
                     className="text-[11px] border-none rounded bg-white shadow-sm px-2 py-1 outline-none font-bold text-slate-600 cursor-pointer hover:bg-slate-50"
                   >
-                    {BANK_DETAILS.map(b => (
-                      <option key={b.id} value={b.id}>{b.bank} - {b.account}</option>
+                    {BANK_DETAILS_CONFIG.map(b => (
+                      <option key={b.id} value={b.id}>{b.bank} A/C: ***{b.account.slice(-4)}</option>
                     ))}
                   </select>
                 </div>
