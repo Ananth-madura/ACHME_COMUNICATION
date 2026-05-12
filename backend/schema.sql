@@ -150,7 +150,9 @@ CREATE TABLE IF NOT EXISTS `messages` (
 
 CREATE TABLE IF NOT EXISTS `notifications` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `task_id` int NOT NULL,
+  `task_id` int NOT NULL DEFAULT 0,
+  `user_id` int DEFAULT NULL,
+  `type` varchar(50) DEFAULT NULL,
   `title` varchar(150) DEFAULT NULL,
   `description` varchar(255) DEFAULT NULL,
   `is_read` tinyint DEFAULT '0',
@@ -332,10 +334,98 @@ CREATE TABLE IF NOT EXISTS `admin_notifications` (
   `type` varchar(50) DEFAULT 'registration',
   `user_id` int,
   `message` text,
+  `related_id` int DEFAULT NULL,
+  `related_type` varchar(50) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `priority` varchar(20) DEFAULT 'normal',
   `is_read` tinyint(1) DEFAULT 0,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `task_targets` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
+  `user_name` varchar(150) NOT NULL,
+  `teammember_id` int DEFAULT NULL,
+  `yearly_target` decimal(15,2) DEFAULT 0,
+  `monthly_target` decimal(15,2) DEFAULT 0,
+  `carry_forward` decimal(15,2) DEFAULT 0,
+  `effective_target` decimal(15,2) DEFAULT 0,
+  `created_by_admin` tinyint(1) DEFAULT 1,
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `task_achievements` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
+  `user_name` varchar(150) NOT NULL,
+  `target_id` int NOT NULL,
+  `month_year` varchar(7) NOT NULL,
+  `achieved_count` int DEFAULT 0,
+  `achieved_amount` decimal(15,2) DEFAULT 0,
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_target_month` (`target_id`, `month_year`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `task_updates` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
+  `user_name` varchar(150) NOT NULL,
+  `target_id` int NOT NULL,
+  `month_year` varchar(7) NOT NULL,
+  `amount` decimal(15,2) DEFAULT 0,
+  `count` int DEFAULT 0,
+  `description` text,
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `task_assignments` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `task_id` int NOT NULL,
+  `assigned_to_user_id` int DEFAULT NULL,
+  `assigned_to_user_name` varchar(150) DEFAULT NULL,
+  `assigned_by` int DEFAULT NULL,
+  `assigned_date` date DEFAULT NULL,
+  `due_date` date DEFAULT NULL,
+  `priority` varchar(20) DEFAULT 'normal',
+  `notes` text,
+  `status` enum('Pending','Accepted','Declined','In Progress','Completed') DEFAULT 'Pending',
+  `response_notes` text,
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `task_activity` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `task_id` int NOT NULL,
+  `action` varchar(50) DEFAULT NULL,
+  `message` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `tasks` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `project_name` varchar(150) NOT NULL,
+  `task_title` varchar(200) NOT NULL,
+  `client_name` varchar(150) NOT NULL,
+  `project_status` enum('New','Process','Completed') NOT NULL,
+  `project_priority` enum('Low','Normal','High','Urgent') NOT NULL,
+  `created_date` date NOT NULL,
+  `due_date` date NOT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `staff_name` varchar(100) DEFAULT NULL,
+  `assigned_to` varchar(150) DEFAULT NULL,
+  `assigned_teammember_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `walkins` (
   `id` int NOT NULL AUTO_INCREMENT,

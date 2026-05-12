@@ -269,15 +269,15 @@ async function ensureTablesAndColumns() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     },
     {
-      name: "notifications",
+name: "notifications",
       sql: `CREATE TABLE IF NOT EXISTS notifications (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        task_id INT,
+        task_id INT NOT NULL DEFAULT 0,
         user_id INT DEFAULT NULL,
         type VARCHAR(50) DEFAULT NULL,
-        title VARCHAR(100),
-        description TEXT,
-        is_read TINYINT(1) DEFAULT 0,
+        title VARCHAR(150) DEFAULT NULL,
+        description VARCHAR(255) DEFAULT NULL,
+        is_read TINYINT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     },
@@ -378,7 +378,8 @@ async function ensureTablesAndColumns() {
     { table: "call_reports", column: "remarks", definition: "remarks TEXT DEFAULT NULL" },
     { table: "call_reports", column: "technician", definition: "technician VARCHAR(150) DEFAULT NULL" },
     { table: "call_reports", column: "sales_person", definition: "sales_person VARCHAR(150) DEFAULT NULL" },
-    { table: "tasks", column: "assigned_to", definition: "assigned_to VARCHAR(100) DEFAULT NULL" },
+    { table: "tasks", column: "assigned_teammember_id", definition: "assigned_teammember_id INT DEFAULT NULL" },
+    { table: "task_targets", column: "teammember_id", definition: "teammember_id INT DEFAULT NULL" },
     { table: "quotations", column: "reference_no", definition: "reference_no VARCHAR(50) DEFAULT NULL" },
     { table: "task_targets", column: "carry_forward", definition: "carry_forward DECIMAL(15,2) DEFAULT 0" },
     { table: "task_targets", column: "effective_target", definition: "effective_target DECIMAL(15,2) DEFAULT 0" },

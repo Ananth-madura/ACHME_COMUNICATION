@@ -124,7 +124,7 @@ const Task = () => {
 
   // Target form / modal
   const [targetModalOpen, setTargetModalOpen] = useState(false);
-  const [targetForm, setTargetForm] = useState({ user_name: "", yearly_target: "", user_id: "" });
+  const [targetForm, setTargetForm] = useState({ user_name: "", yearly_target: "", user_id: "", teammember_id: "" });
 
   // Active tasks filters
   const [searchTerm, setSearchTerm]       = useState("");
@@ -259,9 +259,16 @@ const Task = () => {
     const cfg = { headers: { Authorization: `Bearer ${token}` } };
     try {
       const data = {
-        ...form,
-        staff_name: form.assigned_to || form.staff_name || user?.name,
-        assigned_teammember_id: form.assigned_teammember_id || null
+        project_name: form.project_name,
+        task_title: form.task_title,
+        client_name: form.client_name,
+        staff_name: form.assigned_to || user?.name,
+        assigned_to: form.assigned_to,
+        assigned_teammember_id: form.assigned_teammember_id || null,
+        created_date: form.created_date,
+        due_date: form.due_date,
+        project_status: form.project_status,
+        project_priority: form.project_priority,
       };
       if (selectedTask) {
         await axios.put(`${API}/api/task/${selectedTask.id}`, data, cfg);
@@ -274,10 +281,14 @@ const Task = () => {
     } catch (err) { alert(err.response?.data?.message || "Failed to save task"); }
   };
 
-  const updateStatus = async (taskId, status) => {
+const updateStatus = async (taskId, status) => {
     const token = localStorage.getItem("token");
     try {
       await axios.put(`${API}/api/task/${taskId}`, { project_status: status }, { headers: { Authorization: `Bearer ${token}` } });
+      if (status === "Completed") {
+        socket?.emit("task_completed", { taskId, status });
+        socket?.emit("new_notification", { type: "task_completed", data: { taskId, status }, is_read: 0, timestamp: new Date().toISOString() });
+      }
       socket?.emit("task_updated", { taskId, status });
       fetchAll(); setStatusModalOpen(false); refreshNotifications();
     } catch (err) { console.error(err); }
@@ -294,13 +305,14 @@ const Task = () => {
         const m = teamMembers.find(m => m.user_id == targetForm.user_id || m.id == targetForm.user_id);
         name = `${m?.first_name} ${m?.last_name || ""}`.trim();
       }
-      await axios.post(`${API}/api/task/targets`, {
-        user_id: targetForm.user_id, user_name: name,
+await axios.post(`${API}/api/task/targets`, {
+        user_id: targetForm.user_id, user_name: targetForm.user_name,
+        teammember_id: targetForm.teammember_id,
         yearly_target: parseFloat(targetForm.yearly_target), created_by_admin: true
       }, { headers: { Authorization: `Bearer ${token}` } });
       socket?.emit("new_target", { userName: name });
       setTargetModalOpen(false);
-      setTargetForm({ user_name: "", yearly_target: "", user_id: "" });
+      setTargetForm({ user_name: "", yearly_target: "", user_id: "", teammember_id: "" });
       fetchAll(); refreshNotifications();
     } catch (err) { alert(err.response?.data?.error || "Failed to save target"); }
   };
@@ -550,9 +562,9 @@ const Task = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {taskTargets.map(target => {
+{taskTargets.map(target => {
                       const monthly = target.monthly_target || 0;
-                      const achieved = target.achieved_amount || target.achieved_count || 0;
+                      const achieved = target.achieved_amount || 0;
                       const carry = target.carry_forward || 0;
                       const effective = monthly + carry;
                       const balance = Math.max(0, effective - achieved);
@@ -745,14 +757,14 @@ const Task = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Assign To</label>
-                  <select name="assigned_to" value={form.assigned_to} onChange={e => {
-                    const m = teamMembers.find(t => String(t.user_id || t.id) === e.target.value);
-                    setForm({...form, assigned_to: m ? `${m.first_name} ${m.last_name||""}`.trim() : e.target.value, assigned_teammember_id: m ? (m.user_id || m.id) : "" });
+                  <select name="assigned_to" value={form.assigned_teammember_id || ""} onChange={e => {
+                    const m = teamMembers.find(t => String(t.id) === e.target.value);
+                    setForm({...form, assigned_teammember_id: m ? Number(m.id) : "", assigned_to: m ? `${m.first_name} ${m.last_name||""}`.trim() : e.target.value });
                   }}
                     className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
                     <option value="">— Select Staff —</option>
                     {teamMembers.map(t => (
-                      <option key={t.id} value={String(t.user_id || t.id)}>
+                      <option key={t.id} value={String(t.id)}>
                         {t.first_name} {t.last_name||""}
                       </option>
                     ))}
@@ -839,16 +851,16 @@ const Task = () => {
             <form onSubmit={handleTargetSubmit} className="p-4 space-y-3">
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Select Employee *</label>
-                <select value={targetForm.user_id || targetForm.user_name || ""}
+                <select value={targetForm.teammember_id || ""}
                   onChange={e => {
                     const val = e.target.value;
-                    const m = teamMembers.find(m => String(m.user_id || m.id) === val);
-                    setTargetForm({ ...targetForm, user_id: m?.user_id || m?.id || "", user_name: m ? `${m.first_name} ${m.last_name||""}`.trim() : val });
+                    const m = teamMembers.find(m => String(m.id) === val);
+                    setTargetForm({ ...targetForm, teammember_id: m ? Number(m.id) : "", user_id: m?.user_id || "", user_name: m ? `${m.first_name} ${m.last_name||""}`.trim() : "" });
                   }}
                   className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }} required>
                   <option value="">— Select Staff —</option>
                   {teamMembers.map(t => (
-                    <option key={t.id} value={String(t.user_id || t.id)}>{t.first_name} {t.last_name||""}</option>
+                    <option key={t.id} value={String(t.id)}>{t.first_name} {t.last_name||""}</option>
                   ))}
                 </select>
               </div>
@@ -950,8 +962,8 @@ const EmployeeTargetCard = ({ user, onUpdateAchievement }) => {
     </div>
   );
 
-  const monthly = myTarget.monthly_target || 0;
-  const achieved = myTarget.achieved_count || 0;
+const monthly = myTarget.monthly_target || 0;
+  const achieved = myTarget.achieved_amount || myTarget.achieved_count || 0;
   const carry = myTarget.carry_forward || 0;
   const effective = myTarget.effective_target || monthly;
   const balance = Math.max(0, effective - achieved);

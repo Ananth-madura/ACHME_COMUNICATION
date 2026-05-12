@@ -70,7 +70,12 @@ export const NotificationProvider = ({ children }) => {
     // Admin-specific notifications
     if (user.role === "admin") {
       socket.on("new_notification", (notification) => {
-        setAdminNotifications(prev => [notification, ...prev].slice(0, 50));
+        // Check if it's already in adminNotifications
+        setAdminNotifications(prev => {
+          const exists = prev.some(n => n.dbId === notification.dbId || n.id === notification.id);
+          if (exists) return prev;
+          return [notification, ...prev].slice(0, 50);
+        });
         setAdminUnreadCount(prev => prev + 1);
       });
     }
@@ -78,6 +83,8 @@ export const NotificationProvider = ({ children }) => {
     socket.on("notification_read", ({ notificationId }) => {
       setNotifications(prev => prev.map(n => n.dbId === notificationId || n.id === notificationId ? { ...n, is_read: 1 } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
+      setAdminNotifications(prev => prev.map(n => n.dbId === notificationId || n.id === notificationId ? { ...n, is_read: 1 } : n));
+      setAdminUnreadCount(prev => Math.max(0, prev - 1));
     });
 
     return () => {
