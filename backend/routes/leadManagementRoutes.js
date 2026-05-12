@@ -269,6 +269,64 @@ router.get("/missed-counts/:leadType", (req, res) => {
 // ── LEAD CONVERSION ────────────────────────────────────────────────────────
 // These routes match the frontend's expected /api/leads/ subpaths
 
+// Helper function to create/update client from lead
+const createClientFromLead = (lead, leadType, callback) => {
+  const leadData = {
+    name: lead.customer_name || "",
+    phone: lead.mobile_number || "",
+    email: lead.email || "",
+    address: lead.location_city || "",
+    service: lead.service_name || lead.purpose || "",
+    gst_number: lead.gst_number || "",
+    original_lead_id: lead.id,
+    original_lead_type: leadType,
+    lead_email: lead.email || "",
+    lead_city: lead.location_city || "",
+    lead_reference: lead.reference || "",
+    lead_purpose: lead.purpose || lead.service_name || "",
+    client_status: "converted",
+    converted_at: new Date()
+  };
+
+  db.query("SELECT id FROM clients WHERE original_lead_id=? AND original_lead_type=?", [lead.id, leadType], (err3, existing) => {
+    if (!err3 && existing.length === 0) {
+      db.query("SELECT id FROM clients WHERE phone=?", [lead.mobile_number], (err4, byPhone) => {
+        if (!err4 && byPhone.length > 0) {
+          db.query(
+            `UPDATE clients SET name=?, email=?, address=?, service=?, gst_number=?, 
+             original_lead_id=?, original_lead_type=?, lead_email=?, lead_city=?, 
+             lead_reference=?, lead_purpose=?, client_status='converted', converted_at=NOW()
+             WHERE id=?`,
+            [leadData.name, leadData.email, leadData.address, leadData.service, leadData.gst_number,
+             leadData.original_lead_id, leadData.original_lead_type, leadData.lead_email, leadData.lead_city,
+             leadData.lead_reference, leadData.lead_purpose, byPhone[0].id],
+            (err5) => {
+              if (err5) console.error("Error updating client:", err5);
+              else callback(byPhone[0].id);
+            }
+          );
+        } else {
+          db.query(
+            `INSERT INTO clients (name, phone, email, address, service, gst_number, 
+             created_by, original_lead_id, original_lead_type, lead_email, lead_city, 
+             lead_reference, lead_purpose, client_status, converted_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'converted', NOW())`,
+            [leadData.name, leadData.phone, leadData.email, leadData.address, leadData.service,
+             leadData.gst_number, lead.created_by || null, leadData.original_lead_id, leadData.original_lead_type,
+             leadData.lead_email, leadData.lead_city, leadData.lead_reference, leadData.lead_purpose],
+            (err5, result) => {
+              if (err5) console.error("Error creating client:", err5);
+              else callback(result.insertId);
+            }
+          );
+        }
+      });
+    } else if (!err3 && existing.length > 0) {
+      callback(existing[0].id);
+    }
+  });
+};
+
 // PUT convert telecall
 router.put("/telecall/:id", (req, res) => {
   const { call_outcome } = req.body;
@@ -281,25 +339,15 @@ router.put("/telecall/:id", (req, res) => {
       db.query("SELECT * FROM Telecalls WHERE id=?", [req.params.id], (err2, rows) => {
         if (!err2 && rows.length > 0) {
           const lead = rows[0];
-          // Upsert client by original_lead_id
-          db.query("SELECT id FROM clients WHERE original_lead_id=? AND original_lead_type='telecall'", [lead.id], (err3, existing) => {
-            if (!err3 && existing.length === 0) {
-              db.query("SELECT id FROM clients WHERE phone=?", [lead.mobile_number], (err4, byPhone) => {
-                if (!err4 && byPhone.length > 0) {
-                  db.query("UPDATE clients SET name=?,address=?,service=?,email=?,gst_number=?,original_lead_id=?,original_lead_type='telecall' WHERE id=?",
-                    [lead.customer_name, lead.location_city, lead.service_name, lead.email||"", lead.gst_number||"", lead.id, byPhone[0].id]);
-                } else {
-                  db.query("INSERT INTO clients (name,phone,address,service,email,gst_number,created_by,original_lead_id,original_lead_type) VALUES (?,?,?,?,?,?,?,?,'telecall')",
-                    [lead.customer_name, lead.mobile_number, lead.location_city, lead.service_name, lead.email||"", lead.gst_number||"", lead.created_by, lead.id]);
-                }
-              });
-            }
+          createClientFromLead(lead, "telecall", (clientId) => {
             const notificationIO = req.app.get("notificationIO");
             if (notificationIO && notificationIO.emitNotification) {
               notificationIO.emitNotification("lead_converted", {
                 staffName: lead.staff_name || "Employee",
                 customerName: lead.customer_name || "A Lead",
-                convertedAt: new Date().toLocaleString()
+                convertedAt: new Date().toLocaleString(),
+                leadType: "telecall",
+                clientId: clientId
               }, null, true);
             }
           });
@@ -323,24 +371,15 @@ router.put("/walkin/:id", (req, res) => {
       db.query("SELECT * FROM Walkins WHERE id=?", [req.params.id], (err2, rows) => {
         if (!err2 && rows.length > 0) {
           const lead = rows[0];
-          db.query("SELECT id FROM clients WHERE original_lead_id=? AND original_lead_type='walkin'", [lead.id], (err3, existing) => {
-            if (!err3 && existing.length === 0) {
-              db.query("SELECT id FROM clients WHERE phone=?", [lead.mobile_number], (err4, byPhone) => {
-                if (!err4 && byPhone.length > 0) {
-                  db.query("UPDATE clients SET name=?,address=?,service=?,email=?,gst_number=?,original_lead_id=?,original_lead_type='walkin' WHERE id=?",
-                    [lead.customer_name, lead.location_city, lead.purpose||"", lead.email||"", lead.gst_number||"", lead.id, byPhone[0].id]);
-                } else {
-                  db.query("INSERT INTO clients (name,phone,address,service,email,gst_number,created_by,original_lead_id,original_lead_type) VALUES (?,?,?,?,?,?,?,?,'walkin')",
-                    [lead.customer_name, lead.mobile_number, lead.location_city, lead.purpose||"", lead.email||"", lead.gst_number||"", lead.created_by, lead.id]);
-                }
-              });
-            }
+          createClientFromLead(lead, "walkin", (clientId) => {
             const notificationIO = req.app.get("notificationIO");
             if (notificationIO && notificationIO.emitNotification) {
               notificationIO.emitNotification("lead_converted", {
                 staffName: lead.staff_name || "Employee",
                 customerName: lead.customer_name || "A Lead",
-                convertedAt: new Date().toLocaleString()
+                convertedAt: new Date().toLocaleString(),
+                leadType: "walkin",
+                clientId: clientId
               }, null, true);
             }
           });
@@ -364,24 +403,15 @@ router.put("/field/:id", (req, res) => {
       db.query("SELECT * FROM fields WHERE id=?", [req.params.id], (err2, rows) => {
         if (!err2 && rows.length > 0) {
           const lead = rows[0];
-          db.query("SELECT id FROM clients WHERE original_lead_id=? AND original_lead_type='field'", [lead.id], (err3, existing) => {
-            if (!err3 && existing.length === 0) {
-              db.query("SELECT id FROM clients WHERE phone=?", [lead.mobile_number], (err4, byPhone) => {
-                if (!err4 && byPhone.length > 0) {
-                  db.query("UPDATE clients SET name=?,address=?,service=?,email=?,gst_number=?,original_lead_id=?,original_lead_type='field' WHERE id=?",
-                    [lead.customer_name, lead.location_city, lead.purpose||"", lead.email||"", lead.gst_number||"", lead.id, byPhone[0].id]);
-                } else {
-                  db.query("INSERT INTO clients (name,phone,address,service,email,gst_number,created_by,original_lead_id,original_lead_type) VALUES (?,?,?,?,?,?,?,?,'field')",
-                    [lead.customer_name, lead.mobile_number, lead.location_city, lead.purpose||"", lead.email||"", lead.gst_number||"", lead.created_by, lead.id]);
-                }
-              });
-            }
+          createClientFromLead(lead, "field", (clientId) => {
             const notificationIO = req.app.get("notificationIO");
             if (notificationIO && notificationIO.emitNotification) {
               notificationIO.emitNotification("lead_converted", {
                 staffName: lead.staff_name || "Employee",
                 customerName: lead.customer_name || "A Lead",
-                convertedAt: new Date().toLocaleString()
+                convertedAt: new Date().toLocaleString(),
+                leadType: "field",
+                clientId: clientId
               }, null, true);
             }
           });
@@ -391,6 +421,29 @@ router.put("/field/:id", (req, res) => {
       res.json({ message: "Lead converted successfully" });
     }
   );
+});
+
+// GET converted leads list
+router.get("/converted", (req, res) => {
+  const sql = `
+    SELECT c.*, 
+           u.first_name as creator_name,
+           CASE c.original_lead_type 
+             WHEN 'telecall' THEN 'Tele Call'
+             WHEN 'walkin' THEN 'Walk-in'
+             WHEN 'field' THEN 'Field Visit'
+             ELSE 'Unknown'
+           END as lead_source,
+           DATE_FORMAT(c.converted_at, '%Y-%m-%d %H:%i') as converted_date
+    FROM clients c
+    LEFT JOIN users u ON c.created_by = u.id
+    WHERE c.client_status = 'converted' AND c.original_lead_id IS NOT NULL
+    ORDER BY c.converted_at DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
 });
 
 module.exports = router;

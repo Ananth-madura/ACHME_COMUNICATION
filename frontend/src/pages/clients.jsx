@@ -1,21 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { Search, X, Edit, Trash2, FileText, FileSignature } from "lucide-react";
+import { Search, X, Edit, Trash2, FileText, FileSignature, Users, UserCheck } from "lucide-react";
 import "../Styles/tailwind.css";
 import axios from "axios";
 import { useAuth } from "../auth/AuthContext";
 import { API } from "../config";
 
-// Use the global API constant
-
 const Clients = () => {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState([]);
+  const [convertedLeads, setConvertedLeads] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-
-  // Edit
-  const [isEdit, setIsEdit] = useState(false);
-  const [selectedClientId, setSelectedClientId] = useState(null);
+  const [filterSource, setFilterSource] = useState("all");
+  const [activeTab, setActiveTab] = useState("all");
 
   const fetchClients = async () => {
     try {
@@ -28,18 +25,31 @@ const Clients = () => {
     }
   };
 
+  const fetchConvertedLeads = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.get(`${API}/api/leads/converted`, config);
+      setConvertedLeads(response.data);
+    } catch (err) {
+      console.log("Fetch Converted Leads Error:", err);
+    }
+  };
+
   const downloadExcel = () => {
     const data = filteredClients.length > 0 ? filteredClients : clients;
     if (!data.length) return alert("No client data to export");
 
-    const headers = ["ID", "Name", "Email", "Phone", "City", "Service"];
+    const headers = ["ID", "Name", "Email", "Phone", "City", "Service", "Source", "Status"];
     const rows = data.map(c => [
       c.id,
       c.name || "",
       c.email || "",
       c.phone || "",
       c.address || "",
-      c.service || ""
+      c.service || "",
+      c.original_lead_type ? `${c.original_lead_type.charAt(0).toUpperCase() + c.original_lead_type.slice(1)} Lead` : "Direct",
+      c.client_status || "active"
     ]);
 
     const csvContent = [headers, ...rows]
@@ -57,6 +67,7 @@ const Clients = () => {
 
   useEffect(() => {
     fetchClients();
+    fetchConvertedLeads();
   }, []);
 
   const deleteClient = async (id) => {
@@ -66,6 +77,7 @@ const Clients = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       await axios.delete(`${API}/api/client/${id}`, config);
       fetchClients();
+      fetchConvertedLeads();
     } catch (err) {
       console.log("delete error", err);
     }
@@ -110,6 +122,9 @@ const Clients = () => {
     setSelectedClientId(null);
   };
 
+  const [isEdit, setIsEdit] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState(null);
+
   const openEditModal = (selectedClient) => {
     setForm({
       name: selectedClient.name || "",
@@ -134,11 +149,32 @@ const Clients = () => {
     return () => document.body.classList.remove("modal-open");
   }, [open]);
 
-  const filteredClients = clients.filter(c =>
-    c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.phone?.includes(searchTerm)
-  );
+  const getSourceBadge = (source) => {
+    const badges = {
+      telecall: { bg: "bg-blue-100", text: "text-blue-700", label: "Tele Call" },
+      walkin: { bg: "bg-green-100", text: "text-green-700", label: "Walk-in" },
+      field: { bg: "bg-purple-100", text: "text-purple-700", label: "Field Visit" },
+      direct: { bg: "bg-gray-100", text: "text-gray-700", label: "Direct" }
+    };
+    const badge = badges[source] || badges.direct;
+    return <span className={`px-2 py-1 rounded-full text-xs font-bold ${badge.bg} ${badge.text}`}>{badge.label}</span>;
+  };
+
+  const filteredClients = clients.filter(c => {
+    const matchesSearch =
+      c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.phone?.includes(searchTerm);
+    const matchesSource = filterSource === "all" || c.original_lead_type === filterSource;
+    const isConverted = c.original_lead_id !== null && c.original_lead_type !== null;
+    
+    if (activeTab === "converted") return matchesSearch && matchesSource && isConverted;
+    if (activeTab === "direct") return matchesSearch && matchesSource && !isConverted;
+    return matchesSearch && matchesSource;
+  });
+
+  const convertedCount = clients.filter(c => c.original_lead_id !== null && c.original_lead_type !== null).length;
+  const directCount = clients.filter(c => c.original_lead_id === null || c.original_lead_type === null).length;
 
   return (
     <div className="w-full min-h-screen p-4">
@@ -157,16 +193,50 @@ const Clients = () => {
         </button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setActiveTab("all")}
+          className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition ${activeTab === "all" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+        >
+          <Users size={16} /> All ({clients.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("converted")}
+          className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition ${activeTab === "converted" ? "bg-green-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+        >
+          <UserCheck size={16} /> Converted Leads ({convertedCount})
+        </button>
+        <button
+          onClick={() => setActiveTab("direct")}
+          className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition ${activeTab === "direct" ? "bg-purple-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+        >
+          <Users size={16} /> Direct Clients ({directCount})
+        </button>
+      </div>
+
       <div className="bg-[#F3F8FA] p-4 rounded-xl flex justify-between items-center shadow mb-4">
-        <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg shadow border w-80">
-          <Search size={18} className="text-gray-500" />
-          <input
-            type="text"
-            placeholder="Search Clients"
-            className="outline-none text-sm w-full"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex gap-3">
+          <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg shadow border w-80">
+            <Search size={18} className="text-gray-500" />
+            <input
+              type="text"
+              placeholder="Search Clients"
+              className="outline-none text-sm w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <select
+            value={filterSource}
+            onChange={(e) => setFilterSource(e.target.value)}
+            className="bg-white border rounded-lg px-3 py-2 text-sm outline-none"
+          >
+            <option value="all">All Sources</option>
+            <option value="telecall">Tele Call</option>
+            <option value="walkin">Walk-in</option>
+            <option value="field">Field Visit</option>
+          </select>
         </div>
 
         <button
@@ -187,6 +257,7 @@ const Clients = () => {
               <th className="px-4 py-3 border text-left">Phone</th>
               <th className="px-4 py-3 border text-left">City</th>
               <th className="px-4 py-3 border text-left">Service</th>
+              <th className="px-4 py-3 border text-left">Source</th>
               <th className="px-4 py-3 border text-center">Actions</th>
             </tr>
           </thead>
@@ -199,6 +270,7 @@ const Clients = () => {
                 <td className="px-4 py-3 border">{c.phone}</td>
                 <td className="px-4 py-3 border">{c.address}</td>
                 <td className="px-4 py-3 border">{c.service}</td>
+                <td className="px-4 py-3 border">{getSourceBadge(c.original_lead_type || "direct")}</td>
                 <td className="px-4 py-3 border text-center">
                   <div className="flex justify-center items-center gap-3">
                     <button
@@ -239,7 +311,7 @@ const Clients = () => {
             ))}
             {filteredClients.length === 0 && (
               <tr>
-                <td colSpan="7" className="px-4 py-8 text-center text-gray-500">No clients found.</td>
+                <td colSpan="8" className="px-4 py-8 text-center text-gray-500">No clients found.</td>
               </tr>
             )}
           </tbody>
