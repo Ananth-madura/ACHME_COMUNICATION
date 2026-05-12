@@ -641,6 +641,7 @@ onClick={async () => {
                        await axios.put(`${API}/api/leads/telecall/${T.id}`, { call_outcome: "Converted" });
                        alert("Lead converted to Client successfully!");
                        fetchTelecalls();
+                       window.dispatchEvent(new Event("refresh-clients"));
                      } catch (err) {
                        console.error("Convert error:", err);
                        const msg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to convert lead";

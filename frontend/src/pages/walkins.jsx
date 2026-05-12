@@ -511,6 +511,7 @@ const openEdit = async (id) => {
                             await axios.put(`${API}/api/leads/walkin/${W.id}`, { walkin_status: "Converted" });
                             alert("Lead converted to Client successfully!");
                             fetchWalkins();
+                            window.dispatchEvent(new Event("refresh-clients"));
                           } catch (err) {
                             console.error("Convert error:", err);
                             const msg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to convert lead";

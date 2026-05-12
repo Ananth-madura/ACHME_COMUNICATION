@@ -412,6 +412,31 @@ CREATE TABLE IF NOT EXISTS `services` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `clients` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(150) NOT NULL,
+  `company_name` varchar(150) DEFAULT NULL,
+  `email` varchar(150) DEFAULT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `address` text DEFAULT NULL,
+  `service` varchar(255) DEFAULT NULL,
+  `gst_number` varchar(50) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `original_lead_id` int DEFAULT NULL,
+  `original_lead_type` enum('telecall','walkin','field') DEFAULT NULL,
+  `converted_at` timestamp NULL DEFAULT NULL,
+  `lead_email` varchar(150) DEFAULT NULL,
+  `lead_city` varchar(100) DEFAULT NULL,
+  `lead_reference` varchar(255) DEFAULT NULL,
+  `lead_purpose` varchar(255) DEFAULT NULL,
+  `client_status` enum('active','inactive','converted') DEFAULT 'active',
+  `lead_staff_name` varchar(150) DEFAULT NULL,
+  `lead_id_display` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `call_reports` (
   `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(150) NOT NULL,

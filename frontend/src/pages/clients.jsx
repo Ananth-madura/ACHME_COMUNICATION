@@ -59,6 +59,9 @@ const Clients = () => {
 
   useEffect(() => {
     fetchClients();
+    const handleRefresh = () => fetchClients();
+    window.addEventListener("refresh-clients", handleRefresh);
+    return () => window.removeEventListener("refresh-clients", handleRefresh);
   }, []);
 
   const deleteClient = async (id) => {

@@ -505,6 +505,7 @@ useEffect(() => {
                               await axios.put(`${API}/api/leads/field/${f.id}`, { field_outcome: "Converted" });
                               alert("Lead converted to Client successfully!");
                               fetchFields();
+                              window.dispatchEvent(new Event("refresh-clients"));
                             } catch (err) {
                               console.error("Convert error:", err);
                               const msg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to convert lead";

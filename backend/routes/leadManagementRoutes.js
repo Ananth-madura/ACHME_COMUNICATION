@@ -291,44 +291,53 @@ const createClientFromLead = (lead, leadType, callback) => {
     lead_id_display: leadIdDisplay
   };
 
-  db.query("SELECT id FROM clients WHERE original_lead_id=? AND original_lead_type=?", [lead.id, leadType], (err3, existing) => {
-    if (!err3 && existing.length === 0) {
-      db.query("SELECT id FROM clients WHERE phone=?", [lead.mobile_number], (err4, byPhone) => {
-        if (!err4 && byPhone.length > 0) {
-          db.query(
-            `UPDATE clients SET name=?, email=?, address=?, service=?, gst_number=?, 
-             original_lead_id=?, original_lead_type=?, lead_email=?, lead_city=?, 
-             lead_reference=?, lead_purpose=?, client_status='converted', converted_at=NOW(),
-             lead_staff_name=?, lead_id_display=?
-             WHERE id=?`,
-            [leadData.name, leadData.email, leadData.address, leadData.service, leadData.gst_number,
-             leadData.original_lead_id, leadData.original_lead_type, leadData.lead_email, leadData.lead_city,
-             leadData.lead_reference, leadData.lead_purpose, leadData.lead_staff_name, leadData.lead_id_display, byPhone[0].id],
-            (err5) => {
-              if (err5) console.error("Error updating client:", err5);
-              else callback(byPhone[0].id);
-            }
-          );
-        } else {
-          db.query(
-            `INSERT INTO clients (name, phone, email, address, service, gst_number, 
-             created_by, original_lead_id, original_lead_type, lead_email, lead_city, 
-             lead_reference, lead_purpose, client_status, converted_at, lead_staff_name, lead_id_display) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'converted', NOW(), ?, ?)`,
-            [leadData.name, leadData.phone, leadData.email, leadData.address, leadData.service,
-             leadData.gst_number, lead.created_by || lead.staff_name || null, leadData.original_lead_id, leadData.original_lead_type,
-             leadData.lead_email, leadData.lead_city, leadData.lead_reference, leadData.lead_purpose,
-             leadData.lead_staff_name, leadData.lead_id_display],
-            (err5, result) => {
-              if (err5) console.error("Error creating client:", err5);
-              else callback(result.insertId);
-            }
-          );
-        }
-      });
-    } else if (!err3 && existing.length > 0) {
-      callback(existing[0].id);
+  const doInsert = () => {
+    db.query(
+      `INSERT INTO clients (name, phone, email, address, service, gst_number, created_by, original_lead_id, original_lead_type, lead_email, lead_city, lead_reference, lead_purpose, client_status, converted_at, lead_staff_name, lead_id_display) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'converted', NOW(), ?, ?)`,
+      [leadData.name, leadData.phone, leadData.email, leadData.address, leadData.service,
+       leadData.gst_number, lead.created_by || null, leadData.original_lead_id, leadData.original_lead_type,
+       leadData.lead_email, leadData.lead_city, leadData.lead_reference, leadData.lead_purpose,
+       leadData.lead_staff_name, leadData.lead_id_display],
+      (err5, result) => {
+        if (err5) { console.error("Error creating client:", err5); callback(null); }
+        else { console.log(`Client created from ${leadType} lead ${lead.id}, client ID: ${result.insertId}`); callback(result.insertId); }
+      }
+    );
+  };
+
+  const doUpdate = (clientId) => {
+    db.query(
+      `UPDATE clients SET name=?, phone=?, email=?, address=?, service=?, gst_number=?, 
+       original_lead_id=?, original_lead_type=?, lead_email=?, lead_city=?, 
+       lead_reference=?, lead_purpose=?, client_status='converted', converted_at=NOW(),
+       lead_staff_name=?, lead_id_display=? WHERE id=?`,
+      [leadData.name, leadData.phone, leadData.email, leadData.address, leadData.service, leadData.gst_number,
+       leadData.original_lead_id, leadData.original_lead_type, leadData.lead_email, leadData.lead_city,
+       leadData.lead_reference, leadData.lead_purpose, leadData.lead_staff_name, leadData.lead_id_display, clientId],
+      (err5) => {
+        if (err5) { console.error("Error updating client:", err5); callback(null); }
+        else { console.log(`Client ${clientId} updated from ${leadType} lead ${lead.id}`); callback(clientId); }
+      }
+    );
+  };
+
+  db.query("SELECT id FROM clients WHERE original_lead_id = ? AND original_lead_type = ?", [lead.id, leadType], (err3, existing) => {
+    if (err3) { console.error("Error checking existing client:", err3); callback(null); return; }
+
+    if (existing.length > 0) {
+      doUpdate(existing[0].id);
+      return;
     }
+
+    db.query("SELECT id FROM clients WHERE phone = ? AND (original_lead_id IS NULL OR original_lead_type IS NULL) AND client_status != 'converted'", [lead.mobile_number], (err4, byPhone) => {
+      if (err4) { console.error("Error checking by phone:", err4); doInsert(); return; }
+
+      if (byPhone.length > 0) {
+        doUpdate(byPhone[0].id);
+      } else {
+        doInsert();
+      }
+    });
   });
 };
 

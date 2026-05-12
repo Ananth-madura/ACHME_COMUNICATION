@@ -311,7 +311,17 @@ async function ensureTablesAndColumns() {
         gst_number VARCHAR(50),
         created_by INT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        original_lead_id INT DEFAULT NULL,
+        original_lead_type ENUM('telecall','walkin','field') DEFAULT NULL,
+        converted_at TIMESTAMP NULL DEFAULT NULL,
+        lead_email VARCHAR(150) DEFAULT NULL,
+        lead_city VARCHAR(100) DEFAULT NULL,
+        lead_reference VARCHAR(255) DEFAULT NULL,
+        lead_purpose VARCHAR(255) DEFAULT NULL,
+        client_status ENUM('active','inactive','converted') DEFAULT 'active',
+        lead_staff_name VARCHAR(150) DEFAULT NULL,
+        lead_id_display VARCHAR(50) DEFAULT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     }
   ];
@@ -387,6 +397,16 @@ async function ensureTablesAndColumns() {
     { table: "clients", column: "gst_number", definition: "gst_number VARCHAR(50) DEFAULT NULL" },
     { table: "clients", column: "company_name", definition: "company_name VARCHAR(150) DEFAULT NULL" },
     { table: "clients", column: "service", definition: "service VARCHAR(255) DEFAULT NULL" },
+    { table: "clients", column: "original_lead_id", definition: "original_lead_id INT DEFAULT NULL" },
+    { table: "clients", column: "original_lead_type", definition: "original_lead_type ENUM('telecall','walkin','field') DEFAULT NULL" },
+    { table: "clients", column: "converted_at", definition: "converted_at TIMESTAMP NULL DEFAULT NULL" },
+    { table: "clients", column: "lead_email", definition: "lead_email VARCHAR(150) DEFAULT NULL" },
+    { table: "clients", column: "lead_city", definition: "lead_city VARCHAR(100) DEFAULT NULL" },
+    { table: "clients", column: "lead_reference", definition: "lead_reference VARCHAR(255) DEFAULT NULL" },
+    { table: "clients", column: "lead_purpose", definition: "lead_purpose VARCHAR(255) DEFAULT NULL" },
+    { table: "clients", column: "client_status", definition: "client_status ENUM('active','inactive','converted') DEFAULT 'active'" },
+    { table: "clients", column: "lead_staff_name", definition: "lead_staff_name VARCHAR(150) DEFAULT NULL" },
+    { table: "clients", column: "lead_id_display", definition: "lead_id_display VARCHAR(50) DEFAULT NULL" },
     { table: "users", column: "emp_id", definition: "emp_id VARCHAR(50) DEFAULT NULL", uniqueKey: "emp_id" },
     { table: "users", column: "last_name", definition: "last_name VARCHAR(100) DEFAULT NULL" }
   ];
