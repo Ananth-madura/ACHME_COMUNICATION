@@ -7,6 +7,7 @@ const express = require("express");
 const db = require("../config/database");
 const nodemailer = require("nodemailer");
 const { generateInvoicePdf } = require("../backendutil/generateInvoicePdf");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
   const router = express.Router();
@@ -34,7 +35,8 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
   });
 
   // ── GET ALL ────────────────────────────────────────────────────────────────
-  router.get("/", (req, res) => {
+  router.get("/", verifyToken, (req, res) => {
+    const { id: user_id, role } = req.user;
     const sql = `
       SELECT t.id, t.${dateField}, t.grand_total, t.reference_no,
              c.customer_name, c.mobile_number, c.email,
@@ -45,15 +47,17 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
       JOIN customers c ON c.id = t.customer_id
       LEFT JOIN ${itemsTable} i ON i.invoice_id = t.id
       WHERE t.is_latest = 1
+      ${role === 'employee' ? 'AND t.created_by = ?' : ''}
       GROUP BY t.id ORDER BY t.id DESC`;
-    db.query(sql, (err, rows) => {
+    const params = role === 'employee' ? [user_id] : [];
+    db.query(sql, params, (err, rows) => {
       if (err) return res.status(500).json(err);
       res.json(rows);
     });
   });
 
   // ── GET BY ID ──────────────────────────────────────────────────────────────
-  router.get("/:id", (req, res) => {
+  router.get("/:id", verifyToken, (req, res) => {
     const sql = `
       SELECT t.id AS invoice_id, t.${dateField} AS invoice_date,
              t.subtotal, t.total_tax, t.total_cgst, t.total_sgst, t.total_igst, t.total_discount, t.grand_total,
@@ -84,7 +88,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
   });
 
   // ── CREATE ─────────────────────────────────────────────────────────────────
-  router.post("/create", (req, res) => {
+  router.post("/create", verifyToken, (req, res) => {
     const { customer, invoice, items, extra } = req.body;
     if (!customer?.customer_name) return res.status(400).json({ message: "Customer name required" });
     if (!invoice?.invoice_date) return res.status(400).json({ message: "Date required" });
@@ -111,8 +115,8 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
               tax_type, custom_tax, exec_name, exec_phone, exec_email,
               terms_general, terms_tax, terms_project_period, terms_validity, terms_separate_orders,
               terms_payment, terms_payment_custom, terms_warranty, hsn_sac_code, supplier_branch,
-              bank_details_id, bank_company, bank_name, bank_account, bank_ifsc, bank_branch, custom_terms)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+              bank_details_id, bank_company, bank_name, bank_account, bank_ifsc, bank_branch, custom_terms, created_by)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [
               customerId, invoice.invoice_date,
               invoice.total_cgst || 0, invoice.total_sgst || 0, invoice.total_igst || 0, invoice.subtotal || 0,
@@ -127,6 +131,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
               ex.terms_payment || null, ex.terms_payment_custom || null, ex.terms_warranty || null,
               ex.hsn_sac_code || null, ex.supplier_branch || null,
               ex.bank_details_id || null, ex.bank_company || null, ex.bank_name || null, ex.bank_account || null, ex.bank_ifsc || null, ex.bank_branch || null, ex.custom_terms || null,
+              req.user.id,
             ],
             (err, iRes) => {
               if (err) return db.rollback(() => res.status(500).json(err));
@@ -174,7 +179,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
   });
 
   // ── UPDATE — creates new version ───────────────────────────────────────────
-  router.put("/:id", (req, res) => {
+  router.put("/:id", verifyToken, (req, res) => {
     const { id } = req.params;
     const { customer, invoice, items, extra } = req.body;
     const ex = extra || {};
@@ -208,8 +213,8 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
                   terms_general, terms_tax, terms_project_period, terms_validity, terms_separate_orders,
                   terms_payment, terms_payment_custom, terms_warranty,
                   hsn_sac_code, supplier_branch, bank_details_id, bank_company, bank_name, bank_account, bank_ifsc, bank_branch, custom_terms,
-                  parent_id, version, is_latest)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                  parent_id, version, is_latest, created_by)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
                 [
                   current.customer_id, invoice.invoice_date,
                   invoice.total_cgst || 0, invoice.total_sgst || 0, invoice.total_igst || 0, invoice.subtotal || 0,
@@ -226,7 +231,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
                   ex.terms_payment || null, ex.terms_payment_custom || null, ex.terms_warranty || null,
                   ex.hsn_sac_code || null, ex.supplier_branch || null,
                   ex.bank_details_id || null, ex.bank_company || null, ex.bank_name || null, ex.bank_account || null, ex.bank_ifsc || null, ex.bank_branch || null, ex.custom_terms || null,
-                  rootId, newVersion, 1
+                  rootId, newVersion, 1, req.user.id
                 ],
                 (err, result) => {
                   if (err) return db.rollback(() => res.status(500).json(err));
@@ -257,7 +262,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
   });
 
   // ── DELETE ─────────────────────────────────────────────────────────────────
-  router.delete("/:id", (req, res) => {
+  router.delete("/:id", verifyToken, (req, res) => {
     db.beginTransaction(err => {
       if (err) return res.status(500).json(err);
       db.query(`DELETE FROM ${itemsTable} WHERE invoice_id=?`, [req.params.id], err => {

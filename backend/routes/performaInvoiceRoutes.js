@@ -21,7 +21,8 @@ router.get("/", verifyToken, (req, res) => {
     GROUP BY p.id
     ORDER BY p.id DESC
   `;
-  db.query(sql, (err, rows) => {
+  const params = role === 'employee' ? [user_id] : [];
+  db.query(sql, params, (err, rows) => {
     if (err) return res.status(500).json(err);
     res.json(rows);
   });
