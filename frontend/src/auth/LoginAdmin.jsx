@@ -38,7 +38,11 @@ export default function LoginAdmin() {
         password,
       });
       login({ ...res.data.user, token: res.data.token });
-      navigate("/dashboard/team");
+      if (res.data.user.role === "admin") {
+        navigate("/dashboard");
+      } else {
+        navigate("/dashboard/team");
+      }
     } catch (err) {
       const msg = err.response?.data?.message || "Login failed";
       setError(msg);

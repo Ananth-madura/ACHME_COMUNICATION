@@ -142,6 +142,33 @@ router.post("/register", async (req, res) => {
   );
 });
 
+/* ================= ADMIN LOGIN ================= */
+router.post("/admin-login", (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ message: "Email and password required" });
+  const emailLower = email.trim().toLowerCase();
+
+  db.query(
+    `SELECT id, first_name, last_name, email, role, status, user_password FROM users WHERE email=? OR emp_id=?`,
+    [emailLower, emailLower],
+    (err, rows) => {
+      if (err || !rows.length) {
+        return res.status(404).json({ message: "No account found" });
+      }
+
+      const user = rows[0];
+      if (user.role !== "admin") return res.status(403).json({ message: "Access denied. Admin only." });
+      if (user.status !== "active") return res.status(403).json({ message: "Account is not active" });
+
+      bcrypt.compare(password, user.user_password, (err, match) => {
+        if (err || !match) return res.status(401).json({ message: "Invalid password" });
+        const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "14d" });
+        return res.json({ token, user: { id: user.id, name: user.first_name, email: user.email, role: user.role } });
+      });
+    }
+  );
+});
+
 /* ================= LOGIN with Password or OTP ================= */
 router.post("/login", (req, res) => {
   const { email, password, otp } = req.body;

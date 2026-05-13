@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
+const { verifyToken } = require("../middleware/authMiddleware");
 const toDateOnly = (val) => (!val ? null : val.toString().slice(0, 10));
 const toTimeOnly = (val) => {
   if (!val) return null;
@@ -342,7 +343,7 @@ const createClientFromLead = (lead, leadType, callback) => {
 };
 
 // PUT convert telecall
-router.put("/telecall/:id", (req, res) => {
+router.put("/telecall/:id", verifyToken, (req, res) => {
   const { call_outcome } = req.body;
   db.query(
     "UPDATE Telecalls SET call_outcome=? WHERE id=?",
@@ -406,7 +407,7 @@ router.put("/walkin/:id", (req, res) => {
 });
 
 // PUT convert field
-router.put("/field/:id", (req, res) => {
+router.put("/field/:id", verifyToken, (req, res) => {
   const { field_outcome } = req.body;
   db.query(
     "UPDATE fields SET field_outcome=? WHERE id=?",

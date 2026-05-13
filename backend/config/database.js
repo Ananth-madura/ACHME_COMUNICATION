@@ -310,6 +310,7 @@ name: "notifications",
         service VARCHAR(255),
         gst_number VARCHAR(50),
         created_by INT,
+        assigned_teammember_id INT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         original_lead_id INT DEFAULT NULL,
@@ -408,6 +409,7 @@ name: "notifications",
     { table: "clients", column: "client_status", definition: "client_status ENUM('active','inactive','converted') DEFAULT 'active'" },
     { table: "clients", column: "lead_staff_name", definition: "lead_staff_name VARCHAR(150) DEFAULT NULL" },
     { table: "clients", column: "lead_id_display", definition: "lead_id_display VARCHAR(50) DEFAULT NULL" },
+    { table: "clients", column: "assigned_teammember_id", definition: "assigned_teammember_id INT DEFAULT NULL" },
     { table: "users", column: "emp_id", definition: "emp_id VARCHAR(50) DEFAULT NULL", uniqueKey: "emp_id" },
     { table: "users", column: "last_name", definition: "last_name VARCHAR(100) DEFAULT NULL" }
   ];
@@ -490,6 +492,19 @@ async function seedDefaultEmployees() {
       });
     });
   } catch (e) { console.log("Seed alter skip:", e.message); }
+
+  const adminUser = { first_name: "Admin", last_name: "", emp_id: "ADMIN001", email: "admin@madhura.com", mobile: "", job_title: "Administrator", emp_role: "Manager", role: "admin", password: "admin@123#" };
+  const adminHash = await bcrypt.hash(adminUser.password, 10);
+  try {
+    const existingAdmin = await queryAsync(`SELECT id FROM users WHERE email = ?`, [adminUser.email]);
+    if (existingAdmin.length > 0) {
+      await queryAsync(`UPDATE users SET first_name=?, last_name=?, emp_id=?, user_password=?, role='admin', status='active' WHERE email=?`,
+        [adminUser.first_name, adminUser.last_name, adminUser.emp_id, adminHash, adminUser.email]);
+    } else {
+      await queryAsync(`INSERT INTO users (first_name, last_name, emp_id, email, user_password, role, status) VALUES (?, ?, ?, ?, ?, 'admin', 'active')`,
+        [adminUser.first_name, adminUser.last_name, adminUser.emp_id, adminUser.email, adminHash]);
+    }
+  } catch (e) { console.log("Admin seed:", e.message); }
 
   const employees = [
     { first_name: "Princee", last_name: "SD", emp_id: "AC055", email: "info@achmecommunication.com", mobile: "", job_title: "Sales", emp_role: "Sales" },
