@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 /* ================= AMC/ALC SERVICE MANAGEMENT ================= */
 
@@ -9,7 +9,7 @@ const { verifyToken } = require("../middleware/authMiddleware");
 router.post("/amc-alc", verifyToken, (req, res) => {
   const {
     contract_id,
-    service_type, // 'AMC' or 'ALC'
+    service_type,
     customer_name,
     mobile_number,
     location_city,
@@ -18,7 +18,10 @@ router.post("/amc-alc", verifyToken, (req, res) => {
     description,
     petrol_charges,
     spare_parts_price,
+    labour_charges,
     total_expenses,
+    amount_collected,
+    payment_mode,
     status
   } = req.body;
 
@@ -26,28 +29,23 @@ router.post("/amc-alc", verifyToken, (req, res) => {
     return res.status(400).json({ error: "Contract ID, service type, and date are required" });
   }
 
-  const {
-    labour_charges
-  } = req.body;
-
   const { start_time, end_time, km, technician, sales_person, remarks } = req.body;
 
   const sql = `
     INSERT INTO amc_alc_services
-    (contract_id, service_type, customer_name, mobile_number, location_city, service_date, start_time, end_time, km, technician, sales_person, service_person, description, remarks, petrol_charges, spare_parts_price, labour_charges, total_expenses, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (contract_id, service_type, customer_name, mobile_number, location_city, service_date, start_time, end_time, km, technician, sales_person, service_person, description, remarks, petrol_charges, spare_parts_price, labour_charges, total_expenses, amount_collected, payment_mode, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   db.query(
     sql,
-    [contract_id, service_type, customer_name, mobile_number, location_city, service_date, start_time || null, end_time || null, km || null, technician || null, sales_person || null, service_person, description, remarks || null, petrol_charges || 0, spare_parts_price || 0, labour_charges || 0, total_expenses || 0, status || "Completed"],
+    [contract_id, service_type, customer_name, mobile_number, location_city, service_date, start_time || null, end_time || null, km || null, technician || null, sales_person || null, service_person, description, remarks || null, petrol_charges || 0, spare_parts_price || 0, labour_charges || 0, total_expenses || 0, amount_collected || 0, payment_mode || null, status || "Completed"],
     (err, result) => {
       if (err) {
         console.error("AMC/ALC service insert error:", err);
         return res.status(500).json({ error: "Failed to create service record" });
       }
 
-      // Log activity
       db.query(
         "INSERT INTO service_activity (service_id, activity_type, description) VALUES (?, ?, ?)",
         [result.insertId, "Service Created", `${service_type} service completed for ${customer_name}`]
@@ -98,7 +96,7 @@ router.get("/amc-alc", verifyToken, (req, res) => {
 });
 
 /* UPDATE AMC/ALC SERVICE */
-router.put("/amc-alc/:id", verifyToken, (req, res) => {
+router.put("/amc-alc/:id", verifyToken, isAdmin, (req, res) => {
   const { id } = req.params;
   const {
     service_type,
@@ -118,6 +116,8 @@ router.put("/amc-alc/:id", verifyToken, (req, res) => {
     spare_parts_price,
     labour_charges,
     total_expenses,
+    amount_collected,
+    payment_mode,
     status
   } = req.body;
 
@@ -140,9 +140,11 @@ router.put("/amc-alc/:id", verifyToken, (req, res) => {
       spare_parts_price = ?,
       labour_charges = ?,
       total_expenses = ?,
+      amount_collected = ?,
+      payment_mode = ?,
       status = ?
      WHERE id = ?`,
-    [service_type, customer_name, mobile_number, location_city, service_date, start_time || null, end_time || null, km || null, technician || null, sales_person || null, service_person, description, remarks || null, petrol_charges || 0, spare_parts_price || 0, labour_charges || 0, total_expenses || 0, status, id],
+    [service_type, customer_name, mobile_number, location_city, service_date, start_time || null, end_time || null, km || null, technician || null, sales_person || null, service_person, description, remarks || null, petrol_charges || 0, spare_parts_price || 0, labour_charges || 0, total_expenses || 0, amount_collected || 0, payment_mode || null, status, id],
     (err) => {
       if (err) return res.status(500).json({ error: err.message });
 
@@ -158,7 +160,7 @@ router.put("/amc-alc/:id", verifyToken, (req, res) => {
 });
 
 /* DELETE AMC/ALC SERVICE */
-router.delete("/amc-alc/:id", verifyToken, (req, res) => {
+router.delete("/amc-alc/:id", verifyToken, isAdmin, (req, res) => {
   db.query("DELETE FROM amc_alc_services WHERE id = ?", [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ message: "Service deleted" });

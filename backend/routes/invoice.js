@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 // CREATE INVOICE
 router.post("/new", verifyToken, (req, res) => {
@@ -45,7 +45,7 @@ router.get("/:id", verifyToken, (req, res) => {
 });
 
 // UPDATE INVOICE
-router.put("/:id", verifyToken, (req, res) => {
+router.put("/:id", verifyToken, isAdmin, (req, res) => {
   const { client_company, project_names, invoice_date, invoice_duedate, category } = req.body;
   db.query(
     `UPDATE clientinvoices SET client_company=?, project_names=?, invoice_date=?, invoice_duedate=?, category=? WHERE id=? AND (created_by=? OR 'admin'=?)`,
@@ -58,7 +58,7 @@ router.put("/:id", verifyToken, (req, res) => {
 });
 
 // DELETE INVOICE
-router.delete("/:id", verifyToken, (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
   db.query(`DELETE FROM clientinvoices WHERE id = ? AND (created_by=? OR 'admin'=?)`, [req.params.id, req.user.id, req.user.role], (err) => {
     if (err) { console.error(err); return res.status(500).json({ message: "Delete failed" }); }
     res.json({ message: "Invoice deleted" });

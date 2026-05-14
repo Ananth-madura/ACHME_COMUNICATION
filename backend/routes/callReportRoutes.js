@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 // GET all call reports (with optional date filter)
 router.get("/", verifyToken, (req, res) => {
@@ -131,7 +131,7 @@ router.post("/", verifyToken, (req, res) => {
 });
 
 // DELETE call report
-router.delete("/:id", verifyToken, (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
   db.query("DELETE FROM call_reports WHERE id = ?", [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ message: "Deleted" });

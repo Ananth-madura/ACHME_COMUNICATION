@@ -210,14 +210,15 @@ router.post("/login", (req, res) => {
 
 /* ================= ADMIN: CREATE USER ================= */
 router.post("/create-user", isAdmin, (req, res) => {
-  const { first_name, email, emp_id, job_title, emp_role, mobile_number, emp_address, user_password } = req.body;
+  const { first_name, email, emp_id, job_title, emp_role, mobile_number, emp_address, user_password, system_role } = req.body;
   if (!first_name || !email || !user_password) return res.status(400).json({ message: "Name, email and password required" });
 
+  const role = system_role || "employee";
   bcrypt.hash(user_password, 10, (err, hash) => {
     if (err) return res.status(500).json({ message: "Password hash failed" });
 
     db.query(`INSERT INTO users (first_name, email, user_password, role, status) VALUES (?, ?, ?, ?, ?)`,
-      [first_name, email.toLowerCase(), hash, "employee", "active"], (err2, result) => {
+      [first_name, email.toLowerCase(), hash, role, "active"], (err2, result) => {
         if (err2) {
           if (err2.code === "ER_DUP_ENTRY") return res.status(400).json({ message: "Email already exists" });
           return res.status(500).json({ message: "User creation failed" });
@@ -233,13 +234,13 @@ router.post("/create-user", isAdmin, (req, res) => {
 
 /* ================= ADMIN: UPDATE USER ================= */
 router.put("/update-user/:id", isAdmin, (req, res) => {
-  const { first_name, email, emp_id, job_title, emp_role, mobile_number, emp_address } = req.body;
+  const { first_name, email, emp_id, job_title, emp_role, mobile_number, emp_address, role } = req.body;
 
   db.query(`SELECT email FROM users WHERE id = ?`, [req.params.id], (err, rows) => {
     if (err || !rows.length) return res.status(404).json({ message: "User not found" });
     const oldEmail = rows[0].email;
 
-    db.query(`UPDATE users SET first_name = ?, email = ? WHERE id = ?`, [first_name, email?.toLowerCase() || oldEmail, req.params.id], (err2) => {
+    db.query(`UPDATE users SET first_name = ?, email = ?, role = ? WHERE id = ?`, [first_name, email?.toLowerCase() || oldEmail, role || "employee", req.params.id], (err2) => {
       if (err2) return res.status(500).json({ message: "Update failed" });
 
       db.query(`UPDATE teammember SET first_name = ?, emp_email = ?, emp_id = ?, job_title = ?, emp_role = ?, mobile_number = ?, emp_address = ? WHERE emp_email = ?`,
@@ -247,6 +248,18 @@ router.put("/update-user/:id", isAdmin, (req, res) => {
 
       res.json({ message: "User updated successfully" });
     });
+  });
+});
+
+/* ================= ADMIN: CHANGE USER ROLE (Sub-Admin) ================= */
+router.put("/change-role/:id", isAdmin, (req, res) => {
+  const { role } = req.body;
+  if (!["admin", "subadmin", "employee"].includes(role)) {
+    return res.status(400).json({ message: "Invalid role. Must be admin, subadmin, or employee" });
+  }
+  db.query(`UPDATE users SET role = ? WHERE id = ?`, [role, req.params.id], (err) => {
+    if (err) return res.status(500).json({ message: "Role update failed" });
+    res.json({ message: `Role updated to ${role}` });
   });
 });
 

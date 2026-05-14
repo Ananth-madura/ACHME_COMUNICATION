@@ -440,15 +440,27 @@ name: "notifications",
     { table: "target_achievements", column: "achieved_amount", definition: "achieved_amount DECIMAL(15,2) DEFAULT 0" },
     { table: "clients", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "tasks", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "tasks", column: "task_description", definition: "task_description TEXT DEFAULT NULL" },
+    { table: "tasks", column: "assigned_to", definition: "assigned_to VARCHAR(150) DEFAULT NULL" },
     { table: "quotations", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "contracts", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "clientinvoices", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "performainvoices", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "services", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "call_reports", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "call_reports", column: "amount_collected", definition: "amount_collected DECIMAL(10,2) DEFAULT 0" },
+    { table: "call_reports", column: "payment_mode", definition: "payment_mode VARCHAR(50) DEFAULT NULL" },
+    { table: "amc_alc_services", column: "amount_collected", definition: "amount_collected DECIMAL(10,2) DEFAULT 0" },
+    { table: "amc_alc_services", column: "payment_mode", definition: "payment_mode VARCHAR(50) DEFAULT NULL" },
     { table: "clients", column: "gst_number", definition: "gst_number VARCHAR(50) DEFAULT NULL" },
     { table: "clients", column: "company_name", definition: "company_name VARCHAR(150) DEFAULT NULL" },
     { table: "clients", column: "service", definition: "service VARCHAR(255) DEFAULT NULL" },
+    { table: "clients", column: "alternate_phone", definition: "alternate_phone VARCHAR(20) DEFAULT NULL" },
+    { table: "clients", column: "city", definition: "city VARCHAR(100) DEFAULT NULL" },
+    { table: "clients", column: "state", definition: "state VARCHAR(100) DEFAULT NULL" },
+    { table: "clients", column: "pincode", definition: "pincode VARCHAR(20) DEFAULT NULL" },
+    { table: "clients", column: "notes", definition: "notes TEXT DEFAULT NULL" },
+    { table: "clients", column: "client_status", definition: "client_status ENUM('active','inactive','prospect') DEFAULT 'active'" },
     { table: "clients", column: "original_lead_id", definition: "original_lead_id INT DEFAULT NULL" },
     { table: "clients", column: "original_lead_type", definition: "original_lead_type ENUM('telecall','walkin','field') DEFAULT NULL" },
     { table: "clients", column: "converted_at", definition: "converted_at TIMESTAMP NULL DEFAULT NULL" },
@@ -613,7 +625,7 @@ name: "notifications",
           (err, rows) => {
             if (err || rows.length === 0) return resolve();
             const currentType = rows[0].column_type || "";
-            const isPriorityFix = table === "tasks" && (currentType.includes("Medium") || currentType.includes("medium"));
+            const isPriorityFix = table === "tasks" && currentType.toLowerCase().includes("medium");
             const isRoleFix = table === "teammember" && currentType.includes("Manager");
             if (isPriorityFix || isRoleFix) {
               console.log(`✅ ${table}.${column} already updated`);
@@ -622,7 +634,7 @@ name: "notifications",
             const newType = currentType.replace(oldEnum, newEnum);
             if (newType !== currentType) {
               db.query(`ALTER TABLE ${table} MODIFY ${column} ENUM${newType}`, (e) => {
-                if (e && !e.message.includes("Duplicate")) console.error(`❌ Fix ${table}.${column}:`, e.message);
+                if (e && !e.message.includes("Duplicate") && !e.message.includes("Data truncated")) console.error(`❌ Fix ${table}.${column}:`, e.message);
                 else console.log(`✅ Fixed ${table}.${column} enum`);
                 resolve();
               });

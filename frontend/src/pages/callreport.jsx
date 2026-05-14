@@ -8,8 +8,11 @@ import socket from "../socket/socket";
 const API = "http://localhost:5000";
 
 const getAuthConfig = () => { const token = localStorage.getItem("token"); return { headers: { Authorization: `Bearer ${token}` } }; };
+const getUserRole = () => { try { return JSON.parse(localStorage.getItem("user") || "{}").role || "employee"; } catch { return "employee"; } };
 
 const CallReport = () => {
+  const userRole = getUserRole();
+  const canEditDelete = userRole === "admin" || userRole === "subadmin";
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("contracts");
   const [contracts, setContracts] = useState([]);
@@ -61,8 +64,12 @@ const CallReport = () => {
     spare_parts_price: "",
     labour_charges: "",
     total_expenses: "",
+    amount_collected: "",
+    payment_mode: "",
     status: "Completed"
   });
+
+  const showCostBreakdown = ["Warranty", "Installation", "Service Call"].includes(serviceForm.service_type);
 
   // Returns actual duration in minutes between start and end time
   const calcTotalMinutes = () => {
@@ -253,7 +260,8 @@ const CallReport = () => {
         petrol_charges: parseFloat(serviceForm.petrol_charges) || 0,
         spare_parts_price: parseFloat(serviceForm.spare_parts_price) || 0,
         labour_charges: parseFloat(serviceForm.labour_charges) || 0,
-        total_expenses: parseFloat(serviceForm.total_expenses) || 0
+        total_expenses: parseFloat(serviceForm.total_expenses) || 0,
+        amount_collected: parseFloat(serviceForm.amount_collected) || 0
       };
       if (isEditService && selectedServiceId) {
         await axios.put(`${API}/api/amc/amc-alc/${selectedServiceId}`, payload, getAuthConfig());
@@ -285,6 +293,8 @@ const CallReport = () => {
       spare_parts_price: service.spare_parts_price?.toString() || "",
       labour_charges: service.labour_charges?.toString() || "",
       total_expenses: service.total_expenses?.toString() || "",
+      amount_collected: service.amount_collected?.toString() || "",
+      payment_mode: service.payment_mode || "",
       status: service.status || "Completed"
     });
     setSelectedServiceId(service.id);
@@ -326,6 +336,8 @@ const CallReport = () => {
       spare_parts_price: "",
       labour_charges: "",
       total_expenses: "",
+      amount_collected: "",
+      payment_mode: "",
       status: "Completed"
     });
     setContractSearch("");
@@ -521,7 +533,14 @@ const CallReport = () => {
                     <td className="p-2 md:p-3 font-medium">{s.contract_title}</td>
                     <td className="p-2 md:p-3">{s.customer_name}</td>
                     <td className="p-2 md:p-3 text-center">
-                      <span className={`px-1 md:px-2 py-0.5 rounded-full text-xs font-bold ${s.service_type === "AMC" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                      <span className={`px-1 md:px-2 py-0.5 rounded-full text-xs font-bold ${
+                        s.service_type === "AMC" ? "bg-blue-100 text-blue-700" :
+                        s.service_type === "ALC" ? "bg-green-100 text-green-700" :
+                        s.service_type === "Service Call" ? "bg-orange-100 text-orange-700" :
+                        s.service_type === "Installation" ? "bg-purple-100 text-purple-700" :
+                        s.service_type === "Warranty" ? "bg-teal-100 text-teal-700" :
+                        "bg-gray-100 text-gray-700"
+                      }`}>
                         {s.service_type}
                       </span>
                     </td>
@@ -582,7 +601,9 @@ const CallReport = () => {
                 <select value={serviceForm.service_type} onChange={(e) => handleServiceTypeChange(e.target.value)} className="w-full border rounded-lg p-2 mt-1" required>
                   <option value="AMC">AMC (Annual Maintenance)</option>
                   <option value="ALC">ALC (Annual Labour)</option>
-                  <option value="Service">Service Visit</option>
+                  <option value="Service Call">Service Call</option>
+                  <option value="Installation">New Installation</option>
+                  <option value="Warranty">Warranty</option>
                 </select>
               </div>
               {serviceForm.service_type !== "Service" && (
@@ -698,18 +719,31 @@ const CallReport = () => {
                 <div><label className="text-sm font-medium text-gray-600">Service Person</label><input type="text" name="service_person" value={serviceForm.service_person} onChange={handleServiceChange} className="w-full border rounded-lg p-2 mt-1" /></div>
               </div>
 
-              <div><label className="text-sm font-medium text-gray-600">Description</label><textarea name="description" value={serviceForm.description} onChange={handleServiceChange} className="w-full border rounded-lg p-2 mt-1" rows={2} /></div>
+<div><label className="text-sm font-medium text-gray-600">Description</label><textarea name="description" value={serviceForm.description} onChange={handleServiceChange} className="w-full border rounded-lg p-2 mt-1" rows={2} /></div>
               
               <div><label className="text-sm font-medium text-gray-600">Remarks</label><textarea name="remarks" value={serviceForm.remarks} onChange={handleServiceChange} className="w-full border rounded-lg p-2 mt-1" placeholder="Additional remarks..." rows={2} /></div>
-              <div className="bg-gray-50 rounded-lg p-3 border">
-                <h3 className="text-sm font-bold text-gray-700 mb-2">Cost Breakdown</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  <div><label className="text-xs text-gray-600">Petrol (₹)</label><input type="number" name="petrol_charges" value={serviceForm.petrol_charges} onChange={handleServiceChange} className="w-full border rounded p-1 mt-1" placeholder="0" /></div>
-                  <div><label className="text-xs text-gray-600">Spare Parts (₹)</label><input type="number" name="spare_parts_price" value={serviceForm.spare_parts_price} onChange={handleServiceChange} className="w-full border rounded p-1 mt-1" placeholder="0" /></div>
-                  <div><label className="text-xs text-gray-600">Labour (₹)</label><input type="number" name="labour_charges" value={serviceForm.labour_charges} onChange={handleServiceChange} className="w-full border rounded p-1 mt-1" placeholder="0" /></div>
-                  <div><label className="text-xs text-gray-600">Total (₹)</label><input type="number" name="total_expenses" value={serviceForm.total_expenses} readOnly className="w-full border rounded p-1 mt-1 bg-white font-bold text-blue-700" /></div>
-                </div>
-              </div>
+              
+              {showCostBreakdown && (
+                <>
+                  <div className="bg-gray-50 rounded-lg p-3 border">
+                    <h3 className="text-sm font-bold text-gray-700 mb-2">Cost Breakdown</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                      <div><label className="text-xs text-gray-600">Petrol (₹)</label><input type="number" name="petrol_charges" value={serviceForm.petrol_charges} onChange={handleServiceChange} className="w-full border rounded p-1 mt-1" placeholder="0" /></div>
+                      <div><label className="text-xs text-gray-600">Spare Parts (₹)</label><input type="number" name="spare_parts_price" value={serviceForm.spare_parts_price} onChange={handleServiceChange} className="w-full border rounded p-1 mt-1" placeholder="0" /></div>
+                      <div><label className="text-xs text-gray-600">Labour (₹)</label><input type="number" name="labour_charges" value={serviceForm.labour_charges} onChange={handleServiceChange} className="w-full border rounded p-1 mt-1" placeholder="0" /></div>
+                      <div><label className="text-xs text-gray-600">Total (₹)</label><input type="number" name="total_expenses" value={serviceForm.total_expenses} readOnly className="w-full border rounded p-1 mt-1 bg-white font-bold text-blue-700" /></div>
+                    </div>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-3 border">
+                    <h3 className="text-sm font-bold text-gray-700 mb-2">Payment Details</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div><label className="text-xs text-gray-600">Payment Mode</label><select name="payment_mode" value={serviceForm.payment_mode} onChange={handleServiceChange} className="w-full border rounded p-1 mt-1"><option value="">— Select —</option><option value="UPI">UPI</option><option value="Cash">Cash</option><option value="Credit">Credit</option></select></div>
+                      <div><label className="text-xs text-gray-600">Amount Collected (₹)</label><input type="number" name="amount_collected" value={serviceForm.amount_collected} onChange={handleServiceChange} className="w-full border rounded p-1 mt-1" placeholder="0" /></div>
+                    </div>
+                  </div>
+                </>
+              )}
+              
               <div className="flex gap-2 pt-2">
                 <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">{isEditService ? "Update" : "Save Service"}</button>
                 <button type="button" onClick={() => setServiceModalOpen(false)} className="flex-1 bg-gray-300 py-2 rounded-lg hover:bg-gray-400">Cancel</button>

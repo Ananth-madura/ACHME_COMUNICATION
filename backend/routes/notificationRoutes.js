@@ -59,7 +59,7 @@ router.get("/unread-count", verifyToken, (req, res) => {
 });
 
 // PUT mark single notification as read
-router.put("/:id/read", verifyToken, (req, res) => {
+router.put("/:id/read", verifyToken, isAdmin, (req, res) => {
   db.query(
     "UPDATE notifications SET is_read = 1 WHERE id = ?",
     [req.params.id],
@@ -71,7 +71,7 @@ router.put("/:id/read", verifyToken, (req, res) => {
 });
 
 // PUT mark all notifications as read
-router.put("/read-all", verifyToken, (req, res) => {
+router.put("/read-all", verifyToken, isAdmin, (req, res) => {
   const { id: user_id, role } = req.user;
   let sql = "UPDATE notifications SET is_read = 1 WHERE is_read = 0";
   const params = [];
@@ -88,7 +88,7 @@ router.put("/read-all", verifyToken, (req, res) => {
 });
 
 // DELETE single notification
-router.delete("/:id", verifyToken, (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
   db.query("DELETE FROM notifications WHERE id = ?", [req.params.id], (err) => {
     if (err) return res.status(500).json(err);
     res.json({ success: true });

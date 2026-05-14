@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 const getNotificationIO = () => {
   try {
@@ -225,7 +225,7 @@ router.get("/:id", verifyToken, (req, res) => {
 
 // Edit 
 
-router.put("/:id", verifyToken, (req, res) => {
+router.put("/:id", verifyToken, isAdmin, (req, res) => {
   const {
     customer_name,
     mobile_number,
@@ -339,7 +339,7 @@ router.put("/:id", verifyToken, (req, res) => {
 
 
  // Delete;
-  router.delete("/:id", verifyToken, (req,res) =>{
+  router.delete("/:id", verifyToken, isAdmin, (req,res) =>{
     // Check ownership
     db.query("SELECT created_by FROM Walkins WHERE id = ?", [req.params.id], (err, results) => {
       if (err) return res.status(500).json({ error: err.message });

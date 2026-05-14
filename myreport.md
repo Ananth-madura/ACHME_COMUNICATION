@@ -318,4 +318,241 @@ For anyone looking to understand the flow of how this system came together, trac
 
 ---
 
-*Document prepared by ANNATH-dev*
+## Role-Based Access Control Implementation (Phase 3 - RBAC)
+
+### Overview
+Implemented strict role-based access control (admin / subadmin / employee) across the application. Employee role gets read/create only, subadmin gets full access except user management, and admin gets full access. Subadmin role can be assigned by admin from the team page.
+
+---
+
+### 18. Subadmin Role Support in Auth Middleware (`backend/middleware/authMiddleware.js`)
+
+The authentication middleware needed to recognize a new `subadmin` role that sits between employee and admin in permission hierarchy.
+
+- **What was addressed**:
+  - `isAdmin` middleware updated to allow both `admin` and `subadmin` roles: `req.user.role !== "admin" && req.user.role !== "subadmin"`
+  - Added new `isReadOnly` middleware to block PUT/DELETE for employee role
+  - Role checking pattern: `const role = req.user?.role || "employee"`
+- **Rolling back**: Restoring the `isAdmin` check to only allow `"admin"` would revert to admin-only access.
+
+> *Done by ananth-dev* - Should a `manager` role be added in future?
+
+---
+
+### 19. All PUT/DELETE Routes Protected with `isAdmin` (`backend/routes/`)
+
+34 PUT/DELETE routes across 16 backend files were updated to include `isAdmin` permission middleware.
+
+- **Files modified** (all PUT/DELETE routes now have `isAdmin`):
+  - `serviceRoutes.js` — service CRUD (image upload fixed)
+  - `newclient.js` — client CRUD (full client fields)
+  - `amcRoutes.js` — service type + payment fields, contract CRUD
+  - `taskRoutes.js` — task CRUD (priority validation fixed, safe default "Medium")
+  - `fieldRoutes.js` — field work CRUD
+  - `telecallRoutes.js` — telecalling CRUD
+  - `walkinRoutes.js` — walkins CRUD
+  - `estimate.js` — estimate CRUD
+  - `callReportRoutes.js` — call report CRUD (service types fixed: Warranty/Installation/Service Call)
+  - `leadManagementRoutes.js` — lead management CRUD
+  - `notificationRoutes.js` — notifications CRUD
+  - `contract.js` — contract CRUD
+  - `invoice.js` — invoice CRUD
+  - `quotationRoutes.js` — quotation CRUD
+  - `performaInvoiceRoutes.js` — performa invoice CRUD
+  - `unifiedInvoiceRoute.js` — unified invoice CRUD
+
+- **Rolling back**: Removing `isAdmin` from any route's middleware array would revert that route to being accessible by any authenticated user.
+
+> *Done by ananth-dev* - Is the permission hierarchy aligned with the team's org structure?
+
+---
+
+### 20. Role Assignment Endpoint (`backend/routes/authRoutes.js`)
+
+Admin needed a way to assign or change a user's system role (employee → subadmin → admin) after account creation.
+
+- **What was added**:
+  - `PUT /api/auth/change-role/:id` — allows admin to change any user's role
+  - `POST /api/auth/create-user` — now accepts and saves `system_role` field (defaults to "employee")
+  - `PUT /api/auth/update-user/:id` — now saves `role` field
+- **Rolling back**: Removing the change-role route handler and reverting create-user/update-user to ignore role fields would undo these additions.
+
+> *Done by ananth-dev* - Should subadmin be able to assign roles to employees?
+
+---
+
+### 21. Team Member Page — Role-Based UI (`frontend/src/pages/teammember.jsx`)
+
+The team page needed a modern role-aware interface showing user roles with badges and a role change modal for admins.
+
+- **What was added**:
+  - Access column with color-coded badges: admin (blue), subadmin (orange), employee (gray)
+  - Zap icon button to open role change modal (admin only)
+  - Role Change modal with role selector (Employee/Sub-Admin/Admin) and permission explanation
+  - Admin sees: Add, Edit, Delete, Assign Task, Change Role buttons
+  - Subadmin sees: Assign Task button only
+  - Employee sees: View + Email buttons only
+  - `fetchTeam()` uses `/api/teammember/admin` for admin/subadmin, `/api/teammember` for employee
+- **Backend updated**: `GET /api/teammember` and `GET /api/teammember/admin` now join `users` table to return `user_role`
+- **Files modified**: `backend/routes/team.js`, `frontend/src/pages/teammember.jsx`
+- **Rolling back**: Removing the role column, role change modal, and conditional button rendering from team member page would revert to the original view.
+
+> *Done by ananth-dev* - Should a role history log be added to track role changes?
+
+---
+
+### 22. User Management Page — System Role Dropdown (`frontend/src/pages/usermanagement.jsx`)
+
+The user management page needed a System Role field when creating users to set initial role.
+
+- **What was added**:
+  - System Role dropdown (Employee/Sub-Admin/Admin) in the create user form
+  - Default role: "employee"
+  - Form state includes `system_role` field
+  - Badge display for subadmin in user list (orange)
+  - Role selector in edit mode
+- **Rolling back**: Removing the System Role dropdown and reverting formData to exclude `system_role` would undo this addition.
+
+> *Done by ananth-dev* - Should user role be editable from the user management list itself?
+
+---
+
+### 23. Database Auto-Migration (`backend/config/database.js`)
+
+New columns needed to be available in the database without manual migration steps.
+
+- **What was added**:
+  - `ensureColumn()` added to `database.js` — detects and adds missing columns via `information_schema`
+  - Auto-migration runs on server startup ensuring all new fields exist:
+    - `task_description` in tasks table
+    - `user_role` / `system_role` in users table
+    - `service_type`, `cost_breakdown`, `payment_status` in amc_services table
+    - `assigned_to`, `created_by`, `lead_id`, `lead_type` across relevant tables
+- **Rolling back**: Disabling the `ensureTablesAndColumns()` call in database initialization would prevent auto-migration on startup.
+
+> *Done by ananth-dev* - Should migration status be logged to a separate table?
+
+---
+
+### 24. Role-Based Button Visibility Across Frontend Pages
+
+Edit and Delete buttons were conditionally hidden for employee role across all listing pages to enforce the permission matrix.
+
+- **Pages updated with `canEditDelete` check** (shows buttons only for admin/subadmin):
+  - `estimate.jsx` — Edit button wrapped with `canEditDelete`
+  - `quotation.jsx` — Edit + Delete buttons wrapped with `canEditDelete`
+  - `contract.jsx` — Edit + Delete buttons wrapped with `canEditDelete`
+  - `invoice.jsx` — Edit + Delete buttons wrapped with `canEditDelete`
+  - `clients.jsx` — Edit button in list + detail modal, Delete button wrapped with `canEditDelete`
+  - `products.jsx` — Delete button wrapped with `canEditDelete`
+  - `amc.jsx` — Delete buttons for both contracts and services wrapped with `canEditDelete`
+  - `task.jsx` — already had role checks (verified)
+  - `field.jsx` — already had role checks (verified)
+- **Pattern used**: `const canEditDelete = userRole === "admin" || userRole === "subadmin"`
+- **Rolling back**: Removing the conditional wrappers from any button would make it visible to all roles.
+
+> *Done by ananth-dev* - Should a tooltip explain why buttons are hidden for employees?
+
+---
+
+### 25. Task Description Field (`backend/routes/taskRoutes.js`, `frontend/src/pages/task.jsx`)
+
+Tasks needed a description field to capture detailed task information.
+
+- **What was added**:
+  - `task_description TEXT` column added to tasks table (via auto-migration)
+  - Backend routes updated to include `task_description` in INSERT and UPDATE queries
+  - Frontend task form added description textarea input
+  - Task detail modal displays description with proper formatting
+  - Priority validation added (safe default "Medium" on invalid input)
+- **Files modified**: `backend/routes/taskRoutes.js`, `frontend/src/pages/task.jsx`
+- **Rolling back**: Removing `task_description` from queries and form fields would revert to the original task system.
+
+> *Done by ananth-dev* - Should task description support rich text formatting?
+
+---
+
+### 26. Target Auto-Creation Fix (`backend/routes/taskRoutes.js`)
+
+Target updates were failing when no target record existed for an employee.
+
+- **What was addressed**:
+  - Target update endpoint now auto-creates default target (monthly: 0, calls: 0, visits: 0) if none exists before updating
+  - Graceful error recovery on task priority (defaults to "Medium")
+- **Rolling back**: Removing the auto-creation logic from the target update endpoint would revert to failing on missing target records.
+
+> *Done by ananth-dev* - Should default targets be configurable per employee?
+
+---
+
+### 27. Call Report Service Types Fix (`backend/routes/callReportRoutes.js`, `frontend/src/pages/callreport.jsx`)
+
+Call report service types needed to match the expected service types (Warranty/Installation/Service Call) with conditional Cost Breakdown and Payment Status fields.
+
+- **What was fixed**:
+  - Service type values normalized to match expected enums
+  - Cost Breakdown section shown only for "Service Call" type
+  - Payment Status shown only for "Service Call" and "Installation" types
+- **Rolling back**: Reverting the conditional rendering in callreport.jsx and removing type normalization in callReportRoutes.js would return to the previous behavior.
+
+> *Done by ananth-dev* - Should additional service types be added?
+
+---
+
+### 28. Products/Service Image Upload Fix (`backend/routes/serviceRoutes.js`)
+
+Image upload was failing for products/services due to missing multipart header handling and empty image values.
+
+- **What was fixed**:
+  - Service routes now handle empty image values gracefully
+  - Multipart form-data header explicitly set for upload requests
+  - `backend/uploads/` folder created for service image storage
+- **Rolling back**: Removing the empty check and explicit header setting would revert to the broken upload behavior.
+
+> *Done by ananth-dev* - Should image compression be added for large uploads?
+
+---
+
+### 29. Clients Page Modern UI (`frontend/src/pages/clients.jsx`)
+
+The clients page received a comprehensive UI overhaul with new fields and stats display.
+
+- **What was updated**:
+  - New fields: source, customer type (Individual/Company), GST number, industry, company size
+  - Stats row at top: Total Clients, Active, New This Month, With Contracts
+  - Modern card-based layout with search and filter
+  - Client details modal with full information display
+  - Commented out Excel download button (pending library installation)
+- **Rolling back**: Reverting to the previous table-based layout would undo the UI modernization.
+
+> *Done by ananth-dev* - Should client categories/tags be added for filtering?
+
+---
+
+## Permission Matrix
+
+| Action | Employee | Sub-Admin | Admin |
+|--------|----------|-----------|-------|
+| View Records | ✅ | ✅ | ✅ |
+| Create Records | ✅ | ✅ | ✅ |
+| Edit Records | ❌ | ✅ | ✅ |
+| Delete Records | ❌ | ✅ | ✅ |
+| Assign Tasks | ❌ | ✅ | ✅ |
+| Change User Role | ❌ | ❌ | ✅ |
+| User Management | ❌ | ❌ | ✅ |
+
+---
+
+## API Endpoints Summary (RBAC)
+
+| Endpoint | Method | Access |
+|----------|--------|--------|
+| `/api/auth/create-user` | POST | Admin only |
+| `/api/auth/update-user/:id` | PUT | Admin only |
+| `/api/auth/change-role/:id` | PUT | Admin only |
+| All other CRUD routes | PUT/DELETE | Admin + Sub-Admin |
+| All GET routes | GET | All authenticated users |
+
+---
+
+*Document updated by ananth-dev*

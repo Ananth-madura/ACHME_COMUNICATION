@@ -7,6 +7,8 @@ import { API as BASE_API } from "../config";
 
 function Products() {
   const API = `${BASE_API}/api`;
+  const userRole = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").role || "employee"; } catch { return "employee"; } })();
+  const canEditDelete = userRole === "admin" || userRole === "subadmin";
 
   const [showModal, setShowModal] = useState(false);
   const [services, setServices] = useState([]);
@@ -105,10 +107,10 @@ function Products() {
 
     try {
       if (isEdit) {
-        await axios.put(`${API}/services/${editId}`, formData);
+        await axios.put(`${API}/services/${editId}`, formData, { headers: { "Content-Type": "multipart/form-data" } });
         alert("Service updated successfully");
       } else {
-        await axios.post(`${API}/services`, formData);
+        await axios.post(`${API}/services`, formData, { headers: { "Content-Type": "multipart/form-data" } });
         alert("Service added successfully");
       }
 
@@ -117,7 +119,7 @@ function Products() {
       resetForm();
     } catch (err) {
       console.error(err);
-      alert("Error saving service");
+      alert("Error saving service: " + (err.response?.data?.message || err.response?.data?.error || err.message));
     }
   };
 
@@ -271,13 +273,13 @@ function Products() {
                     >
                       <Edit size={18} />
                     </button>
-                    <button
+                    {canEditDelete && <button
                       onClick={() => handleDelete(s.id)}
                       className="text-red-600 hover:text-red-800 transition"
                       title="Delete"
                     >
                       <Trash2 size={18} />
-                    </button>
+                    </button>}
                   </div>
                 </td>
               </tr>

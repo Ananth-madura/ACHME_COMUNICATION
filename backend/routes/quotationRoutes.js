@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 // FROM ADDRESSES (shared table)
 router.get("/from-addresses", verifyToken, (req, res) => {
@@ -18,7 +18,7 @@ router.post("/from-addresses", verifyToken, (req, res) => {
     res.json({ id: result.insertId, label, address });
   });
 });
-router.delete("/from-addresses/:id", verifyToken, (req, res) => {
+router.delete("/from-addresses/:id", verifyToken, isAdmin, (req, res) => {
   db.query("DELETE FROM pi_from_addresses WHERE id=?", [req.params.id], (err) => {
     if (err) return res.status(500).json(err);
     res.json({ message: "Deleted" });
@@ -278,7 +278,7 @@ router.post("/create", verifyToken, (req, res) => {
 });
 
 // Update — creates a NEW version instead of overwriting, preserving history
-router.put("/:id", verifyToken, (req, res) => {
+router.put("/:id", verifyToken, isAdmin, (req, res) => {
   const error = validateQuotation(req.body);
   if (error) return res.status(400).json({ message: error });
 
@@ -379,7 +379,7 @@ router.put("/:id", verifyToken, (req, res) => {
 
 
 /// DELETE QUOTATION (SAFE)
-router.delete("/:id", verifyToken, (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
   const { id } = req.params;
 
   db.beginTransaction(err => {

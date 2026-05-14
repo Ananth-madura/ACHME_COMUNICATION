@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 const multer = require("multer");
 const path = require("path");
 
@@ -32,7 +32,7 @@ router.get("/", verifyToken, (req, res) => {
 // CREATE SERVICE (WITH IMAGES)
 router.post("/", upload.array("images", 10), verifyToken, (req, res) => {
   const { client, material, warranty, amc, date, issues } = req.body;
-  const imageFiles = req.files.map((file) => file.filename);
+  const imageFiles = req.files && req.files.length > 0 ? req.files.map((file) => file.filename) : [];
 
   const sql = "INSERT INTO services (client, material, warranty, amc, date, images, issues) VALUES (?, ?, ?, ?, ?, ?, ?)";
   const values = [
@@ -41,7 +41,7 @@ router.post("/", upload.array("images", 10), verifyToken, (req, res) => {
     warranty,
     amc === "true" || amc === true ? 1 : 0,
     date,
-    JSON.stringify(imageFiles),
+    imageFiles.length > 0 ? JSON.stringify(imageFiles) : null,
     issues
   ];
 
@@ -55,7 +55,7 @@ router.post("/", upload.array("images", 10), verifyToken, (req, res) => {
 });
 
 // DELETE SERVICE
-router.delete("/:id", verifyToken, (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
   const sql = "DELETE FROM services WHERE id = ?";
   db.query(sql, [req.params.id], (err, result) => {
     if (err) return res.status(500).json(err);
@@ -64,7 +64,7 @@ router.delete("/:id", verifyToken, (req, res) => {
 });
 
 // UPDATE SERVICE
-router.put("/:id", upload.array("images", 10), verifyToken, (req, res) => {
+router.put("/:id", upload.array("images", 10), verifyToken, isAdmin, (req, res) => {
   const { client, material, warranty, amc, date, issues } = req.body;
   let sql, values;
 

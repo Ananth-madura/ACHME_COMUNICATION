@@ -5,9 +5,12 @@ import axios from "axios";
 import { API } from "../config";
 
 const getAuthConfig = () => { const token = localStorage.getItem("token"); return { headers: { Authorization: `Bearer ${token}` } }; };
+const getUserRole = () => { try { return JSON.parse(localStorage.getItem("user") || "{}").role || "employee"; } catch { return "employee"; } };
 
 
 const Estimate = () => {
+  const userRole = getUserRole();
+  const canEditDelete = userRole === "admin" || userRole === "subadmin";
   const [open, setOpen] = useState(false);
 
   const tabopen = () => {
@@ -469,17 +472,19 @@ useEffect(() => {
          <div className="flex gap-3 ml-[20px] ml-[60px]">
                      <button
                       type="button"
-                       onClick={() => deleteEstimate(E.id)}
-                       className="text-red-500 hover:text-red-700">
-                       <Trash2 size={18} />
-                       </button>
+onClick={() => deleteEstimate(E.id)}
+                        className="text-red-500 hover:text-red-700">
+                        <Trash2 size={18} />
+                        </button>
 
-                        <button
-                         type="button"
-                          onClick={() => openEditModal(E)}
-                          className="text-green-600 hover:text-green-800">
-                          <Edit size={18} />
-                         </button>
+                        {canEditDelete && (
+                         <button
+                          type="button"
+                           onClick={() => openEditModal(E)}
+                           className="text-green-600 hover:text-green-800">
+                           <Edit size={18} />
+                          </button>
+                        )}
                       </div>
         </td>
 

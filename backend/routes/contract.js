@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 const getNotificationIO = () => {
   try {
@@ -122,7 +122,7 @@ router.get("/", verifyToken, (req, res) => {
 });
 
 /* UPDATE */
-router.put("/:id", verifyToken, (req, res) => {
+router.put("/:id", verifyToken, isAdmin, (req, res) => {
   const { id } = req.params;
   const {
     client_company,
@@ -157,7 +157,7 @@ router.put("/:id", verifyToken, (req, res) => {
 });
 
 /* DELETE */
-router.delete("/:id", verifyToken, (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
   db.query("DELETE FROM contracts WHERE id=? AND (created_by=? OR 'admin'=?)", [req.params.id, req.user.id, req.user.role], (err) => {
     if (err) return res.status(500).json(err);
     res.json({ message: "Deleted" });

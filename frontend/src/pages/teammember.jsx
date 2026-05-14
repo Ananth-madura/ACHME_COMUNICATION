@@ -28,6 +28,8 @@ const Team = () => {
     const [assignLoading, setAssignLoading] = useState(false);
     const [assignErrors, setAssignErrors] = useState({});
     const [taskTargets, setTaskTargets] = useState([]);
+    const [roleModalData, setRoleModalData] = useState(null);
+    const [newUserRole, setNewUserRole] = useState("");
     
     // Team member form state
     const [form, setForm] = useState({
@@ -52,7 +54,9 @@ const Team = () => {
     const fetchTeam = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`${API}/api/teammember`, {
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            const url = (user.role === "admin" || user.role === "subadmin") ? `${API}/api/teammember/admin` : `${API}/api/teammember`;
+            const res = await axios.get(url, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setTeam(res.data);
@@ -306,6 +310,33 @@ const openAssignModal = (member) => {
    setAssignOpen(true);
 };
 
+const openRoleModal = async (member) => {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.get(`${API}/api/teammember/${member.id}`, { headers: { Authorization: `Bearer ${token}` } });
+    setRoleModalData({ ...member, user_id: res.data.user_id, user_role: res.data.user_role });
+    setNewUserRole(res.data.user_role || "employee");
+    setRoleOpen(true);
+  } catch (err) {
+    setRoleModalData(member);
+    setNewUserRole("employee");
+    setRoleOpen(true);
+  }
+};
+
+const saveRole = async () => {
+  if (!roleModalData?.user_id) return alert("No user account linked. Cannot change role.");
+  try {
+    const token = localStorage.getItem("token");
+    await axios.put(`${API}/api/auth/change-role/${roleModalData.user_id}`, { role: newUserRole }, { headers: { Authorization: `Bearer ${token}` } });
+    alert("Role updated successfully");
+    setRoleOpen(false);
+    fetchTeam();
+  } catch (err) {
+    alert("Failed: " + (err.response?.data?.message || err.message));
+  }
+};
+
 const handleSendMail = () => {
   if (!mailTo) return alert("No email address for this member");
   const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(mailTo)}&su=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailMessage)}`;
@@ -476,6 +507,7 @@ const handleSendMail = () => {
       <th className="p-4 border">Job Title</th>
        <th className="p-4 border">Job Role</th>
        <th className="p-4 border">Quotes</th>
+       <th className="p-4 border">Access</th>
       <th className="p-4 border">Action</th>
     </tr>
   </thead>
@@ -495,9 +527,18 @@ const handleSendMail = () => {
         <td className="p-4 border">{E.job_title || "---"}</td>
         <td className="p-4 border">{E.emp_role || "---"}</td>
         <td className="p-4 border">{E.quotation_count || 0}</td>
-<td className="p-4 border">
+        <td className="p-4 border">
+          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+            E.user_role === "admin" ? "bg-purple-100 text-purple-700" :
+            E.user_role === "subadmin" ? "bg-orange-100 text-orange-700" :
+            "bg-gray-100 text-gray-600"
+          }`}>
+            {E.user_role || "employee"}
+          </span>
+        </td>
+        <td className="p-4 border">
            <div className="flex justify-center gap-3">
-               {currentUser?.role === "admin" && (
+               {(currentUser?.role === "admin") && (
                  <>
                    <button type="button" onClick={() => deleteTeamMember(E.id)} className="text-red-500 hover:text-red-700 transition" title="Delete">
                      <Trash2 size={18} />
@@ -508,7 +549,15 @@ const handleSendMail = () => {
                    <button type="button" onClick={() => openAssignModal(E)} className="text-blue-600 hover:text-blue-800 transition" title="Assign Task/Target">
                      <CheckSquare size={18} />
                    </button>
+                   <button type="button" onClick={() => openRoleModal(E)} className="text-purple-600 hover:text-purple-800 transition" title="Change Role">
+                     <Zap size={18} />
+                   </button>
                  </>
+               )}
+               {currentUser?.role === "subadmin" && (
+                 <button type="button" onClick={() => openAssignModal(E)} className="text-blue-600 hover:text-blue-800 transition" title="Assign Task/Target">
+                   <CheckSquare size={18} />
+                 </button>
                )}
                <button type="button" onClick={() => openMailModal(E)} className="text-yellow-600 hover:text-yellow-800 transition" title="Send Email">
                  <Mail size={18} />
@@ -706,10 +755,53 @@ const handleSendMail = () => {
                 </button>
               </div>
            </div>
-         </div>
-       )}
-     </div>
-   );
- };
+</div>
+        )}
 
- export default Team;
+        {/* Role Change Modal */}
+        {roleOpen && roleModalData && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="rounded-xl shadow-xl w-full max-w-md bg-white">
+              <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="text-base font-semibold text-gray-800">Change User Role</h3>
+                <button onClick={() => setRoleOpen(false)} className="text-gray-400 hover:text-red-500"><X size={20} /></button>
+              </div>
+              <div className="p-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Employee</label>
+                  <p className="font-semibold text-gray-800">{roleModalData.first_name} {roleModalData.last_name}</p>
+                  <p className="text-xs text-gray-400">{roleModalData.emp_email}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Select Role</label>
+                  <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none">
+                    <option value="employee">Employee (Read/Create Only)</option>
+                    <option value="subadmin">Sub-Admin (Full Access Except User Management)</option>
+                    <option value="admin">Admin (Full Access)</option>
+                  </select>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500">
+                  <p><strong>Employee:</strong> Can only create records</p>
+                  <p><strong>Sub-Admin:</strong> Full access except user management</p>
+                  <p><strong>Admin:</strong> Full system access</p>
+                </div>
+              </div>
+              <div className="p-4 border-t flex gap-2">
+                <button onClick={saveRole}
+                  className="flex-1 bg-purple-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-700">
+                  Update Role
+                </button>
+                <button onClick={() => setRoleOpen(false)}
+                  className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm font-medium hover:bg-gray-200">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  export default Team;

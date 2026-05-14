@@ -35,16 +35,16 @@ router.get("/", (req, res) => {
 
 /* GET ALL - Admin only (full data) */
 router.get("/admin", verifyToken, isAdmin, (req, res) => {
-  db.query("SELECT * FROM teammember ORDER BY id DESC", (err, result) => {
+  db.query("SELECT t.*, u.email, u.role as user_role FROM teammember t LEFT JOIN users u ON t.user_id = u.id ORDER BY t.id DESC", (err, result) => {
     if (err) return res.status(500).json(err);
     res.json(result);
   });
 });
 
-/* GET ALL - Public (for dropdowns) */
-router.get("/list", (req,res)=>{
-  db.query("SELECT id, first_name, last_name, emp_email, job_title, emp_role, user_id, emp_id FROM teammember ORDER BY first_name",(err,result)=>{
-    if(err) return res.status(500).json(err);
+/* GET ALL - Public (for dropdowns in forms) - No auth required */
+router.get("/", (req, res) => {
+  db.query("SELECT t.id, t.first_name, t.last_name, t.emp_email, t.mobile, t.job_title, t.emp_role, t.user_id, t.emp_id, t.emp_address, u.email, u.role as user_role FROM teammember t LEFT JOIN users u ON t.user_id = u.id ORDER BY t.first_name", (err, result) => {
+    if (err) return res.status(500).json(err);
     res.json(result);
   });
 });

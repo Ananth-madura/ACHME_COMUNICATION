@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, X, Edit, Trash2, FileText, FileSignature, Users, UserCheck, Phone, Calendar, User } from "lucide-react";
+import { Search, X, Edit, Trash2, FileText, FileSignature, Users, UserCheck, Phone, Calendar, User, Mail, Building, MapPin, Hash, FileBarChart, CreditCard, RefreshCw } from "lucide-react";
 import "../Styles/tailwind.css";
 import axios from "axios";
 import { useAuth } from "../auth/AuthContext";
@@ -7,6 +7,7 @@ import { API } from "../config";
 
 const Clients = () => {
   const { user } = useAuth();
+  const canEditDelete = user?.role === "admin" || user?.role === "subadmin";
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -14,6 +15,33 @@ const Clients = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [selectedClientDetails, setSelectedClientDetails] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [isEdit, setIsEdit] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState(null);
+
+  const N = {
+    primary: "#5645d4",
+    primaryPressed: "#4534b3",
+    orange: "#dd5b00",
+    green: "#1aae39",
+    error: "#e03131",
+    ink: "#1a1a1a",
+    charcoal: "#37352f",
+    slate: "#5d5b54",
+    steel: "#787671",
+    stone: "#a4a097",
+    hairline: "#e5e3df",
+    hairlineStrong: "#c8c4be",
+    surface: "#f6f5f4",
+    surfaceSoft: "#fafaf9",
+    canvas: "#ffffff",
+    lavender: "#e6e0f5",
+    mint: "#d9f3e1",
+    peach: "#ffe8d4",
+    sky: "#dcecfa",
+    rose: "#fde0ec",
+    yellow: "#fef7d6",
+  };
 
   const fetchClients = async () => {
     try {
@@ -21,6 +49,7 @@ const Clients = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const response = await axios.get(`${API}/api/client`, config);
       setClients(response.data);
+      setLastUpdate(new Date());
     } catch (err) {
       console.log("Fetch Error:", err);
     }
@@ -81,13 +110,18 @@ const Clients = () => {
     company_name: "",
     email: "",
     phone: "",
+    alternate_phone: "",
     address: "",
+    city: "",
+    state: "",
+    pincode: "",
     service: "",
     gst_number: "",
+    notes: "",
+    client_status: "active",
   });
 
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const saveClient = async (e) => {
     e.preventDefault();
@@ -105,18 +139,19 @@ const Clients = () => {
       setOpen(false);
       fetchClients();
     } catch (err) {
-      console.log("Save/Edit Error:", err);
+      alert("Error: " + (err.response?.data?.error || err.message));
     }
   };
 
   const resetForm = () => {
-    setForm({ name: "", company_name: "", email: "", phone: "", address: "", service: "", gst_number: "" });
+    setForm({
+      name: "", company_name: "", email: "", phone: "", alternate_phone: "",
+      address: "", city: "", state: "", pincode: "",
+      service: "", gst_number: "", notes: "", client_status: "active"
+    });
     setIsEdit(false);
     setSelectedClientId(null);
   };
-
-  const [isEdit, setIsEdit] = useState(false);
-  const [selectedClientId, setSelectedClientId] = useState(null);
 
   const openEditModal = (selectedClient) => {
     setForm({
@@ -124,9 +159,15 @@ const Clients = () => {
       company_name: selectedClient.company_name || "",
       email: selectedClient.email || "",
       phone: selectedClient.phone || "",
+      alternate_phone: selectedClient.alternate_phone || "",
       address: selectedClient.address || "",
+      city: selectedClient.city || "",
+      state: selectedClient.state || "",
+      pincode: selectedClient.pincode || "",
       service: selectedClient.service || "",
       gst_number: selectedClient.gst_number || "",
+      notes: selectedClient.notes || "",
+      client_status: selectedClient.client_status || "active",
     });
     setSelectedClientId(selectedClient.id);
     setIsEdit(true);
@@ -139,23 +180,30 @@ const Clients = () => {
   };
 
   useEffect(() => {
-    if (open) {
-      document.body.classList.add("modal-open");
-    } else {
-      document.body.classList.remove("modal-open");
-    }
+    if (open) document.body.classList.add("modal-open");
+    else document.body.classList.remove("modal-open");
     return () => document.body.classList.remove("modal-open");
   }, [open]);
 
   const getSourceBadge = (source) => {
     const badges = {
-      telecall: { bg: "bg-blue-100", text: "text-blue-700", label: "Tele Call" },
-      walkin: { bg: "bg-green-100", text: "text-green-700", label: "Walk-in" },
-      field: { bg: "bg-purple-100", text: "text-purple-700", label: "Field Visit" },
-      direct: { bg: "bg-gray-100", text: "text-gray-700", label: "Direct" }
+      telecall: { bg: N.sky, text: "#0075de", label: "Tele Call" },
+      walkin: { bg: N.mint, text: N.green, label: "Walk-in" },
+      field: { bg: N.lavender, text: N.primary, label: "Field Visit" },
+      direct: { bg: N.surface, text: N.steel, label: "Direct" }
     };
     const badge = badges[source] || badges.direct;
-    return <span className={`px-2 py-1 rounded-full text-xs font-bold ${badge.bg} ${badge.text}`}>{badge.label}</span>;
+    return <span className="px-2 py-1 rounded-full text-xs font-semibold" style={{ background: badge.bg, color: badge.text }}>{badge.label}</span>;
+  };
+
+  const getStatusBadge = (status) => {
+    const map = {
+      active: { bg: N.mint, color: N.green },
+      inactive: { bg: N.rose, color: N.error },
+      prospect: { bg: N.yellow, color: N.orange },
+    };
+    const s = map[status] || map.active;
+    return <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: s.bg, color: s.color }}>{status || "active"}</span>;
   };
 
   const filteredClients = clients.filter(c => {
@@ -163,10 +211,10 @@ const Clients = () => {
       c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.phone?.includes(searchTerm) ||
+      c.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.lead_staff_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSource = filterSource === "all" || c.original_lead_type === filterSource;
     const isConverted = c.original_lead_id !== null && c.original_lead_type !== null;
-    
     if (activeTab === "converted") return matchesSearch && matchesSource && isConverted;
     if (activeTab === "direct") return matchesSearch && matchesSource && !isConverted;
     return matchesSearch && matchesSource;
@@ -174,251 +222,229 @@ const Clients = () => {
 
   const convertedCount = clients.filter(c => c.original_lead_id !== null && c.original_lead_type !== null).length;
   const directCount = clients.filter(c => c.original_lead_id === null || c.original_lead_type === null).length;
+  const activeCount = clients.filter(c => c.client_status === "active").length;
 
   return (
-    <div className="w-full min-h-screen p-4">
-      <div className="mb-6 flex justify-between items-center">
+    <div className="w-full min-h-screen p-4 md:p-6" style={{ background: N.surfaceSoft }}>
+      {/* Header */}
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[#1694CE]">Clients</h1>
-          <nav className="text-sm text-gray-500">
-            <a href="/dashboard" className="hover:underline">Dashboard</a> &gt; Customers &gt; Clients
-          </nav>
+          <h1 className="text-2xl font-bold" style={{ color: N.ink }}>Clients</h1>
+          <a href="/dashboard" className="text-sm" style={{ color: N.stone }}>Dashboard &gt; Customers &gt; Clients</a>
         </div>
-        <button
-          onClick={() => { resetForm(); setOpen(true); }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
-        >
-          + Add Client
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={fetchClients} className="p-2 rounded-lg border hover:bg-gray-50" style={{ borderColor: N.hairline }} title="Refresh">
+            <RefreshCw size={16} style={{ color: N.steel }} />
+          </button>
+          <button onClick={() => { resetForm(); setOpen(true); }}
+            className="flex items-center gap-2 text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition"
+            style={{ background: N.primary }}>
+            <span>+</span> Add Client
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {[
+          { label: "Total Clients", count: clients.length, bg: N.lavender, color: N.primary },
+          { label: "Active", count: activeCount, bg: N.mint, color: N.green },
+          { label: "Converted", count: convertedCount, bg: N.sky, color: "#0075de" },
+          { label: "Direct", count: directCount, bg: N.peach, color: N.orange },
+        ].map(s => (
+          <div key={s.label} className="rounded-xl p-4 border" style={{ background: s.bg, borderColor: "transparent" }}>
+            <p className="text-xs font-medium" style={{ color: s.color }}>{s.label}</p>
+            <p className="text-2xl font-bold mt-1" style={{ color: s.color }}>{s.count}</p>
+          </div>
+        ))}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4">
-        <button
-          onClick={() => setActiveTab("all")}
-          className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition ${activeTab === "all" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-        >
-          <Users size={16} /> All ({clients.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("converted")}
-          className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition ${activeTab === "converted" ? "bg-green-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-        >
-          <UserCheck size={16} /> Converted ({convertedCount})
-        </button>
-        <button
-          onClick={() => setActiveTab("direct")}
-          className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition ${activeTab === "direct" ? "bg-purple-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-        >
-          <Users size={16} /> Direct ({directCount})
-        </button>
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {[
+          { key: "all", label: `All (${clients.length})`, color: N.ink },
+          { key: "converted", label: `Converted (${convertedCount})`, color: N.green },
+          { key: "direct", label: `Direct (${directCount})`, color: N.orange },
+        ].map(t => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)}
+            className="px-4 py-1.5 rounded-full text-sm font-medium transition-all"
+            style={{
+              background: activeTab === t.key ? t.color : "transparent",
+              color: activeTab === t.key ? "#fff" : N.steel,
+              border: `1px solid ${activeTab === t.key ? t.color : N.hairline}`,
+            }}>
+            {t.label}
+          </button>
+        ))}
+        {lastUpdate && (
+          <span className="ml-auto text-xs flex items-center gap-1 self-center" style={{ color: N.stone }}>
+            <RefreshCw size={11} /> {lastUpdate.toLocaleTimeString()}
+          </span>
+        )}
       </div>
 
-      <div className="bg-[#F3F8FA] p-4 rounded-xl flex justify-between items-center shadow mb-4">
-        <div className="flex gap-3">
-          <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg shadow border w-80">
-            <Search size={18} className="text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search Clients"
-              className="outline-none text-sm w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <select
-            value={filterSource}
-            onChange={(e) => setFilterSource(e.target.value)}
-            className="bg-white border rounded-lg px-3 py-2 text-sm outline-none"
-          >
-            <option value="all">All Sources</option>
-            <option value="telecall">Tele Call</option>
-            <option value="walkin">Walk-in</option>
-            <option value="field">Field Visit</option>
-          </select>
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col md:flex-row gap-3 mb-4">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border flex-1" style={{ background: N.canvas, borderColor: N.hairline }}>
+          <Search size={16} style={{ color: N.stone }} />
+          <input type="text" placeholder="Search by name, email, phone, company..." className="outline-none text-sm flex-1 bg-transparent" style={{ color: N.ink }} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
-
-        <button
-          onClick={downloadExcel}
-          className="flex items-center gap-2 bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-green-800 transition shadow"
-        >
-          <span className="text-lg">↓</span> Download XL
-        </button>
+        <select value={filterSource} onChange={e => setFilterSource(e.target.value)}
+          className="border rounded-lg px-3 py-2 text-sm bg-white min-w-[160px]" style={{ borderColor: N.hairline, color: N.ink }}>
+          <option value="all">All Sources</option>
+          <option value="telecall">Tele Call</option>
+          <option value="walkin">Walk-in</option>
+          <option value="field">Field Visit</option>
+        </select>
       </div>
 
-      <div className="bg-white shadow rounded-xl overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm border-collapse min-w-[900px]">
-          <thead className="bg-gray-50">
-            <tr className="text-gray-600 uppercase text-xs border-b">
-              <th className="px-4 py-3 border text-left">ID</th>
-              <th className="px-4 py-3 border text-left">Name</th>
-              <th className="px-4 py-3 border text-left">Phone</th>
-              <th className="px-4 py-3 border text-left">Source</th>
-              <th className="px-4 py-3 border text-left">Lead ID</th>
-              <th className="px-4 py-3 border text-left">Converted By</th>
-              <th className="px-4 py-3 border text-left">Date</th>
-              <th className="px-4 py-3 border text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredClients.map((c) => (
-              <tr key={c.id} className="border-b border-gray-200 hover:bg-gray-50 transition cursor-pointer" onClick={() => openDetailsModal(c)}>
-                <td className="px-4 py-3 border">{c.id}</td>
-                <td className="px-4 py-3 border font-medium">
-                  <div>{c.name}</div>
-                  <div className="text-xs text-gray-400">{c.email}</div>
-                </td>
-                <td className="px-4 py-3 border">
-                  <div className="flex items-center gap-1">
-                    <Phone size={12} className="text-gray-400" />
-                    {c.phone}
-                  </div>
-                </td>
-                <td className="px-4 py-3 border">{getSourceBadge(c.original_lead_type || "direct")}</td>
-                <td className="px-4 py-3 border">
-                  {c.lead_id_display ? (
-                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{c.lead_id_display}</span>
-                  ) : (
-                    <span className="text-gray-400 text-xs">-</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 border">
-                  <div className="flex items-center gap-1">
-                    <User size={12} className="text-gray-400" />
-                    <span className="text-sm">{c.lead_staff_name || c.creator_name || "Admin"}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 border">
-                  <div className="flex items-center gap-1">
-                    <Calendar size={12} className="text-gray-400" />
-                    <span className="text-xs">{c.converted_at ? new Date(c.converted_at).toLocaleDateString() : "-"}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 border text-center" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex justify-center items-center gap-2">
-                    <button
-                      onClick={() => window.location.href = `/proposal?client_name=${encodeURIComponent(c.name)}&client_email=${encodeURIComponent(c.email || '')}`}
-                      className="text-blue-600 hover:text-blue-800 transition p-1"
-                      title="Create Proposal"
-                    >
-                      <FileText size={18} />
-                    </button>
-                    <button
-                      onClick={() => window.location.href = `/contract?client_name=${encodeURIComponent(c.name)}&client_email=${encodeURIComponent(c.email || '')}`}
-                      className="text-green-600 hover:text-green-800 transition p-1"
-                      title="Create Contract"
-                    >
-                      <FileSignature size={18} />
-                    </button>
-                    <button
-                      onClick={() => openEditModal(c)}
-                      className="text-amber-600 hover:text-amber-800 transition p-1"
-                      title="Edit"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      onClick={() => deleteClient(c.id)}
-                      className="text-red-600 hover:text-red-800 transition p-1"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filteredClients.length === 0 && (
+      {/* Table */}
+      <div className="rounded-xl border overflow-hidden" style={{ background: N.canvas, borderColor: N.hairline }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead style={{ background: N.surface }}>
               <tr>
-                <td colSpan="8" className="px-4 py-8 text-center text-gray-500">No clients found.</td>
+                {["Client", "Phone", "Company", "Source", "Converted By", "Date", "Status", "Actions"].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: N.steel }}>{h}</th>
+                ))}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredClients.map(c => (
+                <tr key={c.id} className="border-t cursor-pointer hover:bg-gray-50 transition" style={{ borderColor: N.hairline }}
+                  onClick={() => openDetailsModal(c)}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm" style={{ background: N.lavender, color: N.primary }}>
+                        {(c.name || "?").charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-medium" style={{ color: N.ink }}>{c.name}</p>
+                        <p className="text-xs" style={{ color: N.stone }}>{c.email || "-"}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1" style={{ color: N.charcoal }}>
+                      <Phone size={12} style={{ color: N.stone }} />
+                      {c.phone || "-"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3" style={{ color: N.charcoal }}>{c.company_name || "-"}</td>
+                  <td className="px-4 py-3">{getSourceBadge(c.original_lead_type || "direct")}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1" style={{ color: N.charcoal }}>
+                      <User size={12} style={{ color: N.stone }} />
+                      {c.lead_staff_name || c.creator_name || "Admin"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1" style={{ color: N.steel }}>
+                      <Calendar size={12} />
+                      <span className="text-xs">{c.converted_at ? new Date(c.converted_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">{getStatusBadge(c.client_status)}</td>
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => window.location.href = `/proposal?client_name=${encodeURIComponent(c.name)}&client_email=${encodeURIComponent(c.email || "")}`}
+                        className="p-1.5 rounded-lg hover:bg-blue-50 transition" style={{ color: "#0075de" }} title="Create Proposal">
+                        <FileBarChart size={16} />
+                      </button>
+                      <button onClick={() => window.location.href = `/contract?client_name=${encodeURIComponent(c.name)}&client_email=${encodeURIComponent(c.email || "")}`}
+                        className="p-1.5 rounded-lg hover:bg-green-50 transition" style={{ color: N.green }} title="Create Contract">
+                        <FileSignature size={16} />
+                      </button>
+                      <button onClick={() => openEditModal(c)}
+                        className="p-1.5 rounded-lg hover:bg-amber-50 transition" style={{ color: N.orange }} title="Edit">
+                        <Edit size={16} />
+                      </button>
+                      {canEditDelete && <button onClick={() => deleteClient(c.id)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 transition" style={{ color: N.error }} title="Delete">
+                        <Trash2 size={16} />
+                      </button>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredClients.length === 0 && (
+                <tr><td colSpan={8} className="py-12 text-center" style={{ color: N.stone }}>No clients found</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Client Details Modal */}
       {showDetailsModal && selectedClientDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-4 border-b flex justify-between items-center bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-              <h2 className="text-xl font-bold">Client Details</h2>
-              <button onClick={() => setShowDetailsModal(false)} className="text-white hover:text-gray-200">
-                <X size={24} />
-              </button>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="rounded-xl shadow-xl w-full max-w-lg" style={{ background: N.canvas }}>
+            <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: N.hairline }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg" style={{ background: N.lavender, color: N.primary }}>
+                  {(selectedClientDetails.name || "?").charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="font-semibold" style={{ color: N.ink }}>{selectedClientDetails.name}</h3>
+                  <p className="text-xs" style={{ color: N.stone }}>Client #{selectedClientDetails.id}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDetailsModal(false)} style={{ color: N.steel }}><X size={20} /></button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase">Name</label>
-                  <p className="font-semibold text-gray-800">{selectedClientDetails.name}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase">Phone</label>
-                  <p className="font-semibold text-gray-800">{selectedClientDetails.phone}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase">Email</label>
-                  <p className="font-semibold text-gray-800">{selectedClientDetails.email || "-"}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase">City</label>
-                  <p className="font-semibold text-gray-800">{selectedClientDetails.address || selectedClientDetails.lead_city || "-"}</p>
-                </div>
+                {[
+                  { label: "Phone", value: selectedClientDetails.phone, icon: <Phone size={14} /> },
+                  { label: "Email", value: selectedClientDetails.email || "-", icon: <Mail size={14} /> },
+                  { label: "Company", value: selectedClientDetails.company_name || "-", icon: <Building size={14} /> },
+                  { label: "City", value: selectedClientDetails.address || selectedClientDetails.lead_city || "-", icon: <MapPin size={14} /> },
+                ].map(item => (
+                  <div key={item.label}>
+                    <label className="text-xs font-medium flex items-center gap-1" style={{ color: N.stone }}>{item.icon} {item.label}</label>
+                    <p className="text-sm font-medium mt-0.5" style={{ color: N.ink }}>{item.value}</p>
+                  </div>
+                ))}
               </div>
-              
+
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { label: "Service", value: selectedClientDetails.service || "-" },
+                  { label: "GST Number", value: selectedClientDetails.gst_number || "-" },
+                  { label: "Source", value: getSourceBadge(selectedClientDetails.original_lead_type) },
+                  { label: "Status", value: getStatusBadge(selectedClientDetails.client_status) },
+                ].map(item => (
+                  <div key={item.label}>
+                    <label className="text-xs font-medium" style={{ color: N.stone }}>{item.label}</label>
+                    <p className="text-sm mt-0.5">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
               <div className="border-t pt-4">
-                <h3 className="text-sm font-bold text-gray-600 mb-3">Conversion Details</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase">Source</label>
-                    <p className="mt-1">{getSourceBadge(selectedClientDetails.original_lead_type)}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase">Lead ID</label>
-                    <p className="font-mono text-sm mt-1">{selectedClientDetails.lead_id_display || "-"}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase">Converted By</label>
-                    <p className="font-semibold text-gray-800">{selectedClientDetails.lead_staff_name || selectedClientDetails.creator_name || "Admin"}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase">Converted Date</label>
-                    <p className="font-semibold text-gray-800">
-                      {selectedClientDetails.converted_at ? new Date(selectedClientDetails.converted_at).toLocaleString() : "-"}
-                    </p>
-                  </div>
+                <label className="text-xs font-medium" style={{ color: N.stone }}>Conversion Details</label>
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <div><span className="text-xs" style={{ color: N.steel }}>Lead ID: </span><span className="text-xs font-mono" style={{ color: N.charcoal }}>{selectedClientDetails.lead_id_display || "-"}</span></div>
+                  <div><span className="text-xs" style={{ color: N.steel }}>Converted By: </span><span className="text-xs" style={{ color: N.charcoal }}>{selectedClientDetails.lead_staff_name || selectedClientDetails.creator_name || "Admin"}</span></div>
+                  <div><span className="text-xs" style={{ color: N.steel }}>Date: </span><span className="text-xs" style={{ color: N.charcoal }}>{selectedClientDetails.converted_at ? new Date(selectedClientDetails.converted_at).toLocaleDateString("en-IN") : "-"}</span></div>
                 </div>
               </div>
-              
-              {selectedClientDetails.lead_reference && (
+
+              {selectedClientDetails.notes && (
                 <div className="border-t pt-4">
-                  <label className="text-xs font-bold text-gray-400 uppercase">Reference</label>
-                  <p className="font-semibold text-gray-800">{selectedClientDetails.lead_reference}</p>
-                </div>
-              )}
-              
-              {selectedClientDetails.lead_purpose && (
-                <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase">Purpose / Service</label>
-                  <p className="font-semibold text-gray-800">{selectedClientDetails.lead_purpose || selectedClientDetails.service}</p>
+                  <label className="text-xs font-medium" style={{ color: N.stone }}>Notes</label>
+                  <p className="text-sm mt-1 whitespace-pre-wrap" style={{ color: N.charcoal }}>{selectedClientDetails.notes}</p>
                 </div>
               )}
             </div>
-            <div className="px-6 py-4 bg-gray-50 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowDetailsModal(false);
-                  openEditModal(selectedClientDetails);
-                }}
-                className="bg-amber-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-600 transition"
-              >
-                Edit Client
+            <div className="p-4 border-t flex gap-2" style={{ borderColor: N.hairline }}>
+              {canEditDelete && (
+              <button onClick={() => { setShowDetailsModal(false); openEditModal(selectedClientDetails); }}
+                className="flex-1 py-2 rounded-lg text-sm font-medium text-white" style={{ background: N.orange }}>
+                Edit
               </button>
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition"
-              >
+              )}
+              <button onClick={() => setShowDetailsModal(false)}
+                className="flex-1 py-2 rounded-lg text-sm font-medium" style={{ background: N.surface, color: N.slate }}>
                 Close
               </button>
             </div>
@@ -426,58 +452,109 @@ const Clients = () => {
         </div>
       )}
 
+      {/* Add/Edit Client Modal */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-              <h2 className="text-xl font-bold text-gray-800">{isEdit ? "Edit Client" : "Add Client"}</h2>
-              <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-gray-700">
-                <X size={24} />
-              </button>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="rounded-xl shadow-xl w-full max-w-lg" style={{ background: N.canvas }}>
+            <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: N.hairline }}>
+              <h3 className="text-base font-semibold" style={{ color: N.ink }}>{isEdit ? "Edit Client" : "Add New Client"}</h3>
+              <button onClick={() => setOpen(false)} style={{ color: N.steel }}><X size={20} /></button>
             </div>
-            <form onSubmit={saveClient} className="p-6 space-y-4">
+            <form onSubmit={saveClient} className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Name <span className="text-red-500">*</span></label>
                 <input type="text" name="name" value={form.name} onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" required />
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }} required />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-                <input type="text" name="company_name" value={form.company_name} onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Company Name</label>
+                  <input type="text" name="company_name" value={form.company_name} onChange={handleChange}
+                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Phone <span className="text-red-500">*</span></label>
+                  <input type="text" name="phone" value={form.phone} onChange={handleChange}
+                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }} required />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input type="email" name="email" value={form.email} onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Email</label>
+                  <input type="email" name="email" value={form.email} onChange={handleChange}
+                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Alternate Phone</label>
+                  <input type="text" name="alternate_phone" value={form.alternate_phone} onChange={handleChange}
+                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }} />
+                </div>
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input type="text" name="phone" value={form.phone} onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">City/Address</label>
+                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Address</label>
                 <input type="text" name="address" value={form.address} onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }} />
               </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>City</label>
+                  <input type="text" name="city" value={form.city} onChange={handleChange}
+                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>State</label>
+                  <input type="text" name="state" value={form.state} onChange={handleChange}
+                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Pincode</label>
+                  <input type="text" name="pincode" value={form.pincode} onChange={handleChange}
+                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Service Interest</label>
+                  <input type="text" name="service" value={form.service} onChange={handleChange}
+                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }}
+                    placeholder="e.g. AMC, Installation" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>GST Number</label>
+                  <input type="text" name="gst_number" value={form.gst_number} onChange={handleChange}
+                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }} />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Service Interests</label>
-                <input type="text" name="service" value={form.service} onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Status</label>
+                <select name="client_status" value={form.client_status} onChange={handleChange}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong, color: N.ink }}>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="prospect">Prospect</option>
+                </select>
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">GST Number</label>
-                <input type="text" name="gst_number" value={form.gst_number} onChange={handleChange}
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Notes</label>
+                <textarea name="notes" value={form.notes} onChange={handleChange} rows={2}
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none resize-none" style={{ borderColor: N.hairlineStrong, color: N.ink }}
+                  placeholder="Additional notes..." />
               </div>
-              <div className="pt-4 flex gap-3">
+
+              <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setOpen(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-200 transition">
+                  className="flex-1 py-2 rounded-lg text-sm font-medium" style={{ background: N.surface, color: N.slate }}>
                   Cancel
                 </button>
                 <button type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition shadow-lg">
+                  className="flex-1 py-2 rounded-lg text-sm font-medium text-white" style={{ background: N.primary }}>
                   {isEdit ? "Update Client" : "Save Client"}
                 </button>
               </div>

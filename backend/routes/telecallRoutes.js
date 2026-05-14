@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 const getNotificationIO = () => {
   try {
@@ -234,7 +234,7 @@ router.post("/", verifyToken, (req, res) => {
 
 // Edit 
 
-router.put("/:id", verifyToken, (req, res) => {
+router.put("/:id", verifyToken, isAdmin, (req, res) => {
   const {
     customer_name,
     mobile_number,
@@ -358,7 +358,7 @@ db.query(
     });
 });
 
-router.delete("/:id", verifyToken, (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
   db.query("SELECT created_by FROM Telecalls WHERE id = ?", [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     if (results.length === 0) return res.status(404).json({ message: "Not found" });

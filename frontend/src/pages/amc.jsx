@@ -8,8 +8,11 @@ import { useNavigate } from "react-router-dom";
 import { API } from "../config";
 
 const getAuthConfig = () => { const token = localStorage.getItem("token"); return { headers: { Authorization: `Bearer ${token}` } }; };
+const getUserRole = () => { try { return JSON.parse(localStorage.getItem("user") || "{}").role || "employee"; } catch { return "employee"; } };
 
 const AMCService = () => {
+  const userRole = getUserRole();
+  const canEditDelete = userRole === "admin" || userRole === "subadmin";
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [services, setServices] = useState([]);
@@ -565,7 +568,7 @@ const fetchServices = useCallback(async () => {
                       <div className="flex gap-1 justify-center">
                         <button onClick={() => openEditContract(c)} className="text-blue-600 hover:underline text-xs">Edit</button>
                         <button onClick={() => openQuotation(c)} className="text-purple-600 hover:underline text-xs">Quotation</button>
-                        <button onClick={() => deleteContract(c.id)} className="text-red-600 hover:underline text-xs">Delete</button>
+                        {canEditDelete && <button onClick={() => deleteContract(c.id)} className="text-red-600 hover:underline text-xs">Delete</button>}
                       </div>
                     </td>
                   </tr>
@@ -656,7 +659,7 @@ const fetchServices = useCallback(async () => {
                         Quote
                       </button>
                       <button onClick={() => openEdit(s)} className="text-blue-600 hover:underline text-xs md:text-sm">Edit</button>
-                      <button onClick={() => deleteService(s.id)} className="text-red-600 hover:underline text-xs md:text-sm">Delete</button>
+                      {canEditDelete && <button onClick={() => deleteService(s.id)} className="text-red-600 hover:underline text-xs md:text-sm">Delete</button>}
                     </div>
                   </td>
                 </tr>

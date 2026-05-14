@@ -159,11 +159,12 @@ router.get("/", verifyToken, (req, res) => {
 });
 
 router.post("/", verifyToken, isAdmin, (req, res) => {
-  const { project_name, staff_name, task_title, project_status, project_priority, client_name, created_date, due_date, assigned_to, assigned_teammember_id } = req.body;
+  const { project_name, staff_name, task_title, task_description, project_status, project_priority, client_name, created_date, due_date, assigned_to, assigned_teammember_id } = req.body;
   const finalStaffName = assigned_to || staff_name || "";
   const tmId = parseInt(assigned_teammember_id) || null;
-  db.query(`INSERT INTO tasks (project_name, task_title, project_status, project_priority, staff_name, client_name, created_date, due_date, assigned_to, assigned_teammember_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [project_name, task_title, project_status, project_priority, finalStaffName, client_name, created_date, due_date, finalStaffName, tmId, req.user.id],
+  const safePriority = getValidPriority(project_priority);
+  db.query(`INSERT INTO tasks (project_name, task_title, task_description, project_status, project_priority, staff_name, client_name, created_date, due_date, assigned_to, assigned_teammember_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [project_name, task_title, task_description || "", project_status, safePriority, finalStaffName, client_name, created_date, due_date, finalStaffName, tmId, req.user.id],
     (err, result) => {
       if (err) { console.error("Task create error:", err); return res.status(500).json({ message: err.message }); }
       const taskId = result.insertId;
@@ -203,17 +204,28 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
   );
 });
 
-router.put("/:id", verifyToken, (req, res) => {
-  const { project_name, task_title, project_status, project_priority, client_name, staff_name, created_date, due_date, assigned_to } = req.body;
+const validPriorities = ['Low', 'Normal', 'Medium', 'High', 'Urgent'];
+const getValidPriority = (p) => validPriorities.includes(p) ? p : 'Medium';
+
+router.put("/:id", verifyToken, isAdmin, (req, res) => {
+  const { project_name, task_title, task_description, project_status, project_priority, client_name, staff_name, created_date, due_date, assigned_to } = req.body;
   const finalStaffName = assigned_to || staff_name || "";
+  const safePriority = getValidPriority(project_priority);
   db.query("SELECT created_by, assigned_teammember_id FROM tasks WHERE id = ?", [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     if (results.length === 0) return res.status(404).json({ message: "Not found" });
     if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) return res.status(403).json({ message: "Access denied" });
-    db.query(`UPDATE tasks SET project_name=?, task_title=?, project_status=?, project_priority=?, client_name=?, staff_name=?, created_date=?, due_date=?, assigned_to=? WHERE id=?`,
-      [project_name, task_title, project_status, project_priority, client_name, finalStaffName, created_date, due_date, assigned_to || null, req.params.id],
+    db.query(`UPDATE tasks SET project_name=?, task_title=?, task_description=?, project_status=?, project_priority=?, client_name=?, staff_name=?, created_date=?, due_date=?, assigned_to=? WHERE id=?`,
+      [project_name, task_title, task_description || "", project_status, safePriority, client_name, finalStaffName, created_date, due_date, assigned_to || null, req.params.id],
       (err) => {
-        if (err) return res.status(500).json(err);
+        if (err) {
+          if (err.message.includes("Data truncated")) {
+            return db.query(`UPDATE tasks SET project_name=?, task_title=?, task_description=?, project_status=?, project_priority='Medium', client_name=?, staff_name=?, created_date=?, due_date=?, assigned_to=? WHERE id=?`,
+              [project_name, task_title, task_description || "", project_status, client_name, finalStaffName, created_date, due_date, assigned_to || null, req.params.id],
+              (e2) => { if (e2) return res.status(500).json({ error: e2.message }); res.json({ message: "Task updated" }); });
+          }
+          return res.status(500).json({ error: err.message });
+        }
         db.query("INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
           [req.params.id, "Updated", `Task "${task_title}" updated`]);
         const notifIO = getNotificationIO();
@@ -403,49 +415,63 @@ router.post("/targets/update", verifyToken, (req, res) => {
     [user_name, currentYear],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
-      if (rows.length === 0) return res.status(404).json({ error: "Yearly target not set for user" });
-      const targetId = rows[0].id;
-      const monthlyTarget = rows[0].monthly_target;
-      const prevMonth = new Date(); prevMonth.setMonth(prevMonth.getMonth() - 1);
-      const prevMonthStr = prevMonth.toISOString().slice(0, 7);
-      db.query("SELECT achieved_amount FROM task_achievements WHERE user_name = ? AND month_year = ?",
-        [user_name, prevMonthStr],
-        (err2, prevRows) => {
-          let carryForward = 0;
-          if (prevRows.length > 0 && prevRows[0].achieved_amount < monthlyTarget) {
-            carryForward = monthlyTarget - prevRows[0].achieved_amount;
+      if (rows.length === 0) {
+        db.query(`INSERT INTO task_targets (user_id, user_name, yearly_target, monthly_target, created_by_admin) VALUES (?, ?, ?, ?, ?)`,
+          [user_id || null, user_name, 0, 0, 0],
+          (insErr, insResult) => {
+            if (insErr) return res.status(500).json({ error: insErr.message });
+            const newTargetId = insResult.insertId;
+            processAchievement(user_id, user_name, newTargetId, 0, 0, currentMonth, amount, description, res);
           }
-          const effectiveTarget = monthlyTarget + carryForward;
-          db.query(`INSERT INTO task_updates (user_id, user_name, target_id, month_year, amount, description) VALUES (?, ?, ?, ?, ?, ?)`,
-            [user_id, user_name, targetId, currentMonth, amount, description],
-            (err3) => {
-              if (err3) return res.status(500).json({ error: err3.message });
-              db.query(`INSERT INTO task_achievements (user_id, user_name, target_id, month_year, achieved_amount) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE achieved_amount = achieved_amount + ?`,
-                [user_id, user_name, targetId, currentMonth, amount, amount],
-                (err4) => {
-                  if (err4) return res.status(500).json({ error: err4.message });
-                  db.query("INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
-                    [targetId, "Task Achievement Update", user_name + " achieved Rs." + amount + " (effective target: Rs." + effectiveTarget + ")"]);
-                  const notificationIO = getNotificationIO();
-                  if (notificationIO) {
-                    const percentage = effectiveTarget > 0 ? Math.round((parseFloat(amount) / effectiveTarget) * 100) : 0;
-                    notificationIO.emitNotification("target_updated", { id: targetId, userId: user_id, userName: user_name, newAmount: amount, percentage, type: "achievement" }, null, true);
-                    if (percentage >= 100) notificationIO.emitNotification("target_achieved", { id: targetId, userId: user_id, userName: user_name, percentage, type: "achievement" }, null, true);
-                  }
-                  db.query("INSERT INTO admin_notifications (type, user_id, message, related_id, related_type, priority) VALUES (?, ?, ?, ?, ?, ?)",
-                    ["target_achievement", user_id, `${user_name} achieved Rs.${Number(amount).toLocaleString()} - Total achieved: Rs.${(achievedCount + parseFloat(amount)).toLocaleString()} (${Math.round(((achievedCount + parseFloat(amount)) / effectiveTarget * 100))}%)`, targetId, "target", "normal"],
-                    () => {}
-                  );
-                  res.json({ message: "Achievement updated", target_id: targetId, carry_forward: carryForward, effective_target: effectiveTarget, amount_updated: amount });
-                }
+        );
+      } else {
+        const targetId = rows[0].id;
+        const monthlyTarget = rows[0].monthly_target;
+        processAchievement(user_id, user_name, targetId, monthlyTarget, 0, currentMonth, amount, description, res);
+      }
+    }
+  );
+});
+
+const processAchievement = (user_id, user_name, targetId, monthlyTarget, achievedCount, currentMonth, amount, description, res) => {
+  const prevMonth = new Date(); prevMonth.setMonth(prevMonth.getMonth() - 1);
+  const prevMonthStr = prevMonth.toISOString().slice(0, 7);
+  db.query("SELECT achieved_amount FROM task_achievements WHERE user_name = ? AND month_year = ?",
+    [user_name, prevMonthStr],
+    (err2, prevRows) => {
+      let carryForward = 0;
+      if (prevRows.length > 0 && prevRows[0].achieved_amount < monthlyTarget) {
+        carryForward = monthlyTarget - prevRows[0].achieved_amount;
+      }
+      const effectiveTarget = monthlyTarget + carryForward;
+      db.query(`INSERT INTO task_updates (user_id, user_name, target_id, month_year, amount, description) VALUES (?, ?, ?, ?, ?, ?)`,
+        [user_id, user_name, targetId, currentMonth, amount, description],
+        (err3) => {
+          if (err3) return res.status(500).json({ error: err3.message });
+          db.query(`INSERT INTO task_achievements (user_id, user_name, target_id, month_year, achieved_amount) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE achieved_amount = achieved_amount + ?`,
+            [user_id, user_name, targetId, currentMonth, amount, amount],
+            (err4) => {
+              if (err4) return res.status(500).json({ error: err4.message });
+              db.query("INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
+                [targetId, "Task Achievement Update", user_name + " achieved Rs." + amount + " (effective target: Rs." + effectiveTarget + ")"]);
+              const notificationIO = getNotificationIO();
+              if (notificationIO) {
+                const percentage = effectiveTarget > 0 ? Math.round((parseFloat(amount) / effectiveTarget) * 100) : 0;
+                notificationIO.emitNotification("target_updated", { id: targetId, userId: user_id, userName: user_name, newAmount: amount, percentage, type: "achievement" }, null, true);
+                if (percentage >= 100) notificationIO.emitNotification("target_achieved", { id: targetId, userId: user_id, userName: user_name, percentage, type: "achievement" }, null, true);
+              }
+              db.query("INSERT INTO admin_notifications (type, user_id, message, related_id, related_type, priority) VALUES (?, ?, ?, ?, ?, ?)",
+                ["target_achievement", user_id, `${user_name} achieved Rs.${Number(amount).toLocaleString()} - Total achieved: Rs.${(achievedCount + parseFloat(amount)).toLocaleString()} (${Math.round(((achievedCount + parseFloat(amount)) / effectiveTarget * 100))}%)`, targetId, "target", "normal"],
+                () => {}
               );
+              res.json({ message: "Achievement updated", target_id: targetId, carry_forward: carryForward, effective_target: effectiveTarget, amount_updated: amount });
             }
           );
         }
       );
     }
   );
-});
+};
 
 router.get("/targets/history", verifyToken, (req, res) => {
   const { user_name, months } = req.query;

@@ -8,6 +8,7 @@ import { API } from "../config";
 
 const Invoice = () => {
   const { user } = useAuth();
+  const canEditDelete = user?.role === "admin" || user?.role === "subadmin";
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState(null);
 
@@ -276,12 +277,12 @@ const Invoice = () => {
                   <td className="px-4 py-3 border">{inv.project_names || "---"}</td>
                   <td className="px-4 py-3 border text-center">
                     <div className="flex justify-center gap-3">
-                      <button onClick={() => openEdit(inv)} className="text-amber-600 hover:text-amber-800 transition">
+                      {canEditDelete && <button onClick={() => openEdit(inv)} className="text-amber-600 hover:text-amber-800 transition">
                         <Edit2 size={16} />
-                      </button>
-                      <button onClick={() => handleDelete(inv.id)} className="text-red-500 hover:text-red-700 transition">
+                      </button>}
+                      {canEditDelete && <button onClick={() => handleDelete(inv.id)} className="text-red-500 hover:text-red-700 transition">
                         <Trash2 size={16} />
-                      </button>
+                      </button>}
                     </div>
                   </td>
                 </tr>

@@ -121,7 +121,7 @@ const saveReminder = async () => {
     const res = await axios.get(`${API}/api/leads/reminders/field/${reminderLeadId}`, getAuthConfig());
     setLeadReminders(res.data); fetchMissedCounts();
     setNewReminderDate(""); setNewReminderTime(""); setNewReminderNote("");
-  } catch (_) { alert("Failed to save reminder"); }
+  } catch (err) { alert("Failed to save reminder: " + (err.response?.data?.error || err.message)); }
 };
 
 const deleteReminder = async (id) => {

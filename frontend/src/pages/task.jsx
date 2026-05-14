@@ -61,7 +61,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const PriorityDot = ({ priority }) => {
-  const c = { High: N.error, Medium: N.orange, Low: N.green }[priority] || N.steel;
+  const c = { High: N.error, Medium: N.orange, Low: N.green, Urgent: "#9b1c1c" }[priority] || N.steel;
   return <span className="text-xs font-semibold" style={{ color: c }}>{priority || "Medium"}</span>;
 };
 
@@ -121,6 +121,8 @@ const Task = () => {
   const [selectedTask, setSelectedTask]     = useState(null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [newStatus, setNewStatus]           = useState("");
+  const [taskDetailOpen, setTaskDetailOpen] = useState(false);
+  const [detailTask, setDetailTask]         = useState(null);
 
   // Target form / modal
   const [targetModalOpen, setTargetModalOpen] = useState(false);
@@ -143,7 +145,7 @@ const Task = () => {
   const [tHistCustomTo, setTHistCustomTo]           = useState("");
 
   const [form, setForm] = useState({
-    project_name: "", task_title: "", client_name: "", staff_name: "",
+    project_name: "", task_title: "", task_description: "", client_name: "", staff_name: "",
     assigned_to: "", assigned_teammember_id: "",
     created_date: new Date().toISOString().slice(0, 10),
     due_date: new Date().toISOString().slice(0, 10),
@@ -151,7 +153,7 @@ const Task = () => {
   });
 
   const resetForm = () => {
-    setForm({ project_name: "", task_title: "", client_name: "", staff_name: "", assigned_to: "", assigned_teammember_id: "",
+    setForm({ project_name: "", task_title: "", task_description: "", client_name: "", staff_name: "", assigned_to: "", assigned_teammember_id: "",
       created_date: new Date().toISOString().slice(0, 10), due_date: new Date().toISOString().slice(0, 10),
       project_status: "New", project_priority: "Medium" });
     setSelectedTask(null);
@@ -261,6 +263,7 @@ const Task = () => {
       const data = {
         project_name: form.project_name,
         task_title: form.task_title,
+        task_description: form.task_description,
         client_name: form.client_name,
         staff_name: form.assigned_to || user?.name,
         assigned_to: form.assigned_to,
@@ -411,8 +414,11 @@ await axios.post(`${API}/api/task/targets`, {
                   {filteredActive.map(task => (
                     <tr key={task.id} className="border-t" style={{ borderColor: N.hairline }}>
                       <td className="px-4 py-3">
-                        <div className="font-medium" style={{ color: N.ink }}>{task.project_name}</div>
-                        {task.task_title && <div className="text-xs mt-0.5" style={{ color: N.steel }}>{task.task_title}</div>}
+                        <button onClick={() => { setDetailTask(task); setTaskDetailOpen(true); }} className="text-left hover:underline">
+                          <div className="font-medium" style={{ color: N.ink }}>{task.project_name}</div>
+                          {task.task_title && <div className="text-xs mt-0.5" style={{ color: N.steel }}>{task.task_title}</div>}
+                          {task.task_description && <div className="text-xs mt-1 text-gray-500 line-clamp-2">{task.task_description}</div>}
+                        </button>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -533,279 +539,7 @@ await axios.post(`${API}/api/task/targets`, {
             </div>
           )}
         </div>
-      )}
-
-
-      {/* ── TARGETS ──────────────────────────────────────────────────────── */}
-      {activeTab === "targets" && (
-        <div className="space-y-4">
-          {isAdmin && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm" style={{ color: N.slate }}>{taskTargets.length} employee{taskTargets.length !== 1 ? "s" : ""} with targets</span>
-              <button onClick={() => setTargetModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white cursor-pointer"
-                style={{ background: N.primary }}>
-                <TargetIcon size={15} /> Add Target
-              </button>
-            </div>
-          )}
-
-          {isAdmin && (
-            <div className="rounded-xl border overflow-hidden" style={{ background: N.canvas, borderColor: N.hairline }}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead style={{ background: N.surface }}>
-                    <tr>
-                      {["Employee","Yearly Target","Monthly Target","Carry Forward","Effective","Achieved","Balance","Progress"].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: N.steel }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-{taskTargets.map(target => {
-                      const monthly = target.monthly_target || 0;
-                      const achieved = target.achieved_amount || 0;
-                      const carry = target.carry_forward || 0;
-                      const effective = monthly + carry;
-                      const balance = Math.max(0, effective - achieved);
-                      const pct = effective > 0 ? Math.round((achieved / effective) * 100) : 0;
-                      return (
-                        <tr key={target.id} className="border-t" style={{ borderColor: N.hairline }}>
-                          <td className="px-4 py-3 font-medium" style={{ color: N.ink }}>{target.user_name}</td>
-                          <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{Number(target.yearly_target || 0).toLocaleString()}</td>
-                          <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{monthly.toLocaleString()}</td>
-                          <td className="px-4 py-3" style={{ color: N.orange }}>₹{carry.toLocaleString()}</td>
-                          <td className="px-4 py-3 font-medium" style={{ color: "#0075de" }}>₹{effective.toLocaleString()}</td>
-                          <td className="px-4 py-3" style={{ color: N.green }}>₹{achieved.toLocaleString()}</td>
-                          <td className="px-4 py-3" style={{ color: N.error }}>₹{balance.toLocaleString()}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 rounded-full h-2" style={{ background: N.hairline }}>
-                                <div className="h-2 rounded-full transition-all"
-                                  style={{ width: `${Math.min(pct, 100)}%`, background: pct >= 100 ? N.green : pct >= 50 ? N.orange : N.error }} />
-                              </div>
-                              <span className="text-xs font-medium" style={{ color: N.slate }}>{pct}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {taskTargets.length === 0 && (
-                      <tr><td colSpan={8} className="py-10 text-center text-sm" style={{ color: N.stone }}>No targets set yet.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {isEmployee && (
-            <EmployeeTargetCard user={user} onUpdateAchievement={handleAchievementUpdate} />
-          )}
-        </div>
-      )}
-
-      {/* ── TARGET HISTORY ───────────────────────────────────────────────── */}
-      {activeTab === "targetHistory" && (
-        <div className="space-y-4">
-          {isAdmin && !targetHistEmployee && (
-            <>
-              <p className="text-sm" style={{ color: N.slate }}>Click an employee to view their target history.</p>
-              <div className="rounded-xl border overflow-hidden" style={{ background: N.canvas, borderColor: N.hairline }}>
-                <table className="w-full text-sm">
-                  <thead style={{ background: N.surface }}>
-                    <tr>
-                      {["Employee","Yearly Target","Achieved","Balance","Progress"].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: N.steel }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {taskTargets.map(target => {
-                      const achieved = target.achieved_amount || 0;
-                      const yearly = target.yearly_target || 0;
-                      const balance = Math.max(0, yearly - achieved);
-                      const pct = yearly > 0 ? Math.round((achieved / yearly) * 100) : 0;
-                      return (
-                        <tr key={target.id} className="border-t cursor-pointer hover:bg-[#f6f5f4] transition-colors"
-                          style={{ borderColor: N.hairline }}
-                          onClick={() => { setTargetHistEmployee(target.user_name); setTHistFilter("all"); }}>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: N.mint }}>
-                                <User size={14} style={{ color: N.green }} />
-                              </div>
-                              <span className="font-medium" style={{ color: N.ink }}>{target.user_name}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{Number(yearly).toLocaleString()}</td>
-                          <td className="px-4 py-3" style={{ color: N.green }}>₹{Number(achieved).toLocaleString()}</td>
-                          <td className="px-4 py-3" style={{ color: N.error }}>₹{Number(balance).toLocaleString()}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 rounded-full h-2" style={{ background: N.hairline }}>
-                                <div className="h-2 rounded-full" style={{ width: `${Math.min(pct,100)}%`, background: pct >= 100 ? N.green : pct >= 50 ? N.orange : N.error }} />
-                              </div>
-                              <span className="text-xs font-medium" style={{ color: N.slate }}>{pct}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {taskTargets.length === 0 && (
-                      <tr><td colSpan={5} className="py-10 text-center text-sm" style={{ color: N.stone }}>No target data</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
-          {isAdmin && targetHistEmployee && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <button onClick={() => setTargetHistEmployee(null)}
-                  className="flex items-center gap-1 text-sm font-medium cursor-pointer" style={{ color: N.primary }}>
-                  <ChevronLeft size={16} /> Back
-                </button>
-                <h3 className="text-base font-semibold" style={{ color: N.ink }}>{targetHistEmployee} — Target History</h3>
-              </div>
-              <DateFilterBar filter={tHistFilter} setFilter={setTHistFilter}
-                customFrom={tHistCustomFrom} setCustomFrom={setTHistCustomFrom}
-                customTo={tHistCustomTo} setCustomTo={setTHistCustomTo} />
-              {drillTargetHistory.length > 0 ? (
-                <div className="rounded-xl border overflow-hidden" style={{ background: N.canvas, borderColor: N.hairline }}>
-                  <table className="w-full text-sm">
-                    <thead style={{ background: N.surface }}>
-                      <tr>
-                        {["Date","Amount","Description"].map(h => (
-                          <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: N.steel }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {drillTargetHistory.map((h, i) => (
-                        <tr key={i} className="border-t" style={{ borderColor: N.hairline }}>
-                          <td className="px-4 py-3" style={{ color: N.slate }}>{fmtDate(h.date)}</td>
-                          <td className="px-4 py-3 font-medium" style={{ color: N.green }}>₹{Number(h.amount || 0).toLocaleString()}</td>
-                          <td className="px-4 py-3" style={{ color: N.charcoal }}>{h.description || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="rounded-xl border py-10 text-center text-sm" style={{ borderColor: N.hairline, color: N.stone }}>
-                  No history entries for this filter.
-                </div>
-              )}
-            </div>
-          )}
-
-          {isEmployee && (
-            <div className="space-y-4">
-              <DateFilterBar filter={tHistFilter} setFilter={setTHistFilter}
-                customFrom={tHistCustomFrom} setCustomFrom={setTHistCustomFrom}
-                customTo={tHistCustomTo} setCustomTo={setTHistCustomTo} />
-              {(taskTargets[0]?.history || []).length > 0 ? (
-                <div className="rounded-xl border overflow-hidden" style={{ background: N.canvas, borderColor: N.hairline }}>
-                  <table className="w-full text-sm">
-                    <thead style={{ background: N.surface }}>
-                      <tr>
-                        {["Date","Amount","Description"].map(h => (
-                          <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: N.steel }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {applyDateFilter(taskTargets[0]?.history || [], "date", tHistFilter, tHistCustomFrom, tHistCustomTo).map((h, i) => (
-                        <tr key={i} className="border-t" style={{ borderColor: N.hairline }}>
-                          <td className="px-4 py-3" style={{ color: N.slate }}>{fmtDate(h.date)}</td>
-                          <td className="px-4 py-3 font-medium" style={{ color: N.green }}>₹{Number(h.amount || 0).toLocaleString()}</td>
-                          <td className="px-4 py-3" style={{ color: N.charcoal }}>{h.description || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="rounded-xl border py-10 text-center text-sm" style={{ borderColor: N.hairline, color: N.stone }}>No target history yet.</div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-
-      {/* ── TASK ASSIGN MODAL ────────────────────────────────────────────── */}
-      {open && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" style={{ background: N.canvas }}>
-            <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: N.hairline }}>
-              <h3 className="text-base font-semibold" style={{ color: N.ink }}>{selectedTask ? "Update Task" : "Assign New Task"}</h3>
-              <button onClick={() => { setOpen(false); resetForm(); }} className="cursor-pointer" style={{ color: N.steel }}><X size={18} /></button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-4 space-y-3">
-              {[["project_name","Project Name *","text",true],["task_title","Task Title","text",false]].map(([name,label,type,req]) => (
-                <div key={name}>
-                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>{label}</label>
-                  <input type={type} name={name} value={form[name]} onChange={e => setForm({...form,[e.target.name]:e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
-                    style={{ borderColor: N.hairlineStrong, color: N.ink }} required={req} />
-                </div>
-              ))}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Assign To</label>
-                  <select name="assigned_to" value={form.assigned_teammember_id || ""} onChange={e => {
-                    const m = teamMembers.find(t => String(t.id) === e.target.value);
-                    setForm({...form, assigned_teammember_id: m ? Number(m.id) : "", assigned_to: m ? `${m.first_name} ${m.last_name||""}`.trim() : e.target.value });
-                  }}
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
-                    <option value="">— Select Staff —</option>
-                    {teamMembers.map(t => (
-                      <option key={t.id} value={String(t.id)}>
-                        {t.first_name} {t.last_name||""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Priority</label>
-                  <select name="project_priority" value={form.project_priority} onChange={e => setForm({...form,project_priority:e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
-                    {["Low","Medium","High"].map(p => <option key={p}>{p}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[["created_date","Created Date"],["due_date","Due Date"]].map(([name,label]) => (
-                  <div key={name}>
-                    <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>{label}</label>
-                    <input type="date" name={name} value={form[name]} onChange={e => setForm({...form,[e.target.name]:e.target.value})}
-                      className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong }} />
-                  </div>
-                ))}
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Status</label>
-                <select name="project_status" value={form.project_status} onChange={e => setForm({...form,project_status:e.target.value})}
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
-                  {["New","Process","Completed"].map(s => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <button type="submit" className="flex-1 py-2 rounded-lg text-sm font-medium text-white cursor-pointer" style={{ background: N.primary }}>
-                  {selectedTask ? "Update" : "Assign"}
-                </button>
-                <button type="button" onClick={() => { setOpen(false); resetForm(); }}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer" style={{ background: N.surface, color: N.slate }}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+)}
       )}
 
       {/* ── STATUS MODAL ─────────────────────────────────────────────────── */}
@@ -840,51 +574,248 @@ await axios.post(`${API}/api/task/targets`, {
         </div>
       )}
 
-      {/* ── TARGET MODAL ─────────────────────────────────────────────────── */}
-      {targetModalOpen && (
+      {/* ── TASK FORM MODAL ─────────────────────────────────────────────── */}
+      {open && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="rounded-xl shadow-xl w-full max-w-md" style={{ background: N.canvas }}>
+          <div className="rounded-xl shadow-xl w-full max-w-lg" style={{ background: N.canvas }}>
             <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: N.hairline }}>
-              <h3 className="text-base font-semibold" style={{ color: N.ink }}>Add Employee Target</h3>
-              <button onClick={() => setTargetModalOpen(false)} className="cursor-pointer" style={{ color: N.steel }}><X size={18} /></button>
+              <h3 className="text-base font-semibold" style={{ color: N.ink }}>{selectedTask ? "Update Task" : "Assign New Task"}</h3>
+              <button onClick={() => { setOpen(false); resetForm(); }} className="cursor-pointer" style={{ color: N.steel }}><X size={18} /></button>
             </div>
-            <form onSubmit={handleTargetSubmit} className="p-4 space-y-3">
+            <form onSubmit={handleSubmit} className="p-4 space-y-3">
+              {[["project_name","Project Name *","text",true],["task_title","Task Title","text",false]].map(([name,label,type,req]) => (
+                <div key={name}>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>{label}</label>
+                  <input type={type} name={name} value={form[name]} onChange={e => setForm({...form,[e.target.name]:e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
+                    style={{ borderColor: N.hairlineStrong, color: N.ink }} required={req} />
+                </div>
+              ))}
               <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Select Employee *</label>
-                <select value={targetForm.teammember_id || ""}
-                  onChange={e => {
-                    const val = e.target.value;
-                    const m = teamMembers.find(m => String(m.id) === val);
-                    setTargetForm({ ...targetForm, teammember_id: m ? Number(m.id) : "", user_id: m?.user_id || "", user_name: m ? `${m.first_name} ${m.last_name||""}`.trim() : "" });
+                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Task Description</label>
+                <textarea name="task_description" value={form.task_description} onChange={e => setForm({...form,task_description:e.target.value})}
+                  rows={3}
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none resize-none"
+                  style={{ borderColor: N.hairlineStrong, color: N.ink }}
+                  placeholder="Enter task details..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Client Name</label>
+                <input type="text" name="client_name" value={form.client_name} onChange={e => setForm({...form,[e.target.name]:e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
+                  style={{ borderColor: N.hairlineStrong, color: N.ink }}
+                  placeholder="Enter client name" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Assign To</label>
+                  <select name="assigned_to" value={form.assigned_teammember_id || ""} onChange={e => {
+                    const m = teamMembers.find(t => String(t.id) === e.target.value);
+                    setForm({...form, assigned_teammember_id: m ? Number(m.id) : "", assigned_to: m ? `${m.first_name} ${m.last_name||""}`.trim() : e.target.value });
                   }}
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }} required>
-                  <option value="">— Select Staff —</option>
-                  {teamMembers.map(t => (
-                    <option key={t.id} value={String(t.id)}>{t.first_name} {t.last_name||""}</option>
-                  ))}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
+                    <option value="">— Select Staff —</option>
+                    {teamMembers.map(t => (
+                      <option key={t.id} value={String(t.id)}>
+                        {t.first_name} {t.last_name||""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Priority</label>
+                  <select name="project_priority" value={form.project_priority} onChange={e => setForm({...form,project_priority:e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
+                    {["Low","Medium","High","Urgent"].map(p => <option key={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {[["created_date","Created Date"],["due_date","Due Date"]].map(([name,label]) => (
+                  <div key={name}>
+                    <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>{label}</label>
+                    <input type="date" name={name} value={form[name]} onChange={e => setForm({...form,[e.target.name]:e.target.value})}
+                      className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong }} />
+                  </div>
+                ))}
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Status</label>
+                <select name="project_status" value={form.project_status} onChange={e => setForm({...form,project_status:e.target.value})}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
+                  {["New","Process","Completed"].map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Yearly Target (INR) *</label>
-                <input type="number" value={targetForm.yearly_target}
-                  onChange={e => setTargetForm({...targetForm, yearly_target: e.target.value})}
-                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong }}
-                  placeholder="e.g. 1200000" min="0" required />
-                {targetForm.yearly_target && (
-                  <p className="text-xs mt-1" style={{ color: N.stone }}>
-                    Monthly: ₹{(parseFloat(targetForm.yearly_target)/12).toLocaleString(undefined,{maximumFractionDigits:0})}
-                  </p>
-                )}
-              </div>
               <div className="flex gap-2 pt-1">
-                <button type="submit" className="flex-1 py-2 rounded-lg text-sm font-medium text-white cursor-pointer" style={{ background: N.primary }}>Set Target</button>
-                <button type="button" onClick={() => setTargetModalOpen(false)}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer" style={{ background: N.surface, color: N.slate }}>Cancel</button>
+                <button type="submit" className="flex-1 py-2 rounded-lg text-sm font-medium text-white cursor-pointer" style={{ background: N.primary }}>
+                  {selectedTask ? "Update" : "Assign"}
+                </button>
+                <button type="button" onClick={() => { setOpen(false); resetForm(); }}
+                  className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer" style={{ background: N.surface, color: N.slate }}>
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* ── TARGETS TAB ─────────────────────────────────────────────────── */}
+      {activeTab === "targets" && (
+        <div className="space-y-4">
+          {isAdmin && (
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-semibold" style={{ color: N.ink }}>All Targets</h3>
+              <button onClick={() => setTargetModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white cursor-pointer"
+                style={{ background: N.primary }}>
+                <Plus size={15} /> Set Target
+              </button>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {taskTargets.length === 0 && (
+              <div className="col-span-full text-center py-10 text-sm" style={{ color: N.stone }}>
+                No targets set yet.
+              </div>
+            )}
+            {taskTargets.map(t => (
+              <div key={t.id} className="rounded-xl border p-4 space-y-3" style={{ background: N.canvas, borderColor: N.hairline }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: N.lavender }}>
+                    <User size={16} style={{ color: N.primary }} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm" style={{ color: N.ink }}>{t.user_name || "Unknown"}</p>
+                    <p className="text-xs" style={{ color: N.stone }}>Yearly: ₹{(parseFloat(t.yearly_target)||0).toLocaleString()}</p>
+                  </div>
+                </div>
+                {isEmployee ? (
+                  <EmployeeTargetCard user={user} onUpdateAchievement={handleAchievementUpdate} />
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs" style={{ color: N.steel }}>
+                      <span>Monthly Target</span>
+                      <span className="font-medium" style={{ color: N.ink }}>₹{(parseFloat(t.monthly_target)||0).toLocaleString()}</span>
+                    </div>
+                    {(() => {
+                      const now = new Date();
+                      const monthYear = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+                      const ach = t.current_month === monthYear ? (t.achieved_amount || 0) : 0;
+                      const pct = t.monthly_target > 0 ? Math.round((ach / t.monthly_target) * 100) : 0;
+                      return (
+                        <>
+                          <div className="w-full rounded-full h-2" style={{ background: N.hairline }}>
+                            <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(pct,100)}%`, background: pct >= 100 ? N.green : pct >= 50 ? N.orange : N.error }} />
+                          </div>
+                          <p className="text-xs" style={{ color: N.stone }}>This month: ₹{ach.toLocaleString()} / ₹{(parseFloat(t.monthly_target)||0).toLocaleString()} ({pct}%)</p>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── TARGET HISTORY TAB ───────────────────────────────────────────── */}
+      {activeTab === "targetHistory" && (
+        <div className="space-y-4">
+          {isAdmin && !targetHistEmployee && (
+            <>
+              <p className="text-sm" style={{ color: N.slate }}>Click an employee to view target history.</p>
+              <div className="rounded-xl border overflow-hidden" style={{ background: N.canvas, borderColor: N.hairline }}>
+                <table className="w-full text-sm">
+                  <thead style={{ background: N.surface }}>
+                    <tr>
+                      {["Employee", "Yearly Target", "Monthly Target", "Actions"].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: N.steel }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {targetHistoryEmployees.map(emp => {
+                      const t = taskTargets.find(x => x.user_name === emp);
+                      return (
+                        <tr key={emp} className="border-t cursor-pointer hover:bg-[#f6f5f4]"
+                          style={{ borderColor: N.hairline }}
+                          onClick={() => { setTargetHistEmployee(emp); setTHistFilter("all"); }}>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: N.lavender }}>
+                                <User size={14} style={{ color: N.primary }} />
+                              </div>
+                              <span className="font-medium" style={{ color: N.ink }}>{emp}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{(parseFloat(t?.yearly_target)||0).toLocaleString()}</td>
+                          <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{(parseFloat(t?.monthly_target)||0).toLocaleString()}</td>
+                          <td className="px-4 py-3">
+                            <button className="text-xs font-medium cursor-pointer" style={{ color: N.primary }}>View History →</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {targetHistoryEmployees.length === 0 && (
+                      <tr><td colSpan={4} className="py-10 text-center text-sm" style={{ color: N.stone }}>No target history.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+          {isAdmin && targetHistEmployee && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setTargetHistEmployee(null)}
+                  className="flex items-center gap-1 text-sm font-medium cursor-pointer" style={{ color: N.primary }}>
+                  <ChevronLeft size={16} /> Back
+                </button>
+                <h3 className="text-base font-semibold" style={{ color: N.ink }}>{targetHistEmployee} — Target History</h3>
+              </div>
+              <DateFilterBar filter={tHistFilter} setFilter={setTHistFilter}
+                customFrom={tHistCustomFrom} setCustomFrom={setTHistCustomFrom}
+                customTo={tHistCustomTo} setCustomTo={setTHistCustomTo} />
+              <div className="rounded-xl border overflow-hidden" style={{ background: N.canvas, borderColor: N.hairline }}>
+                <table className="w-full text-sm">
+                  <thead style={{ background: N.surface }}>
+                    <tr>
+                      {["Month", "Target", "Achieved", "Status"].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: N.steel }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillTargetHistory.map(h => (
+                      <tr key={h.month_year} className="border-t" style={{ borderColor: N.hairline }}>
+                        <td className="px-4 py-3" style={{ color: N.charcoal }}>{h.month_year}</td>
+                        <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{(parseFloat(h.monthly_target)||0).toLocaleString()}</td>
+                        <td className="px-4 py-3" style={{ color: N.green }}>₹{(parseFloat(h.achieved_amount)||0).toLocaleString()}</td>
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const pct = h.monthly_target > 0 ? Math.round((h.achieved_amount / h.monthly_target) * 100) : 0;
+                            return <StatusBadge status={pct >= 100 ? "Completed" : pct >= 50 ? "Process" : "New"} />;
+                          })()}
+                        </td>
+                      </tr>
+                    ))}
+                    {drillTargetHistory.length === 0 && (
+                      <tr><td colSpan={4} className="py-10 text-center text-sm" style={{ color: N.stone }}>No history records.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {isEmployee && (
+            <EmployeeTargetCard user={user} onUpdateAchievement={handleAchievementUpdate} />
+          )}
+        </div>
+      )}
+
     </div>
   );
 };
@@ -908,6 +839,7 @@ const HistoryTable = ({ tasks }) => (
               <td className="px-4 py-3">
                 <div className="font-medium" style={{ color: "#1a1a1a" }}>{task.project_name}</div>
                 {task.task_title && <div className="text-xs mt-0.5" style={{ color: "#787671" }}>{task.task_title}</div>}
+                {task.task_description && <div className="text-xs mt-1 text-gray-400 line-clamp-2">{task.task_description}</div>}
               </td>
               <td className="px-4 py-3" style={{ color: "#37352f" }}>{task.staff_name || task.assigned_to || "—"}</td>
               <td className="px-4 py-3 text-xs" style={{ color: "#787671" }}>{task.due_date ? new Date(task.due_date).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}) : "—"}</td>

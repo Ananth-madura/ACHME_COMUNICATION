@@ -100,22 +100,30 @@ router.get("/:id", verifyToken, (req, res) => {
 
 /* CREATE CLIENT */
 router.post("/", verifyToken, (req, res) => {
-  const { name, company_name, email, phone, address, service, gst_number, assigned_teammember_id } = req.body;
+  const { name, company_name, email, phone, alternate_phone, address, city, state, pincode, service, gst_number, notes, client_status, assigned_teammember_id } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ message: "Name is required" });
 
-  const sql = `INSERT INTO clients (name, company_name, email, phone, address, service, gst_number, created_by, assigned_teammember_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  db.query(sql, [name, company_name || "", email || "", phone || "", address || "", service || "", gst_number || "", req.user.id, assigned_teammember_id || null], (err, result) => {
+  const sql = `INSERT INTO clients (name, company_name, email, phone, alternate_phone, address, city, state, pincode, service, gst_number, notes, client_status, created_by, assigned_teammember_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  db.query(sql, [
+    name, company_name || "", email || "", phone || "", alternate_phone || "",
+    address || "", city || "", state || "", pincode || "",
+    service || "", gst_number || "", notes || "", client_status || "active",
+    req.user.id, assigned_teammember_id || null
+  ], (err, result) => {
     if (err) return res.status(500).json({ message: "Insert failed", error: err });
     res.json({ message: "Client created successfully", id: result.insertId });
   });
 });
 
 /* UPDATE CLIENT */
-router.put("/:id", verifyToken, (req, res) => {
-  const { name, company_name, email, phone, address, service, gst_number, assigned_teammember_id } = req.body;
+router.put("/:id", verifyToken, isAdmin, (req, res) => {
+  const { name, company_name, email, phone, alternate_phone, address, city, state, pincode, service, gst_number, notes, client_status, assigned_teammember_id } = req.body;
   db.query(
-    "UPDATE clients SET name=?, company_name=?, email=?, phone=?, address=?, service=?, gst_number=?, assigned_teammember_id=? WHERE id=?",
-    [name, company_name || "", email, phone, address, service, gst_number || "", assigned_teammember_id || null, req.params.id],
+    "UPDATE clients SET name=?, company_name=?, email=?, phone=?, alternate_phone=?, address=?, city=?, state=?, pincode=?, service=?, gst_number=?, notes=?, client_status=?, assigned_teammember_id=? WHERE id=?",
+    [name, company_name || "", email || "", phone || "", alternate_phone || "",
+     address || "", city || "", state || "", pincode || "",
+     service || "", gst_number || "", notes || "", client_status || "active",
+     assigned_teammember_id || null, req.params.id],
     (err) => {
       if (err) return res.status(500).json(err);
       res.json({ message: "Client updated successfully" });
@@ -124,7 +132,7 @@ router.put("/:id", verifyToken, (req, res) => {
 });
 
 /* DELETE CLIENT */
-router.delete("/:id", verifyToken, (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
   db.query("SELECT created_by FROM clients WHERE id = ?", [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     if (results.length === 0) return res.status(404).json({ message: "Not found" });

@@ -14,16 +14,17 @@ const UserManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [formData, setFormData] = useState({
-    first_name: "",
-    email: "",
-    user_password: "",
-    emp_id: "",
-    job_title: "Developer",
-    emp_role: "Developer",
-    mobile_number: "",
-    emp_address: ""
-  });
+const [formData, setFormData] = useState({
+        first_name: "",
+        email: "",
+        user_password: "",
+        emp_id: "",
+        job_title: "Developer",
+        emp_role: "Developer",
+        system_role: "employee",
+        mobile_number: "",
+        emp_address: "",
+      });
 
   const fetchUsers = async () => {
     try {
@@ -58,6 +59,7 @@ const UserManagement = () => {
         emp_id: "",
         job_title: "Developer",
         emp_role: "Developer",
+        system_role: "employee",
         mobile_number: "",
         emp_address: ""
       });
@@ -209,11 +211,15 @@ const UserManagement = () => {
                   <td className="px-4 py-3 text-gray-600">{user.email}</td>
                   <td className="px-4 py-3">{user.emp_id || "-"}</td>
                   <td className="px-4 py-3">{user.position || "-"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.systemRole === "admin" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
-                      {user.systemRole}
-                    </span>
-                  </td>
+<td className="px-4 py-3">
+                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                       user.systemRole === "admin" ? "bg-purple-100 text-purple-700" :
+                       user.systemRole === "subadmin" ? "bg-orange-100 text-orange-700" :
+                       "bg-gray-100 text-gray-600"
+                     }`}>
+                       {user.systemRole || "employee"}
+                     </span>
+                   </td>
                   <td className="px-4 py-3 text-center">{getStatusBadge(user.status)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
@@ -285,14 +291,22 @@ const UserManagement = () => {
                     <option value="Support">Support</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Role</label>
-                  <select value={formData.emp_role} onChange={(e) => setFormData({ ...formData, emp_role: e.target.value })} className="w-full border rounded-lg p-2">
-                    <option value="Developer">Developer</option>
-                    <option value="BDM">BDM</option>
-                  </select>
-                </div>
+<div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Role</label>
+                <select value={formData.emp_role} onChange={(e) => setFormData({ ...formData, emp_role: e.target.value })} className="w-full border rounded-lg p-2">
+                  <option value="Developer">Developer</option>
+                  <option value="BDM">BDM</option>
+                </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">System Role</label>
+                <select value={formData.system_role || "employee"} onChange={(e) => setFormData({ ...formData, system_role: e.target.value })} className="w-full border rounded-lg p-2">
+                  <option value="employee">Employee (Create/Read Only)</option>
+                  <option value="subadmin">Sub-Admin (Full Access Except Users)</option>
+                  <option value="admin">Admin (Full Access)</option>
+                </select>
+              </div>
+            </div>
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Mobile Number</label>
                 <input type="text" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value })} className="w-full border rounded-lg p-2" />

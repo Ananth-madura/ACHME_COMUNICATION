@@ -27,6 +27,8 @@ const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String
 
 
 const Quotation = () => {
+  const userRole = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").role || "employee"; } catch { return "employee"; } })();
+  const canEditDelete = userRole === "admin" || userRole === "subadmin";
   const [list, setList] = useState([]);
   const [fromAddresses, setFromAddresses] = useState([]);
   const [open, setOpen] = useState(false);
@@ -229,9 +231,9 @@ const handleSendEmail = async () => {
           </div>
           <div className="flex items-center gap-2 mt-2">
             <button onClick={async()=>{ const id=viewId||selectedId; if(!id)return alert("Select an invoice first"); try{const r=await fetch(`${API}/api/quotations/download-pdf/${id}`,{headers:{Authorization:`Bearer ${localStorage.getItem("token")}`}});const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`Quotation_${fmtQT(id,list.find(p=>p.id===id)?.invoice_date)}.pdf`;a.click();URL.revokeObjectURL(url);}catch(e){alert("Download failed");} }} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Download size={20}/></button>
-            <button onClick={openMailModal} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Mail size={18}/></button>
-            <button onClick={()=>{if(!selectedId)return alert("Select an item");handleEdit(selectedId);}} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Edit2 size={18}/></button>
-            <button onClick={handleDelete} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Trash2 size={18} className="text-red-500"/></button>
+<button onClick={openMailModal} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Mail size={18}/></button>
+            {canEditDelete && <button onClick={()=>{if(!selectedId)return alert("Select an item");handleEdit(selectedId);}} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Edit2 size={18}/></button>}
+            {canEditDelete && <button onClick={handleDelete} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Trash2 size={18} className="text-red-500"/></button>}
           </div>
           <div className="mt-2">
             <button onClick={()=>{resetForm();setOpen(true);}} className="bg-[#FF3355] text-white w-12 h-12 rounded-full flex justify-center items-center shadow-lg hover:bg-[#e62848]"><Plus size={24}/></button>

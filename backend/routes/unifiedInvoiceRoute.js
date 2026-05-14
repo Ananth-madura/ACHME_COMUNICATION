@@ -7,7 +7,7 @@ const express = require("express");
 const db = require("../config/database");
 const nodemailer = require("nodemailer");
 const { generateInvoicePdf } = require("../backendutil/generateInvoicePdf");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
   const router = express.Router();
@@ -27,7 +27,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
       res.json({ id: result.insertId, label: lbl, address });
     });
   });
-  router.delete("/from-addresses/:id", verifyToken, (req, res) => {
+  router.delete("/from-addresses/:id", verifyToken, isAdmin, (req, res) => {
     db.query("DELETE FROM pi_from_addresses WHERE id=?", [req.params.id], (err) => {
       if (err) return res.status(500).json(err);
       res.json({ message: "Deleted" });
@@ -179,7 +179,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
   });
 
   // ── UPDATE — creates new version ───────────────────────────────────────────
-  router.put("/:id", verifyToken, (req, res) => {
+  router.put("/:id", verifyToken, isAdmin, (req, res) => {
     const { id } = req.params;
     const { customer, invoice, items, extra } = req.body;
     const ex = extra || {};
@@ -262,7 +262,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
   });
 
   // ── DELETE ─────────────────────────────────────────────────────────────────
-  router.delete("/:id", verifyToken, (req, res) => {
+  router.delete("/:id", verifyToken, isAdmin, (req, res) => {
     db.beginTransaction(err => {
       if (err) return res.status(500).json(err);
       db.query(`DELETE FROM ${itemsTable} WHERE invoice_id=?`, [req.params.id], err => {

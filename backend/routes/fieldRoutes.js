@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 const getNotificationIO = () => {
   try {
@@ -118,7 +118,7 @@ router.post("/new", verifyToken, (req, res) => {
 });
 
 /* UPDATE FIELD */
-router.put("/:id", verifyToken, (req, res) => {
+router.put("/:id", verifyToken, isAdmin, (req, res) => {
   const data = req.body;
 
   // Check ownership
@@ -213,7 +213,7 @@ router.get("/", verifyToken, (req, res) => {
 });
 
 /* DELETE */
-router.delete("/:id", verifyToken, (req, res) => {
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
   // Check ownership
   db.query("SELECT created_by FROM fields WHERE id = ?", [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
