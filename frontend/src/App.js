@@ -35,7 +35,14 @@ import Profile from "./pages/profile";
 import Settings from "./pages/settings";
 import UserManagement from "./pages/usermanagement";
 
-const API_BACKEND = "http://localhost:5000";
+const getApiBackend = () => {
+  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  return `${protocol}//${hostname}:5000`;
+};
+
+const API_BACKEND = getApiBackend();
 
 axios.interceptors.request.use(config => {
   const token = localStorage.getItem("token");

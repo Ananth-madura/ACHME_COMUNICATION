@@ -110,8 +110,8 @@ db.ready.then(() => {
   app.set("io", io);
   app.set("notificationIO", io);
   require("./backendutil/reminderScheduler");
-  server.listen(PORT, () => {
-    console.log(`✅ Server running: http://localhost:${PORT} [${process.env.NODE_ENV || "development"}]`);
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`✅ Server running: http://0.0.0.0:${PORT} [${process.env.NODE_ENV || "development"}]`);
   });
 }).catch((error) => {
   console.error("Database is not ready. Server not started.");

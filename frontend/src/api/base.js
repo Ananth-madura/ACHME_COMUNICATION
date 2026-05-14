@@ -1,5 +1,8 @@
-const API_BASE_URL = process.env.NODE_ENV === "production" 
-  ? "/api" 
-  : "http://localhost:5000/api";
+const getApiBaseUrl = () => {
+  if (process.env.NODE_ENV === "production") return "/api";
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  return `${protocol}//${hostname}:5000/api`;
+};
 
-export default API_BASE_URL;
+export default getApiBaseUrl();
