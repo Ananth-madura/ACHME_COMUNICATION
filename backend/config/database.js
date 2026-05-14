@@ -80,11 +80,27 @@ function ensureColumnAsync(table, column, definition, expectedType) {
 
 async function ensureTablesAndColumns() {
   const tableStatements = [
-    {
+{
       name: "pi_from_addresses",
       sql: `CREATE TABLE IF NOT EXISTS pi_from_addresses (id INT AUTO_INCREMENT PRIMARY KEY, label VARCHAR(100) NOT NULL, address TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     },
-{
+    {
+      name: "email_otp",
+      sql: `CREATE TABLE IF NOT EXISTS email_otp (email CHAR(100) PRIMARY KEY, otp CHAR(6) DEFAULT NULL, expires_at DATETIME DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
+      name: "payments",
+      sql: `CREATE TABLE IF NOT EXISTS payments (id INT AUTO_INCREMENT PRIMARY KEY, invoice_id INT DEFAULT NULL, amount DECIMAL(10,2) NOT NULL, payment_date DATE NOT NULL, payment_method ENUM('Paypal','Cash','Bank') DEFAULT 'Paypal', Transaction_ID INT DEFAULT NULL, invoice_email VARCHAR(150) DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
+      name: "clientinvoices",
+      sql: `CREATE TABLE IF NOT EXISTS clientinvoices (id INT AUTO_INCREMENT PRIMARY KEY, client_company VARCHAR(150) DEFAULT NULL, project_names VARCHAR(150) DEFAULT NULL, invoice_date DATE DEFAULT NULL, invoice_duedate DATE DEFAULT NULL, category ENUM('Default') DEFAULT 'Default', created_by INT DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
+      name: "messages",
+      sql: `CREATE TABLE IF NOT EXISTS messages (id INT AUTO_INCREMENT PRIMARY KEY, sender_id INT DEFAULT NULL, receiver_id INT DEFAULT NULL, message TEXT DEFAULT NULL, type VARCHAR(20) DEFAULT NULL, seen TINYINT(1) DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
       name: "service_items",
       sql: `CREATE TABLE IF NOT EXISTS service_items (id INT AUTO_INCREMENT PRIMARY KEY, service_id INT NOT NULL, product_number INT NOT NULL, description VARCHAR(255) NOT NULL, brand_model VARCHAR(150) DEFAULT NULL, hsn_sac VARCHAR(20) DEFAULT NULL, uom VARCHAR(20) DEFAULT 'Nos', price DECIMAL(10,2) NOT NULL, quantity INT NOT NULL, tax DECIMAL(10,2) DEFAULT 0, discount DECIMAL(10,2) DEFAULT 0, subtotal DECIMAL(10,2) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     },

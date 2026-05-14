@@ -9,6 +9,7 @@ import { API } from "../config";
 const Walkins = () =>{
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const getAuthConfig = () => { const token = localStorage.getItem("token"); return { headers: { Authorization: `Bearer ${token}` } }; };
     const [outcomeOpen, setOutcomeOpen] = useState(false);
     const [showMoreDetails, setShowMoreDetails] = useState(false);
     const [remainderDetails, setRemainderDetails] = useState(false);
@@ -67,7 +68,7 @@ const fetchWalkins = async () => {
 
 const fetchMissedCounts = async () => {
   try {
-    const res = await axios.get(`${API}/api/leads/missed-counts/walkin`);
+    const res = await axios.get(`${API}/api/leads/missed-counts/walkin`, getAuthConfig());
     const map = {};
     res.data.forEach(r => { map[r.lead_id] = r.missed_count; });
     setMissedCounts(map);
@@ -75,7 +76,7 @@ const fetchMissedCounts = async () => {
 };
 
 useEffect(() => { fetchWalkins(); fetchMissedCounts(); 
-  axios.get(`${API}/api/teammember`).then(r => setTeamMembers(r.data)).catch(() => {});
+  axios.get(`${API}/api/teammember`, getAuthConfig()).then(r => setTeamMembers(r.data)).catch(() => {});
 }, []);
 
 const formatDate = (date) => {
@@ -94,8 +95,8 @@ const openHistory = async (lead) => {
   setHistoryLead(lead);
   try {
     const [actRes, remRes] = await Promise.all([
-      axios.get(`${API}/api/leads/activity/walkin/${lead.id}`),
-      axios.get(`${API}/api/leads/reminders/walkin/${lead.id}`),
+      axios.get(`${API}/api/leads/activity/walkin/${lead.id}`, getAuthConfig()),
+      axios.get(`${API}/api/leads/reminders/walkin/${lead.id}`, getAuthConfig()),
     ]);
     setHistoryActivity(actRes.data);
     setHistoryReminders(remRes.data);
@@ -107,8 +108,8 @@ const openReminderPanel = async (lead) => {
   setReminderLeadId(lead.id); setReminderLeadName(lead.customer_name);
   setNewReminderDate(""); setNewReminderTime(""); setNewReminderNote("");
   try {
-    await axios.post(`${API}/api/leads/check-missed`).catch(() => {});
-    const res = await axios.get(`${API}/api/leads/reminders/walkin/${lead.id}`);
+    await axios.post(`${API}/api/leads/check-missed`, {}, getAuthConfig()).catch(() => {});
+    const res = await axios.get(`${API}/api/leads/reminders/walkin/${lead.id}`, getAuthConfig());
     setLeadReminders(res.data);
   } catch (_) { setLeadReminders([]); }
   setReminderOpen(true);
@@ -120,15 +121,15 @@ const saveReminder = async () => {
     await axios.post(`${API}/api/leads/reminders`, {
       lead_id: reminderLeadId, lead_type: "walkin",
       reminder_date: newReminderDate, reminder_time: newReminderTime || null, reminder_notes: newReminderNote,
-    });
-    const res = await axios.get(`${API}/api/leads/reminders/walkin/${reminderLeadId}`);
+    }, getAuthConfig());
+    const res = await axios.get(`${API}/api/leads/reminders/walkin/${reminderLeadId}`, getAuthConfig());
     setLeadReminders(res.data); fetchMissedCounts();
     setNewReminderDate(""); setNewReminderTime(""); setNewReminderNote("");
   } catch (_) { alert("Failed to save reminder"); }
 };
 
 const deleteReminder = async (id) => {
-  await axios.delete(`${API}/api/leads/reminders/${id}`);
+  await axios.delete(`${API}/api/leads/reminders/${id}`, getAuthConfig());
   setLeadReminders(prev => prev.filter(r => r.id !== id)); fetchMissedCounts();
 };
 
@@ -152,7 +153,7 @@ const saveWalkins = async (e) => {
 
   try {
     if (isEdit) {
-      await axios.put(`${API}/api/Walkins/${editId}`, payload);
+      await axios.put(`${API}/api/Walkins/${editId}`, payload, getAuthConfig());
       alert("Successfully Updated");
       setForm(prev => ({
         ...prev,
@@ -162,7 +163,7 @@ const saveWalkins = async (e) => {
     } else {
       await axios.post(
         `${API}/api/Walkins`,
-        payload
+        payload, getAuthConfig()
       );
       alert("Successfully Created");
     }
@@ -180,7 +181,7 @@ const saveWalkins = async (e) => {
 // Edit Model;
 const openEdit = async (id) => {
   try {
-    const res = await axios.get(`${API}/api/Walkins/${id}`);
+    const res = await axios.get(`${API}/api/Walkins/${id}`, getAuthConfig());
     const data = res.data;
 
     setForm({
@@ -217,7 +218,7 @@ const openEdit = async (id) => {
  const deletefield = async (id) => {
   if(!window.confirm("Are you sure?")) return;
   try {
-    await axios.delete(`${API}/api/Walkins/${id}`);
+    await axios.delete(`${API}/api/Walkins/${id}`, getAuthConfig());
     fetchWalkins();
   } catch (err) {
     alert("message Deleted", err)
@@ -508,7 +509,7 @@ const openEdit = async (id) => {
                           }
                           if (!window.confirm(`Convert "${W.customer_name}" to Client?`)) return;
                           try {
-                            await axios.put(`${API}/api/leads/walkin/${W.id}`, { walkin_status: "Converted" });
+                            await axios.put(`${API}/api/leads/walkin/${W.id}`, { walkin_status: "Converted" }, getAuthConfig());
                             alert("Lead converted to Client successfully!");
                             fetchWalkins();
                             window.dispatchEvent(new Event("refresh-clients"));
@@ -605,7 +606,7 @@ const openEdit = async (id) => {
                <div><div className="font-semibold">{formatReminderDate(r.reminder_date)}{r.reminder_time ? ` at ${r.reminder_time.slice(0,5)}` : ""}</div>{r.reminder_notes && <div className="text-gray-500 text-xs mt-0.5">{r.reminder_notes}</div>}</div>
                <div className="flex items-center gap-2">
                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.status === "Missed" ? "bg-red-600 text-white" : r.status === "Done" ? "bg-green-600 text-white" : "bg-blue-600 text-white"}`}>{r.status}</span>
-                                   {r.status === "Pending" && <button onClick={() => { axios.put(`${API}/api/leads/reminders/${r.id}`, {status:"Done"}); setLeadReminders(prev => prev.map(x => x.id===r.id ? {...x,status:"Done"} : x)); }} className="text-xs bg-green-600 text-white px-2 py-0.5 rounded font-bold">Done</button>}
+                                   {r.status === "Pending" && <button onClick={() => { axios.put(`${API}/api/leads/reminders/${r.id}`, {status:"Done"}, getAuthConfig()); setLeadReminders(prev => prev.map(x => x.id===r.id ? {...x,status:"Done"} : x)); }} className="text-xs bg-green-600 text-white px-2 py-0.5 rounded font-bold">Done</button>}
 
                  <button onClick={() => deleteReminder(r.id)} className="text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
                </div>

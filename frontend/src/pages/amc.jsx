@@ -7,6 +7,8 @@ import { useNavigate } from "react-router-dom";
 
 import { API } from "../config";
 
+const getAuthConfig = () => { const token = localStorage.getItem("token"); return { headers: { Authorization: `Bearer ${token}` } }; };
+
 const AMCService = () => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -69,7 +71,7 @@ const AMCService = () => {
 
 const fetchServices = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/amc/amc-alc`);
+      const res = await axios.get(`${API}/api/amc/amc-alc`, getAuthConfig());
       setServices(res.data);
     } catch (err) {
       console.error("Fetch services error:", err);
@@ -78,7 +80,7 @@ const fetchServices = useCallback(async () => {
 
   const fetchContracts = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/contract/with-usage`);
+      const res = await axios.get(`${API}/api/contract/with-usage`, getAuthConfig());
       setContracts(res.data);
     } catch (err) {
       console.error("Fetch contracts error:", err);
@@ -87,7 +89,7 @@ const fetchServices = useCallback(async () => {
 
   const fetchClients = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/client`);
+      const res = await axios.get(`${API}/api/client`, getAuthConfig());
       setClients(res.data);
     } catch (err) {
       console.error("Fetch clients error:", err);
@@ -141,10 +143,10 @@ const fetchServices = useCallback(async () => {
     e.preventDefault();
     try {
       if (isEdit && selectedContractId) {
-        await axios.put(`${API}/api/contract/${selectedContractId}`, contractForm);
+        await axios.put(`${API}/api/contract/${selectedContractId}`, contractForm, getAuthConfig());
         alert("Contract updated successfully!");
       } else {
-        await axios.post(`${API}/api/contract/new`, contractForm);
+        await axios.post(`${API}/api/contract/new`, contractForm, getAuthConfig());
         alert("Contract created successfully!");
       }
       setContractModalOpen(false);
@@ -170,7 +172,7 @@ const fetchServices = useCallback(async () => {
   const deleteContract = async (id) => {
     if (!window.confirm("Delete this contract?")) return;
     try {
-      await axios.delete(`${API}/api/contract/${id}`);
+      await axios.delete(`${API}/api/contract/${id}`, getAuthConfig());
       fetchContracts();
     } catch (err) { alert("Failed to delete contract"); }
   };
@@ -279,7 +281,7 @@ const fetchServices = useCallback(async () => {
 
   const fetchContractUsage = async (contractId) => {
     try {
-      const res = await axios.get(`${API}/api/contract/usage/${contractId}`);
+      const res = await axios.get(`${API}/api/contract/usage/${contractId}`, getAuthConfig());
       setContractUsage(res.data);
     } catch (err) {
       console.error("Fetch contract usage error:", err);
@@ -328,9 +330,9 @@ const fetchServices = useCallback(async () => {
       };
 
       if (isEdit && selectedServiceId) {
-        await axios.put(`${API}/api/amc/amc-alc/${selectedServiceId}`, payload);
+        await axios.put(`${API}/api/amc/amc-alc/${selectedServiceId}`, payload, getAuthConfig());
       } else {
-        await axios.post(`${API}/api/amc/amc-alc`, payload);
+        await axios.post(`${API}/api/amc/amc-alc`, payload, getAuthConfig());
       }
 
       setOpen(false);
@@ -378,7 +380,7 @@ const fetchServices = useCallback(async () => {
   const deleteService = async (id) => {
     if (!window.confirm("Delete this service record?")) return;
     try {
-      await axios.delete(`${API}/api/amc/amc-alc/${id}`);
+      await axios.delete(`${API}/api/amc/amc-alc/${id}`, getAuthConfig());
       fetchServices();
     } catch (err) {
       alert("Failed to delete service");

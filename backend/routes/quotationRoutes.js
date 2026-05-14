@@ -67,7 +67,7 @@ router.get("/customer-history/:id", verifyToken, (req, res) => {
         OR q.id = (SELECT parent_id FROM quotations WHERE id = ?)
         OR q.parent_id = (SELECT parent_id FROM quotations WHERE id = ? AND parent_id IS NOT NULL)
       )`;
-  
+
   const params = [req.params.id, req.params.id, req.params.id];
   if (role === "employee") {
     sql += " AND q.created_by = ?";
@@ -445,7 +445,7 @@ const nodemailer = require("nodemailer");
 const { generateInvoicePdf } = require("../backendutil/generateInvoicePdf");
 
 // Download PDF directly
-router.get("/download-pdf/:id", async (req, res) => {
+router.get("/download-pdf/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
   const headerSql = `SELECT q.*, c.email, c.customer_name, c.mobile_number, c.location_city, c.gst_number,
     q.quotation_date AS invoice_date, COALESCE(q.from_address_custom, fa.address) AS resolved_from_address
@@ -468,7 +468,7 @@ router.get("/download-pdf/:id", async (req, res) => {
   });
 });
 
-router.post("/send-email/:id", (req, res) => {
+router.post("/send-email/:id", verifyToken, (req, res) => {
   const { id } = req.params;
   const { to, subject } = req.body;
 

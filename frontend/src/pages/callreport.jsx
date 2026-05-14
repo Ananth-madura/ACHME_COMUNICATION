@@ -7,6 +7,8 @@ import socket from "../socket/socket";
 
 const API = "http://localhost:5000";
 
+const getAuthConfig = () => { const token = localStorage.getItem("token"); return { headers: { Authorization: `Bearer ${token}` } }; };
+
 const CallReport = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("contracts");
@@ -88,7 +90,7 @@ const CallReport = () => {
   // Fetch Contracts
   const fetchContracts = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/contract/with-usage`);
+      const res = await axios.get(`${API}/api/contract/with-usage`, getAuthConfig());
       setContracts(res.data);
     } catch (err) { console.error("Fetch contracts error:", err); }
   }, []);
@@ -96,7 +98,7 @@ const CallReport = () => {
   // Fetch Services
   const fetchServices = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/amc/amc-alc`);
+      const res = await axios.get(`${API}/api/amc/amc-alc`, getAuthConfig());
       setServices(res.data);
     } catch (err) { console.error("Fetch services error:", err); }
   }, []);
@@ -104,14 +106,14 @@ const CallReport = () => {
   // Fetch Call Reports
   const fetchReports = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/call-reports`);
+      const res = await axios.get(`${API}/api/call-reports`, getAuthConfig());
       setReports(res.data);
     } catch (err) { console.error(err); }
   }, []);
 
   const fetchPerformance = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/call-reports/performance`);
+      const res = await axios.get(`${API}/api/call-reports/performance`, getAuthConfig());
       setPerformance(res.data);
     } catch (err) { console.error(err); }
   }, []);
@@ -143,7 +145,7 @@ const CallReport = () => {
   const saveContract = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API}/api/contract/new`, contractForm);
+      await axios.post(`${API}/api/contract/new`, contractForm, getAuthConfig());
       alert("Contract created successfully!");
       setContractModalOpen(false);
       setContractForm({
@@ -166,7 +168,7 @@ const CallReport = () => {
   const deleteContract = async (id) => {
     if (!window.confirm("Delete this contract?")) return;
     try {
-      await axios.delete(`${API}/api/contract/${id}`);
+      await axios.delete(`${API}/api/contract/${id}`, getAuthConfig());
       fetchContracts();
     } catch (err) { alert("Failed to delete"); }
   };
@@ -181,7 +183,7 @@ const CallReport = () => {
 
   const fetchServiceContracts = async () => {
     try {
-      const res = await axios.get(`${API}/api/contract/with-usage`);
+      const res = await axios.get(`${API}/api/contract/with-usage`, getAuthConfig());
       setServiceContracts(res.data || []);
     } catch (err) { console.error(err); setServiceContracts([]); }
   };
@@ -206,7 +208,7 @@ const CallReport = () => {
 
   const fetchContractUsageForService = async (contractId) => {
     try {
-      const res = await axios.get(`${API}/api/contract/usage/${contractId}`);
+      const res = await axios.get(`${API}/api/contract/usage/${contractId}`, getAuthConfig());
       setContractUsage(res.data);
     } catch (err) { setContractUsage(null); }
   };
@@ -254,10 +256,10 @@ const CallReport = () => {
         total_expenses: parseFloat(serviceForm.total_expenses) || 0
       };
       if (isEditService && selectedServiceId) {
-        await axios.put(`${API}/api/amc/amc-alc/${selectedServiceId}`, payload);
+        await axios.put(`${API}/api/amc/amc-alc/${selectedServiceId}`, payload, getAuthConfig());
         alert("Service updated!");
       } else {
-        await axios.post(`${API}/api/amc/amc-alc`, payload);
+        await axios.post(`${API}/api/amc/amc-alc`, payload, getAuthConfig());
         alert("Service recorded!");
       }
       setServiceModalOpen(false);
@@ -297,7 +299,7 @@ const CallReport = () => {
   const deleteService = async (id) => {
     if (!window.confirm("Delete this service?")) return;
     try {
-      await axios.delete(`${API}/api/amc/amc-alc/${id}`);
+      await axios.delete(`${API}/api/amc/amc-alc/${id}`, getAuthConfig());
       fetchServices();
     } catch (err) { alert("Failed to delete"); }
   };

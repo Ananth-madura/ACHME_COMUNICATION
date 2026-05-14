@@ -4,6 +4,8 @@ import { Search, Plus, X,Trash2,Edit } from "lucide-react";
 import axios from "axios";
 import { API } from "../config";
 
+const getAuthConfig = () => { const token = localStorage.getItem("token"); return { headers: { Authorization: `Bearer ${token}` } }; };
+
 
 const Estimate = () => {
   const [open, setOpen] = useState(false);
@@ -41,7 +43,7 @@ const Estimate = () => {
 
   const Fetchestimate = async () =>{
      try{
-  const response = await axios.get(`${API}/api/estimate`);
+  const response = await axios.get(`${API}/api/estimate`, getAuthConfig());
   console.log("INVOICES:", response.data); 
     setEstimate(response.data);
   } catch (err) {
@@ -60,7 +62,7 @@ useEffect(() => {
 
     try {
       const res = await axios.get(
-        `${API}/api/estimate-client/search?name=${value}`
+        `${API}/api/estimate-client/search?name=${value}`, getAuthConfig()
       );
       setClientList(res.data);
     } catch (err) {
@@ -115,7 +117,7 @@ useEffect(() => {
         client_firstname: firstname,
         client_lastname: lastname,
         client_email: email,
-      });
+      }, getAuthConfig());
       alert("Client created successfully");
       resetForm();
       return;
@@ -139,7 +141,7 @@ useEffect(() => {
     if (isEdit && selectedEstimateId) {
       await axios.put(
         `${API}/api/estimate/${selectedEstimateId}`,
-        payload
+        payload, getAuthConfig()
       );
       alert("Estimate updated successfully");
     }
@@ -147,7 +149,7 @@ useEffect(() => {
     else {
       await axios.post(
         `${API}/api/estimate/new`,
-        payload
+        payload, getAuthConfig()
       );
       alert("Estimate created successfully");
     }
@@ -180,7 +182,7 @@ useEffect(() => {
     if (!window.confirm("Delete this estimate?")) return;
 
     try {
-      await axios.delete(`${API}/api/estimate/${id}`);
+      await axios.delete(`${API}/api/estimate/${id}`, getAuthConfig());
       alert("Estimate deleted");
       Fetchestimate();
     } catch (err) {

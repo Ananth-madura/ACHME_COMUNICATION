@@ -252,7 +252,7 @@ router.delete("/:id", verifyToken, isAdmin, (req, res) => {
   });
 });
 
-router.get("/dashboard/tasks", (req, res) => {
+router.get("/dashboard/tasks", verifyToken, (req, res) => {
   db.query("SELECT id, task_title, project_status, project_priority, created_date FROM tasks ORDER BY created_date DESC LIMIT 5",
     (err, rows) => { if (err) return res.status(500).json(err); res.json(rows); });
 });
@@ -447,7 +447,7 @@ router.post("/targets/update", verifyToken, (req, res) => {
   );
 });
 
-router.get("/targets/history", (req, res) => {
+router.get("/targets/history", verifyToken, (req, res) => {
   const { user_name, months } = req.query;
   const limit = parseInt(months) || 12;
   db.query(`SELECT a.month_year, a.achieved_count, (SELECT monthly_target FROM task_targets WHERE id = a.target_id) as monthly_target FROM task_achievements a WHERE a.user_name = ? ORDER BY a.month_year DESC LIMIT ?`,
@@ -504,7 +504,7 @@ router.post("/assign", verifyToken, isAdmin, (req, res) => {
   }
 });
 
-router.get("/assigned/:user_name", (req, res) => {
+router.get("/assigned/:user_name", verifyToken, (req, res) => {
   const { user_name } = req.params;
   const { status } = req.query;
   let sql = `SELECT ta.*, t.task_title, t.project_name, t.client_name, t.created_date FROM task_assignments ta JOIN tasks t ON ta.task_id = t.id WHERE ta.assigned_to_user_name = ?`;
@@ -514,7 +514,7 @@ router.get("/assigned/:user_name", (req, res) => {
   db.query(sql, params, (err, rows) => { if (err) return res.status(500).json({ error: err.message }); res.json(rows); });
 });
 
-router.put("/assignment/:id/respond", (req, res) => {
+router.put("/assignment/:id/respond", verifyToken, (req, res) => {
   const { action, notes } = req.body;
   if (!['accept', 'decline'].includes(action)) return res.status(400).json({ error: "Invalid action. Use 'accept' or 'decline'" });
   const newStatus = action === "accept" ? "Accepted" : "Declined";
@@ -540,7 +540,7 @@ router.put("/assignment/:id/respond", (req, res) => {
   );
 });
 
-router.put("/assignment/:id/status", (req, res) => {
+router.put("/assignment/:id/status", verifyToken, (req, res) => {
   const { status } = req.body;
   if (!['Pending', 'In Progress', 'Completed'].includes(status)) return res.status(400).json({ error: "Invalid status" });
   db.query("SELECT ta.task_id, ta.assigned_to_user_name, ta.assigned_to_user_id, ta.status as old_status, t.task_title FROM task_assignments ta LEFT JOIN tasks t ON t.id = ta.task_id WHERE ta.id = ?",
@@ -616,14 +616,14 @@ router.get("/notifications", verifyToken, (req, res) => {
   db.query(sql, params, (err, rows) => { if (err) return res.status(500).json(err); res.json(rows); });
 });
 
-router.put("/notifications/:id/read", (req, res) => {
+router.put("/notifications/:id/read", verifyToken, (req, res) => {
   db.query("UPDATE notifications SET is_read = 1 WHERE id = ?",
     [req.params.id],
     (err) => { if (err) return res.status(500).json(err); res.json({ success: true }); }
   );
 });
 
-router.get("/activity", (req, res) => {
+router.get("/activity", verifyToken, (req, res) => {
   db.query("SELECT * FROM task_activity ORDER BY created_at DESC LIMIT 10",
     (err, rows) => { if (err) return res.status(500).json(err); res.json(rows); });
 });

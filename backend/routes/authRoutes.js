@@ -26,7 +26,7 @@ const fieldLabels = {
 };
 
 /* ================= GET ALL USERS (for admin) ================= */
-router.get("/users", (req, res) => {
+router.get("/users", verifyToken, (req, res) => {
   db.query(`SELECT id, first_name, email, role, status, emp_id, created_at FROM users ORDER BY created_at DESC`, (err, rows) => {
     if (err) return res.status(500).json({ message: "Failed to fetch users" });
     res.json({ users: rows });

@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 /* ================= AMC/ALC SERVICE MANAGEMENT ================= */
 
 /* CREATE AMC/ALC SERVICE */
-router.post("/amc-alc", (req, res) => {
+router.post("/amc-alc", verifyToken, (req, res) => {
   const {
     contract_id,
     service_type, // 'AMC' or 'ALC'
@@ -58,7 +59,7 @@ router.post("/amc-alc", (req, res) => {
 });
 
 /* GET AMC/ALC SERVICES FOR CONTRACT */
-router.get("/amc-alc/:contract_id", (req, res) => {
+router.get("/amc-alc/:contract_id", verifyToken, (req, res) => {
   const { contract_id } = req.params;
 
   db.query(
@@ -72,7 +73,7 @@ router.get("/amc-alc/:contract_id", (req, res) => {
 });
 
 /* GET ALL AMC/ALC SERVICES */
-router.get("/amc-alc", (req, res) => {
+router.get("/amc-alc", verifyToken, (req, res) => {
   const { service_type, status } = req.query;
 
   let sql = "SELECT s.*, c.contract_title, c.client_company FROM amc_alc_services s JOIN contracts c ON s.contract_id = c.id";
@@ -97,7 +98,7 @@ router.get("/amc-alc", (req, res) => {
 });
 
 /* UPDATE AMC/ALC SERVICE */
-router.put("/amc-alc/:id", (req, res) => {
+router.put("/amc-alc/:id", verifyToken, (req, res) => {
   const { id } = req.params;
   const {
     service_type,
@@ -157,7 +158,7 @@ router.put("/amc-alc/:id", (req, res) => {
 });
 
 /* DELETE AMC/ALC SERVICE */
-router.delete("/amc-alc/:id", (req, res) => {
+router.delete("/amc-alc/:id", verifyToken, (req, res) => {
   db.query("DELETE FROM amc_alc_services WHERE id = ?", [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ message: "Service deleted" });
@@ -167,7 +168,7 @@ router.delete("/amc-alc/:id", (req, res) => {
 /* ================= SERVICE EXPENSES REPORT ================= */
 
 /* GET EXPENSES REPORT */
-router.get("/expenses", (req, res) => {
+router.get("/expenses", verifyToken, (req, res) => {
   const { start_date, end_date, service_type } = req.query;
 
   let sql = `
@@ -209,7 +210,7 @@ router.get("/expenses", (req, res) => {
 });
 
 /* GET SERVICE PERSON PERFORMANCE */
-router.get("/person-performance", (req, res) => {
+router.get("/person-performance", verifyToken, (req, res) => {
   const { start_date, end_date } = req.query;
 
   let sql = `
@@ -245,7 +246,7 @@ router.get("/person-performance", (req, res) => {
 });
 
 /* ================= SERVICE ACTIVITY LOG ================= */
-router.get("/activity", (req, res) => {
+router.get("/activity", verifyToken, (req, res) => {
   db.query(
     "SELECT * FROM service_activity ORDER BY created_at DESC LIMIT 50",
     (err, rows) => {

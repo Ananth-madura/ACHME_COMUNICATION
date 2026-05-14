@@ -98,6 +98,8 @@ const EstimateInvoice = () => {
   const [historySearch, setHistorySearch] = useState("");
   const [historyRootId, setHistoryRootId] = useState(null);
   const [historySelectedId, setHistorySelectedId] = useState(null);
+  const [clientSearchResults, setClientSearchResults] = useState([]);
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
 
   const formatEINumber = (id, dateStr) => {
     const year = dateStr ? new Date(dateStr).getFullYear() : new Date().getFullYear();
@@ -110,23 +112,28 @@ const EstimateInvoice = () => {
     fetchFromAddresses();
   }, []);
 
+  const getAuthConfig = () => {
+    const token = localStorage.getItem("token");
+    return { headers: { Authorization: `Bearer ${token}` } };
+  };
+
   const fetchEstimateInvoices = async () => {
-    try { const res = await axios.get(`${API}/api/estimate-invoice`); setEstimateInvoices(res.data); }
+    try { const res = await axios.get(`${API}/api/estimate-invoice`, getAuthConfig()); setEstimateInvoices(res.data); }
     catch (err) { console.error(err); }
   };
   const fetchQuotations = async () => {
-    try { const res = await axios.get(`${API}/api/quotations`); setQuotations(res.data); }
+    try { const res = await axios.get(`${API}/api/quotations`, getAuthConfig()); setQuotations(res.data); }
     catch (err) { console.error(err); }
   };
   const fetchFromAddresses = async () => {
-    try { const res = await axios.get(`${API}/api/estimate-invoice/from-addresses`); setFromAddresses(res.data); }
+    try { const res = await axios.get(`${API}/api/estimate-invoice/from-addresses`, getAuthConfig()); setFromAddresses(res.data); }
     catch (err) { console.error(err); }
   };
 
   const openHistory = async (e, invoiceId, customerName, parentId) => {
     e.stopPropagation();
     try {
-      const res = await axios.get(`${API}/api/estimate-invoice/version-history/${invoiceId}`);
+      const res = await axios.get(`${API}/api/estimate-invoice/version-history/${invoiceId}`, getAuthConfig());
       setHistoryList(res.data);
       setHistoryCustomerName(customerName);
       setHistorySearch(""); setHistorySelectedId(null);
@@ -139,7 +146,7 @@ const EstimateInvoice = () => {
     e.stopPropagation();
     if (!window.confirm("Delete this version?")) return;
     try {
-      await axios.delete(`${API}/api/estimate-invoice/${id}`);
+      await axios.delete(`${API}/api/estimate-invoice/${id}`, getAuthConfig());
       setHistoryList(prev => prev.filter(q => q.id !== id));
     } catch (err) { alert("Failed to delete"); }
   };
@@ -149,10 +156,40 @@ const EstimateInvoice = () => {
     return `EI-${year}-${String(rootId).padStart(3, "0")}-${version}`;
   };
 
+  const handleClientSearch = async (val) => {
+    if (val.length < 2) { setClientSearchResults([]); setClientSearchOpen(false); return; }
+    try {
+      const res = await axios.get(`${API}/api/client/search?name=${encodeURIComponent(val)}`, getAuthConfig());
+      setClientSearchResults(res.data);
+      setClientSearchOpen(true);
+    } catch(e) { console.error(e); }
+  };
+
+  const handleSelectClient = (client) => {
+    setCustomer({
+      customer_name: client.name || "",
+      mobile_number: client.phone || "",
+      email: client.email || client.lead_email || "",
+      gst_number: client.gst_number || "",
+      location_city: client.lead_city || client.city || client.location_city || ""
+    });
+    setExtra(ex => ({
+      ...ex,
+      client_company: client.company_name || "",
+      client_address1: client.address || "",
+      client_address2: "",
+      client_city: client.lead_city || client.city || "",
+      client_state: client.state || "",
+      client_pincode: client.pincode || "",
+      client_country: "India"
+    }));
+    setClientSearchResults([]); setClientSearchOpen(false);
+  };
+
   const handleAddAddress = async () => {
     if (!newAddrLabel || !newAddrText) return alert("Label and address required");
     try {
-      const res = await axios.post(`${API}/api/estimate-invoice/from-addresses`, { label: newAddrLabel, address: newAddrText });
+      const res = await axios.post(`${API}/api/estimate-invoice/from-addresses`, { label: newAddrLabel, address: newAddrText }, getAuthConfig());
       setFromAddresses(prev => [...prev, res.data]);
       setNewAddrLabel(""); setNewAddrText(""); setShowAddAddress(false);
     } catch (err) { alert("Failed to add address"); }
@@ -161,7 +198,7 @@ const EstimateInvoice = () => {
   const handleDeleteAddress = async (id) => {
     if (!window.confirm("Remove this address?")) return;
     try {
-      await axios.delete(`${API}/api/estimate-invoice/from-addresses/${id}`);
+      await axios.delete(`${API}/api/estimate-invoice/from-addresses/${id}`, getAuthConfig());
       setFromAddresses(prev => prev.filter(a => a.id !== id));
       if (extra.from_address_id === id) setExtra(e => ({ ...e, from_address_id: "" }));
     } catch (err) { alert("Failed to delete address"); }
@@ -170,7 +207,7 @@ const EstimateInvoice = () => {
   const handleSelectProposal = async (proposalId) => {
     if (!proposalId) return;
     try {
-      const res = await axios.get(`${API}/api/quotations/${proposalId}`);
+      const res = await axios.get(`${API}/api/quotations/${proposalId}`, getAuthConfig());
       const rows = res.data;
       if (rows.length > 0) {
         const h = rows[0];
@@ -198,7 +235,7 @@ const EstimateInvoice = () => {
   };
 
   const handleEdit = async (id) => {
-    const res = await axios.get(`${API}/api/estimate-invoice/${id}`);
+    const res = await axios.get(`${API}/api/estimate-invoice/${id}`, getAuthConfig());
     const rows = res.data;
     const h = rows[0];
     setCustomer({ customer_name: h.customer_name, mobile_number: h.mobile_number, email: h.email, gst_number: h.gst_number || "", location_city: h.location_city });
@@ -285,10 +322,10 @@ const EstimateInvoice = () => {
         extra,
       };
       if (editId) {
-        await axios.put(`${API}/api/estimate-invoice/${editId}`, payload);
+        await axios.put(`${API}/api/estimate-invoice/${editId}`, payload, getAuthConfig());
         alert("Updated successfully");
       } else {
-        await axios.post(`${API}/api/estimate-invoice/create`, payload);
+        await axios.post(`${API}/api/estimate-invoice/create`, payload, getAuthConfig());
         alert("Created successfully");
       }
       setOpen(false); resetForm(); fetchEstimateInvoices();
@@ -327,7 +364,7 @@ const EstimateInvoice = () => {
     if (!selectedId) return alert("Select an item to delete");
     if (!window.confirm("Are you sure?")) return;
     try {
-      await axios.delete(`${API}/api/estimate-invoice/${selectedId}`);
+      await axios.delete(`${API}/api/estimate-invoice/${selectedId}`, getAuthConfig());
       setSelectedId(null); fetchEstimateInvoices();
     } catch (error) { console.error(error); }
   };
@@ -344,7 +381,7 @@ const EstimateInvoice = () => {
     if (!mailTo) return alert("Please enter recipient email");
     setMailSending(true);
     try {
-      await axios.post(`${API}/api/estimate-invoice/send-email/${selectedId}`, { to: mailTo, subject: mailSubject });
+      await axios.post(`${API}/api/estimate-invoice/send-email/${selectedId}`, { to: mailTo, subject: mailSubject }, getAuthConfig());
       alert("Email sent successfully"); setMailOpen(false);
     } catch (error) { alert(error.response?.data?.message || "Failed to send email"); }
     finally { setMailSending(false); }
@@ -387,7 +424,7 @@ const EstimateInvoice = () => {
               const id = viewId || selectedId;
               if (!id) return alert("Select an invoice first");
               try {
-                const res = await fetch(`${API}/api/estimate-invoice/download-pdf/${id}`);
+                const res = await fetch(`${API}/api/estimate-invoice/download-pdf/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a"); a.href = url;
@@ -599,7 +636,32 @@ const EstimateInvoice = () => {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-bold text-gray-500 uppercase">Customer Name *</label>
-                <input type="text" value={customer.customer_name} onChange={e => { if (!/[0-9]/.test(e.nativeEvent.data)) setCustomer({ ...customer, customer_name: e.target.value }); }} placeholder="e.g. Ravi Kumar" className="border rounded-lg px-3 py-2 outline-none text-sm" required />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customer.customer_name}
+                    onChange={e => {
+                      setCustomer({ ...customer, customer_name: e.target.value });
+                      handleClientSearch(e.target.value);
+                    }}
+                    onFocus={e => { if (customer.customer_name.length >= 2) setClientSearchOpen(true); }}
+                    onBlur={() => setTimeout(() => setClientSearchOpen(false), 300)}
+                    placeholder="Type to search client..."
+                    className="border rounded-lg px-3 py-2 outline-none text-sm w-full"
+                    required
+                  />
+                  {clientSearchOpen && clientSearchResults.length > 0 && (
+                    <div className="absolute z-50 bg-white border rounded-xl shadow-2xl mt-1 w-full max-h-60 overflow-y-auto">
+                      {clientSearchResults.map(c => (
+                        <button key={c.id} type="button" onMouseDown={() => handleSelectClient(c)}
+                          className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b last:border-b-0 transition">
+                          <div className="font-bold text-sm text-gray-800">{c.name}</div>
+                          <div className="text-xs text-gray-500">{c.company_name || "—"} | {c.phone || "No phone"}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-bold text-gray-500 uppercase">Mobile Number *</label>

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
+const { verifyToken } = require("../middleware/authMiddleware");
 const multer = require("multer");
 const path = require("path");
 
@@ -20,7 +21,7 @@ const upload = multer({
 });
 
 // GET ALL SERVICES
-router.get("/", (req, res) => {
+router.get("/", verifyToken, (req, res) => {
   const sql = "SELECT * FROM services ORDER BY created_at DESC";
   db.query(sql, (err, rows) => {
     if (err) return res.status(500).json(err);
@@ -29,7 +30,7 @@ router.get("/", (req, res) => {
 });
 
 // CREATE SERVICE (WITH IMAGES)
-router.post("/", upload.array("images", 10), (req, res) => {
+router.post("/", upload.array("images", 10), verifyToken, (req, res) => {
   const { client, material, warranty, amc, date, issues } = req.body;
   const imageFiles = req.files.map((file) => file.filename);
 
@@ -54,7 +55,7 @@ router.post("/", upload.array("images", 10), (req, res) => {
 });
 
 // DELETE SERVICE
-router.delete("/:id", (req, res) => {
+router.delete("/:id", verifyToken, (req, res) => {
   const sql = "DELETE FROM services WHERE id = ?";
   db.query(sql, [req.params.id], (err, result) => {
     if (err) return res.status(500).json(err);
@@ -63,7 +64,7 @@ router.delete("/:id", (req, res) => {
 });
 
 // UPDATE SERVICE
-router.put("/:id", upload.array("images", 10), (req, res) => {
+router.put("/:id", upload.array("images", 10), verifyToken, (req, res) => {
   const { client, material, warranty, amc, date, issues } = req.body;
   let sql, values;
 

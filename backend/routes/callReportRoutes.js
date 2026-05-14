@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 // GET all call reports (with optional date filter)
-router.get("/", (req, res) => {
+router.get("/", verifyToken, (req, res) => {
   const { from, to } = req.query;
   let sql = "SELECT * FROM call_reports";
   const params = [];
@@ -25,7 +26,7 @@ router.get("/", (req, res) => {
 });
 
 // GET reports by session
-router.get("/session/:sessionId", (req, res) => {
+router.get("/session/:sessionId", verifyToken, (req, res) => {
   if (req.params.sessionId.startsWith("NOSESS-")) {
     const id = req.params.sessionId.split("-")[1];
     db.query("SELECT * FROM call_reports WHERE id = ?", [id], (err, results) => {
@@ -45,7 +46,7 @@ router.get("/session/:sessionId", (req, res) => {
 });
 
 // GET staff performance stats
-router.get("/performance", (req, res) => {
+router.get("/performance", verifyToken, (req, res) => {
   const sql = `
     SELECT 
       staff_name,
@@ -64,7 +65,7 @@ router.get("/performance", (req, res) => {
 });
 
 // POST — create or update session
-router.post("/", (req, res) => {
+router.post("/", verifyToken, (req, res) => {
   const calls = Array.isArray(req.body) ? req.body : [req.body];
   if (calls.length === 0) return res.status(400).json({ error: "No data provided" });
 
@@ -130,7 +131,7 @@ router.post("/", (req, res) => {
 });
 
 // DELETE call report
-router.delete("/:id", (req, res) => {
+router.delete("/:id", verifyToken, (req, res) => {
   db.query("DELETE FROM call_reports WHERE id = ?", [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ message: "Deleted" });

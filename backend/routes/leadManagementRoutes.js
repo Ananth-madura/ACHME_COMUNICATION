@@ -28,7 +28,7 @@ const notifyMissedLead = (lead, req) => {
 // ── REMINDERS ──────────────────────────────────────────────────────────────
 
 // GET all reminders for a lead
-router.get("/reminders/:leadType/:leadId", (req, res) => {
+router.get("/reminders/:leadType/:leadId", verifyToken, (req, res) => {
   db.query(
     "SELECT * FROM lead_reminders WHERE lead_id=? AND lead_type=? ORDER BY reminder_date ASC, id DESC",
     [req.params.leadId, req.params.leadType],
@@ -40,7 +40,7 @@ router.get("/reminders/:leadType/:leadId", (req, res) => {
 });
 
 // POST add a reminder
-router.post("/reminders", (req, res) => {
+router.post("/reminders", verifyToken, (req, res) => {
   const { lead_id, lead_type, reminder_date, reminder_time, reminder_notes, employee_id } = req.body;
   db.query(
     "INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_time, reminder_notes, status, employee_id) VALUES (?,?,?,?,?,'Pending',?)",
@@ -58,7 +58,7 @@ router.post("/reminders", (req, res) => {
 });
 
 // PUT update reminder status
-router.put("/reminders/:id", (req, res) => {
+router.put("/reminders/:id", verifyToken, (req, res) => {
   const { status } = req.body;
   db.query("UPDATE lead_reminders SET status=? WHERE id=?", [status, req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -67,7 +67,7 @@ router.put("/reminders/:id", (req, res) => {
 });
 
 // DELETE reminder
-router.delete("/reminders/:id", (req, res) => {
+router.delete("/reminders/:id", verifyToken, (req, res) => {
   db.query("DELETE FROM lead_reminders WHERE id=?", [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ message: "Deleted" });
@@ -77,7 +77,7 @@ router.delete("/reminders/:id", (req, res) => {
 // ── MARK MISSED & ESCALATION CHECK ────────────────────────────────────────
 
 // POST check and mark overdue reminders as Missed, trigger escalation if needed
-router.post("/check-missed", (req, res) => {
+router.post("/check-missed", verifyToken, (req, res) => {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const currentTime = now.toTimeString().slice(0, 8); // HH:MM:SS
@@ -155,7 +155,7 @@ router.post("/check-missed", (req, res) => {
 // ── ESCALATIONS ────────────────────────────────────────────────────────────
 
 // GET all open escalations (admin only)
-router.get("/escalations", (req, res) => {
+router.get("/escalations", verifyToken, (req, res) => {
   const { status } = req.query;
   let sql = `
     SELECT e.*, tm.first_name as employee_name, tm.emp_role
@@ -178,7 +178,7 @@ router.get("/escalations", (req, res) => {
 });
 
 // PUT resolve escalation
-router.put("/escalations/:id/resolve", (req, res) => {
+router.put("/escalations/:id/resolve", verifyToken, (req, res) => {
   db.query("SELECT * FROM lead_escalations WHERE id=?", [req.params.id], (err, rows) => {
     if (err || rows.length === 0) return res.status(404).json({ message: "Not found" });
     const escalation = rows[0];
@@ -213,7 +213,7 @@ router.put("/escalations/:id/resolve", (req, res) => {
 // ── ACTIVITY LOG ───────────────────────────────────────────────────────────
 
 // GET activity log for a lead
-router.get("/activity/:leadType/:leadId", (req, res) => {
+router.get("/activity/:leadType/:leadId", verifyToken, (req, res) => {
   db.query(
     "SELECT * FROM lead_activity WHERE lead_id=? AND lead_type=? ORDER BY created_at DESC",
     [req.params.leadId, req.params.leadType],
@@ -225,7 +225,7 @@ router.get("/activity/:leadType/:leadId", (req, res) => {
 });
 
 // POST log activity
-router.post("/activity", (req, res) => {
+router.post("/activity", verifyToken, (req, res) => {
   const { lead_id, lead_type, action, details, employee_id } = req.body;
   db.query(
     "INSERT INTO lead_activity (lead_id, lead_type, employee_id, action, details) VALUES (?,?,?,?,?)",
@@ -240,7 +240,7 @@ router.post("/activity", (req, res) => {
 // ── DASHBOARD NOTIFICATIONS ────────────────────────────────────────────────
 
 // GET notification summary for dashboard
-router.get("/notifications", (req, res) => {
+router.get("/notifications", verifyToken, (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const sql = `
     SELECT
@@ -256,7 +256,7 @@ router.get("/notifications", (req, res) => {
 });
 
 // GET missed reminder count per lead (for table badge)
-router.get("/missed-counts/:leadType", (req, res) => {
+router.get("/missed-counts/:leadType", verifyToken, (req, res) => {
   db.query(
     "SELECT lead_id, COUNT(*) as missed_count FROM lead_reminders WHERE lead_type=? AND status='Missed' GROUP BY lead_id",
     [req.params.leadType],
@@ -375,7 +375,7 @@ router.put("/telecall/:id", verifyToken, (req, res) => {
 });
 
 // PUT convert walkin
-router.put("/walkin/:id", (req, res) => {
+router.put("/walkin/:id", verifyToken, (req, res) => {
   const { walkin_status } = req.body;
   db.query(
     "UPDATE Walkins SET walkin_status=? WHERE id=?",
@@ -439,7 +439,7 @@ router.put("/field/:id", verifyToken, (req, res) => {
 });
 
 // GET converted leads list
-router.get("/converted", (req, res) => {
+router.get("/converted", verifyToken, (req, res) => {
   const sql = `
     SELECT c.*, 
            u.first_name as creator_name,

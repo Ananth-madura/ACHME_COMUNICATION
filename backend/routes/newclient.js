@@ -6,7 +6,9 @@ const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 /* SEARCH CLIENT */
 router.get("/search", verifyToken, (req, res) => {
   const search = `%${req.query.name || ""}%`;
-  let sql = "SELECT id, name, company_name FROM clients WHERE (name LIKE ? OR company_name LIKE ?)";
+  let sql = `SELECT id, name, company_name, phone, email, gst_number,
+              address, lead_city, city, state, location_city, pincode
+              FROM clients WHERE (name LIKE ? OR company_name LIKE ?)`;
   const params = [search, search];
 
   if (req.user.role === "employee") {

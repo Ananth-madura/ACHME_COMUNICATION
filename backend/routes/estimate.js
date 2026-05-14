@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 /* CREATE ESTIMATE */
-router.post("/new", (req, res) => {
+router.post("/new", verifyToken, (req, res) => {
   const {
     client_company,
     project_names,
@@ -36,7 +37,7 @@ router.post("/new", (req, res) => {
 });
 
 /* FETCH */
-router.get("/", (req, res) => {
+router.get("/", verifyToken, (req, res) => {
   db.query("SELECT * FROM estimateclient ORDER BY id DESC", (err, rows) => {
     if (err) return res.status(500).json(err);
     res.json(rows);
@@ -44,7 +45,7 @@ router.get("/", (req, res) => {
 });
 
 /* UPDATE */
-router.put("/:id", (req, res) => {
+router.put("/:id", verifyToken, (req, res) => {
   const { id } = req.params;
   const {
     client_company,
@@ -71,7 +72,7 @@ router.put("/:id", (req, res) => {
 });
 
 /* DELETE */
-router.delete("/:id", (req, res) => {
+router.delete("/:id", verifyToken, (req, res) => {
   db.query("DELETE FROM estimateclient WHERE id=?", [req.params.id], (err) => {
     if (err) return res.status(500).json(err);
     res.json({ message: "Deleted" });

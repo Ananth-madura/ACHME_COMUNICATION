@@ -13,13 +13,13 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
   const router = express.Router();
 
   // ── FROM ADDRESSES (shared via pi_from_addresses) ──────────────────────────
-  router.get("/from-addresses", (req, res) => {
+  router.get("/from-addresses", verifyToken, (req, res) => {
     db.query("SELECT * FROM pi_from_addresses ORDER BY id ASC", (err, rows) => {
       if (err) return res.status(500).json(err);
       res.json(rows);
     });
   });
-  router.post("/from-addresses", (req, res) => {
+  router.post("/from-addresses", verifyToken, (req, res) => {
     const { label: lbl, address } = req.body;
     if (!lbl || !address) return res.status(400).json({ message: "Label and address required" });
     db.query("INSERT INTO pi_from_addresses (label, address) VALUES (?,?)", [lbl, address], (err, result) => {
@@ -27,7 +27,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
       res.json({ id: result.insertId, label: lbl, address });
     });
   });
-  router.delete("/from-addresses/:id", (req, res) => {
+  router.delete("/from-addresses/:id", verifyToken, (req, res) => {
     db.query("DELETE FROM pi_from_addresses WHERE id=?", [req.params.id], (err) => {
       if (err) return res.status(500).json(err);
       res.json({ message: "Deleted" });
@@ -160,7 +160,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
 
   // ── UPDATE ─────────────────────────────────────────────────────────────────
   // ── VERSION HISTORY ────────────────────────────────────────────────────────
-  router.get("/version-history/:id", (req, res) => {
+  router.get("/version-history/:id", verifyToken, (req, res) => {
     const sql = `
       SELECT t.id, t.${dateField} AS invoice_date, t.grand_total, t.version, t.is_latest, t.parent_id,
              c.customer_name, c.mobile_number, c.email,
@@ -281,7 +281,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
   // ── SEND EMAIL ─────────────────────────────────────────────────────────────
 
   // ── DOWNLOAD PDF ───────────────────────────────────────────────────────────
-  router.get("/download-pdf/:id", async (req, res) => {
+  router.get("/download-pdf/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
     const headerSql = `SELECT t.*, c.email, c.customer_name, c.mobile_number, c.location_city, c.gst_number,
       t.${dateField} AS invoice_date, COALESCE(t.from_address_custom, fa.address) AS resolved_from_address
@@ -305,7 +305,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
       });
     });
   });
-  router.post("/send-email/:id", (req, res) => {
+  router.post("/send-email/:id", verifyToken, (req, res) => {
     const { id } = req.params;
     const { to, subject } = req.body;
     const headerSql = `

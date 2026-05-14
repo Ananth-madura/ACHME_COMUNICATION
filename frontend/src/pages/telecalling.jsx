@@ -11,6 +11,7 @@ import { API } from "../config";
 const Telecall = () =>{
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const getAuthConfig = () => { const token = localStorage.getItem("token"); return { headers: { Authorization: `Bearer ${token}` } }; };
      const [outcomeOpen, setOutcomeOpen] = useState(false);
      const [showMoreDetails, setShowMoreDetails] = useState(false);
     const [remainderDetails, setRemainderDetails] = useState(false);
@@ -111,7 +112,7 @@ const formatReminderDate = (dateStr) => {
 
   const fetchMissedCounts = async () => {
     try {
-      const res = await axios.get(`${API}/api/leads/missed-counts/telecall`);
+      const res = await axios.get(`${API}/api/leads/missed-counts/telecall`, getAuthConfig());
       const map = {};
       res.data.forEach(r => { map[r.lead_id] = r.missed_count; });
       setMissedCounts(map);
@@ -121,15 +122,15 @@ const formatReminderDate = (dateStr) => {
   useEffect(() => {
     fetchTelecalls();
     fetchMissedCounts();
-    axios.get(`${API}/api/teammember`).then(r => setTeamMembers(r.data)).catch(() => {});
+    axios.get(`${API}/api/teammember`, getAuthConfig()).then(r => setTeamMembers(r.data)).catch(() => {});
   }, []);
 
   const openHistory = async (lead) => {
     setHistoryLead(lead);
     try {
       const [actRes, remRes] = await Promise.all([
-        axios.get(`${API}/api/leads/activity/telecall/${lead.id}`),
-        axios.get(`${API}/api/leads/reminders/telecall/${lead.id}`),
+        axios.get(`${API}/api/leads/activity/telecall/${lead.id}`, getAuthConfig()),
+        axios.get(`${API}/api/leads/reminders/telecall/${lead.id}`, getAuthConfig()),
       ]);
       setHistoryActivity(actRes.data);
       setHistoryReminders(remRes.data);
@@ -143,8 +144,8 @@ const formatReminderDate = (dateStr) => {
     setNewReminderDate(""); setNewReminderTime(""); setNewReminderNote("");
     try {
       // Check for missed reminders before showing panel so status is always current
-      await axios.post(`${API}/api/leads/check-missed`).catch(() => {});
-      const res = await axios.get(`${API}/api/leads/reminders/telecall/${lead.id}`);
+      await axios.post(`${API}/api/leads/check-missed`, {}, getAuthConfig()).catch(() => {});
+      const res = await axios.get(`${API}/api/leads/reminders/telecall/${lead.id}`, getAuthConfig());
       setLeadReminders(res.data);
     } catch (_) { setLeadReminders([]); }
     setReminderOpen(true);
@@ -157,8 +158,8 @@ const formatReminderDate = (dateStr) => {
         lead_id: reminderLeadId, lead_type: "telecall",
         reminder_date: newReminderDate, reminder_time: newReminderTime || null,
         reminder_notes: newReminderNote,
-      });
-      const res = await axios.get(`${API}/api/leads/reminders/telecall/${reminderLeadId}`);
+      }, getAuthConfig());
+      const res = await axios.get(`${API}/api/leads/reminders/telecall/${reminderLeadId}`, getAuthConfig());
       setLeadReminders(res.data);
       fetchMissedCounts();
       setNewReminderDate(""); setNewReminderTime(""); setNewReminderNote("");
@@ -166,7 +167,7 @@ const formatReminderDate = (dateStr) => {
   };
 
   const deleteReminder = async (id) => {
-    await axios.delete(`${API}/api/leads/reminders/${id}`);
+    await axios.delete(`${API}/api/leads/reminders/${id}`, getAuthConfig());
     setLeadReminders(prev => prev.filter(r => r.id !== id));
     fetchMissedCounts();
   };
@@ -191,7 +192,7 @@ const saveTelecall = async (e) => {
 
   try {
     if (isEdit) {
-      await axios.put(`${API}/api/Telecalls/${editId}`, payload);
+      await axios.put(`${API}/api/Telecalls/${editId}`, payload, getAuthConfig());
       alert("Successfully Updated");
       setForm(prev => ({
         ...prev,
@@ -203,7 +204,7 @@ const saveTelecall = async (e) => {
         reminder_notes: "",
       }));
     } else {
-      await axios.post(`${API}/api/Telecalls`, payload);
+      await axios.post(`${API}/api/Telecalls`, payload, getAuthConfig());
       alert("Successfully Created");
     }
 
@@ -221,7 +222,7 @@ const saveTelecall = async (e) => {
 // Edit;
  const openEdit = async (id) => {
   try {
-    const res = await axios.get(`${API}/api/Telecalls/${id}`);
+    const res = await axios.get(`${API}/api/Telecalls/${id}`, getAuthConfig());
     const data = res.data;
 
     setForm({
@@ -257,7 +258,7 @@ const saveTelecall = async (e) => {
 
  const deletefield = async (id) => {
   try {
-    await axios.delete(`${API}/api/Telecalls/${id}`);
+    await axios.delete(`${API}/api/Telecalls/${id}`, getAuthConfig());
     fetchTelecalls();
       window.dispatchEvent(new Event("refresh-dashboard")); 
 
@@ -638,7 +639,7 @@ onClick={async () => {
                      }
                      if (!window.confirm(`Convert "${T.customer_name}" to Client?`)) return;
                      try {
-                       await axios.put(`${API}/api/leads/telecall/${T.id}`, { call_outcome: "Converted" });
+                       await axios.put(`${API}/api/leads/telecall/${T.id}`, { call_outcome: "Converted" }, getAuthConfig());
                        alert("Lead converted to Client successfully!");
                        fetchTelecalls();
                        window.dispatchEvent(new Event("refresh-clients"));
@@ -816,7 +817,7 @@ onClick={async () => {
                  <div className="flex items-center gap-2">
                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.status === "Missed" ? "bg-red-600 text-white" : r.status === "Done" ? "bg-green-600 text-white" : "bg-blue-600 text-white"}`}>{r.status}</span>
                    {r.status === "Pending" && (
-                     <button onClick={() => { axios.put(`${API}/api/leads/reminders/${r.id}`, { status: "Done" }); setLeadReminders(prev => prev.map(x => x.id === r.id ? {...x, status: "Done"} : x)); }} className="text-xs bg-green-600 text-white px-2 py-0.5 rounded font-bold">Done</button>
+                     <button onClick={() => { axios.put(`${API}/api/leads/reminders/${r.id}`, { status: "Done" }, getAuthConfig()); setLeadReminders(prev => prev.map(x => x.id === r.id ? {...x, status: "Done"} : x)); }} className="text-xs bg-green-600 text-white px-2 py-0.5 rounded font-bold">Done</button>
                    )}
                    <button onClick={() => deleteReminder(r.id)} className="text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
                  </div>

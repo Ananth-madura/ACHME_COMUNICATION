@@ -6,6 +6,7 @@ import axios from "axios";
 import { API } from "../config";
 
 const Payments = () =>{
+  const getAuthConfig = () => { const token = localStorage.getItem("token"); return { headers: { Authorization: `Bearer ${token}` } }; };
      const [open, setOpen] = useState(false);
        const tabopen = () => {
           resetForm();
@@ -34,7 +35,7 @@ const Payments = () =>{
   // Fetch Payments
  const fetchPayment = async () => {
     try {
-      const res = await axios.get(`${API}/api/payments`);
+      const res = await axios.get(`${API}/api/payments`, getAuthConfig());
       console.log("PAYMENTS:", res.data);
       setPayment(res.data);
     } catch (err) {
@@ -89,10 +90,10 @@ useEffect(() => {
 
   try {
     if (isEdit) {
-      await axios.put(`${API}/api/payments/${selectedPaymentId}`, payload);
+      await axios.put(`${API}/api/payments/${selectedPaymentId}`, payload, getAuthConfig());
       alert("Edited Successfully");
     } else {
-      await axios.post(`${API}/api/payments/new`, payload);
+      await axios.post(`${API}/api/payments/new`, payload, getAuthConfig());
       alert("Payments Created Successfully");
     }
     fetchPayment();
@@ -144,7 +145,7 @@ const deletePayment = async (id) => {
   if (!window.confirm("Are you sure you want to delete this payment?")) return;
 
   try {
-    await axios.delete(`${API}/api/payments/${id}`);
+    await axios.delete(`${API}/api/payments/${id}`, getAuthConfig());
     fetchPayment();
   } catch (err) {
     console.error("DELETE ERROR:", err);

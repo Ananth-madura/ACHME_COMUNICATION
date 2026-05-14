@@ -91,14 +91,14 @@ router.get("/:id", verifyToken, (req, res) => {
 });
 
 /* ================= FROM ADDRESSES API ================= */
-router.get("/from-addresses", (req, res) => {
+router.get("/from-addresses", verifyToken, (req, res) => {
   db.query("SELECT * FROM pi_from_addresses ORDER BY id ASC", (err, rows) => {
     if (err) return res.status(500).json(err);
     res.json(rows);
   });
 });
 
-router.post("/from-addresses", (req, res) => {
+router.post("/from-addresses", verifyToken, (req, res) => {
   const { label, address } = req.body;
   if (!label || !address) return res.status(400).json({ message: "Label and address required" });
   db.query("INSERT INTO pi_from_addresses (label, address) VALUES (?,?)", [label, address], (err, result) => {
@@ -107,7 +107,7 @@ router.post("/from-addresses", (req, res) => {
   });
 });
 
-router.delete("/from-addresses/:id", (req, res) => {
+router.delete("/from-addresses/:id", verifyToken, (req, res) => {
   db.query("DELETE FROM pi_from_addresses WHERE id=?", [req.params.id], (err) => {
     if (err) return res.status(500).json(err);
     res.json({ message: "Deleted" });

@@ -91,6 +91,8 @@ const PerformaInvoice = () => {
   const [historySearch, setHistorySearch] = useState("");
   const [historyRootId, setHistoryRootId] = useState(null);
   const [historySelectedId, setHistorySelectedId] = useState(null);
+  const [clientSearchResults, setClientSearchResults] = useState([]);
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
 
   const formatPINumber = (id, dateStr) => {
     const year = dateStr ? new Date(dateStr).getFullYear() : new Date().getFullYear();
@@ -185,6 +187,37 @@ const PerformaInvoice = () => {
   const formatSubPINumber = (rootId, version, dateStr) => {
     const year = dateStr ? new Date(dateStr).getFullYear() : new Date().getFullYear();
     return `PI-${year}-${String(rootId).padStart(3, "0")}-${version}`;
+  };
+
+  const handleClientSearch = async (val) => {
+    if (val.length < 2) { setClientSearchResults([]); setClientSearchOpen(false); return; }
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API_BACKEND}/api/client/search?name=${encodeURIComponent(val)}`, { headers: { Authorization: `Bearer ${token}` } });
+      setClientSearchResults(res.data);
+      setClientSearchOpen(true);
+    } catch(e) { console.error(e); }
+  };
+
+  const handleSelectClient = (client) => {
+    setCustomer({
+      customer_name: client.name || "",
+      mobile_number: client.phone || "",
+      email: client.email || client.lead_email || "",
+      gst_number: client.gst_number || "",
+      location_city: client.lead_city || client.city || client.location_city || ""
+    });
+    setExtra(ex => ({
+      ...ex,
+      client_company: client.company_name || "",
+      client_address1: client.address || "",
+      client_address2: "",
+      client_city: client.lead_city || client.city || "",
+      client_state: client.state || "",
+      client_pincode: client.pincode || "",
+      client_country: "India"
+    }));
+    setClientSearchResults([]); setClientSearchOpen(false);
   };
 
   const handleAddAddress = async () => {
@@ -672,7 +705,32 @@ const PerformaInvoice = () => {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-bold text-gray-500 uppercase">Customer Name *</label>
-                <input type="text" value={customer.customer_name} onChange={e => { if (!/[0-9]/.test(e.nativeEvent.data)) setCustomer({ ...customer, customer_name: e.target.value }); }} placeholder="e.g. Ravi Kumar" className="border rounded-lg px-3 py-2 outline-none text-sm" required />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customer.customer_name}
+                    onChange={e => {
+                      setCustomer({ ...customer, customer_name: e.target.value });
+                      handleClientSearch(e.target.value);
+                    }}
+                    onFocus={e => { if (customer.customer_name.length >= 2) setClientSearchOpen(true); }}
+                    onBlur={() => setTimeout(() => setClientSearchOpen(false), 300)}
+                    placeholder="Type to search client..."
+                    className="border rounded-lg px-3 py-2 outline-none text-sm w-full"
+                    required
+                  />
+                  {clientSearchOpen && clientSearchResults.length > 0 && (
+                    <div className="absolute z-50 bg-white border rounded-xl shadow-2xl mt-1 w-full max-h-60 overflow-y-auto">
+                      {clientSearchResults.map(c => (
+                        <button key={c.id} type="button" onMouseDown={() => handleSelectClient(c)}
+                          className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b last:border-b-0 transition">
+                          <div className="font-bold text-sm text-gray-800">{c.name}</div>
+                          <div className="text-xs text-gray-500">{c.company_name || "—"} | {c.phone || "No phone"}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-bold text-gray-500 uppercase">Mobile Number *</label>
