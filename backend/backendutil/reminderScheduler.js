@@ -17,6 +17,56 @@ const getNotificationIO = () => {
   }
 };
 
+function runCheckUpcomingReminders() {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const currentTime = now.toTimeString().slice(0, 8);
+  const fiveMinLater = new Date(now.getTime() + 5 * 60000).toTimeString().slice(0, 8);
+
+  const sql = `
+    SELECT lr.*, 
+           COALESCE(t.customer_name, w.customer_name, f.customer_name) as customer_name,
+           COALESCE(t.mobile_number, w.mobile_number, f.mobile_number) as mobile_number,
+           COALESCE(t.staff_name, w.staff_name, f.staff_name) as staff_name
+    FROM lead_reminders lr
+    LEFT JOIN Telecalls t ON t.id = lr.lead_id AND lr.lead_type = 'telecall'
+    LEFT JOIN Walkins w ON w.id = lr.lead_id AND lr.lead_type = 'walkin'
+    LEFT JOIN fields f ON f.id = lr.lead_id AND lr.lead_type = 'field'
+    WHERE lr.status = 'Pending' 
+      AND lr.reminder_date = ?
+      AND lr.reminder_time IS NOT NULL
+      AND lr.reminder_time BETWEEN ? AND ?
+      AND (lr.notification_sent IS NULL OR lr.notification_sent = 0)
+  `;
+
+  db.query(sql, [today, currentTime, fiveMinLater], (err, reminders) => {
+    if (err) { console.error("[Scheduler] check-upcoming error:", err.message); return; }
+    if (!reminders.length) return;
+
+    console.log(`[Scheduler] Found ${reminders.length} reminders due in 5 minutes`);
+    const notificationIO = getNotificationIO();
+
+    reminders.forEach(reminder => {
+      const message = `⏰ Reminder: Follow up with ${reminder.customer_name || "customer"} (${reminder.mobile_number || "No mobile"})`;
+
+      notificationIO.emitNotification("reminder_due", {
+        id: reminder.id,
+        leadId: reminder.lead_id,
+        leadType: reminder.lead_type,
+        userId: reminder.employee_id,
+        userName: reminder.staff_name,
+        customerName: reminder.customer_name,
+        mobileNumber: reminder.mobile_number,
+        reminderTime: reminder.reminder_time,
+        reminderNotes: reminder.reminder_notes,
+        message: message
+      }, reminder.employee_id, true);
+
+      db.query("UPDATE lead_reminders SET notification_sent = 1 WHERE id = ?", [reminder.id]);
+    });
+  });
+}
+
 function runCheckMissed() {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
@@ -127,8 +177,12 @@ function runCheckMissed() {
 // Run every 15 minutes
 schedule.scheduleJob("*/15 * * * *", runCheckMissed);
 
+// Run every minute to check for upcoming reminders (within 5 min)
+schedule.scheduleJob("* * * * *", runCheckUpcomingReminders);
+
 // Also run once on startup
 setTimeout(runCheckMissed, 3000);
+setTimeout(runCheckUpcomingReminders, 5000);
 
 console.log("[Scheduler] Reminder escalation scheduler started (every 15 min)");
 

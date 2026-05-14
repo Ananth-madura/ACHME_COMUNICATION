@@ -3,6 +3,7 @@ import axios from "axios";
 import socket from "../socket/socket";
 import { useAuth } from "../auth/AuthContext";
 import { API } from "../config/api";
+import { showPushNotification, isPushSupported, getPushPreference, requestPushPermission } from "../utils/pushNotifications";
 
 const NotificationContext = createContext();
 
@@ -65,6 +66,17 @@ export const NotificationProvider = ({ children }) => {
       }
       setNotifications(prev => [notification, ...prev].slice(0, 50));
       setUnreadCount(prev => prev + 1);
+
+      // Show browser push notification
+      if (isPushSupported() && getPushPreference()) {
+        const title = notification.data?.title || getPushTitle(notification.type);
+        const body = notification.data?.message || notification.message || "";
+        showPushNotification(title, {
+          body: body.substring(0, 100),
+          tag: notification.type,
+          onClick: () => window.location.reload()
+        });
+      }
     });
 
     // Admin-specific notifications
@@ -167,7 +179,26 @@ export const NotificationProvider = ({ children }) => {
       case "contract_created": return "📝";
       case "proposal_created": return "📄";
       case "service_created": return "🔧";
+      case "lead_missed_reminder": return "⏰";
+      case "reminder_due": return "⏰";
       default: return "🔔";
+    }
+  };
+
+  const getPushTitle = (type) => {
+    switch (type) {
+      case "lead_converted": return "🎉 Lead Converted to Client";
+      case "lead_missed_reminder": return "⚠️ Lead Missed 3+ Reminders";
+      case "task_completed": return "✅ Task Completed";
+      case "task_completed_by_employee": return "✅ Task Completed";
+      case "target_achieved": return "🏆 Target Achieved";
+      case "target_updated": return "📈 Target Updated";
+      case "task_not_completed": return "⏰ Task Not Completed";
+      case "missed_calls": return "⚠️ Missed Calls Alert";
+      case "reminder_due": return "⏰ Reminder Due Soon";
+      case "new_target": return "🎯 New Target Assigned";
+      case "task_assigned": return "📋 New Task Assigned";
+      default: return "🔔 New Notification";
     }
   };
 

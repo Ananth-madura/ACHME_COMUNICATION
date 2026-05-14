@@ -378,6 +378,8 @@ name: "notifications",
   const columnChecks = [
     { table: "lead_reminders", column: "reminder_time", definition: "reminder_time TIME DEFAULT NULL", expectedType: "time" },
     { table: "lead_reminders", column: "missed_count", definition: "missed_count INT DEFAULT 0" },
+    { table: "lead_reminders", column: "notification_sent", definition: "notification_sent TINYINT(1) DEFAULT 0" },
+    { table: "lead_reminders", column: "employee_id", definition: "employee_id INT DEFAULT NULL" },
     { table: "lead_escalations", column: "missed_count", definition: "missed_count INT DEFAULT 0" },
     { table: "users", column: "status", definition: "status ENUM('pending','active','rejected') DEFAULT 'pending'", expectedType: "enum" },
     { table: "users", column: "emp_id", definition: "emp_id VARCHAR(50) DEFAULT NULL" },

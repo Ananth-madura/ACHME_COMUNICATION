@@ -208,8 +208,8 @@ router.post("/", verifyToken, (req, res) => {
       // If reminder set, add to lead_reminders
       if (reminder_required === "Yes" && reminder_date) {
         db.query(
-          "INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status) VALUES (?,?,?,?,'Pending')",
-          [newId, "telecall", toDateOnly(reminder_date), reminder_notes || ""]
+          "INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status, employee_id) VALUES (?,?,?,?,'Pending',?)",
+          [newId, "telecall", toDateOnly(reminder_date), reminder_notes || "", req.user?.id || null]
         );
       }
 
@@ -339,8 +339,8 @@ db.query(
 
           if (reminder_required === "Yes" && reminder_date) {
             db.query(
-              "INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status) VALUES (?,?,?,?,'Pending')",
-              [id, "telecall", toDateOnly(reminder_date), reminder_notes || ""],
+              "INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status, employee_id) VALUES (?,?,?,?,'Pending',?)",
+              [id, "telecall", toDateOnly(reminder_date), reminder_notes || "", req.user?.id || null],
               (e) => {
                 if (!e) {
                   db.query(

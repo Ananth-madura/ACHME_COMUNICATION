@@ -96,8 +96,8 @@ router.post("/new", verifyToken, (req, res) => {
     db.query("INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
       [newId, "field", "Lead Created", `Outcome: ${data.field_outcome || "New"}`]);
     if (data.reminder_required === "Yes" && data.reminder_date) {
-      db.query("INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status) VALUES (?,?,?,?,'Pending')",
-        [newId, "field", data.reminder_date, data.reminder_notes || ""]);
+      db.query("INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status, employee_id) VALUES (?,?,?,?,'Pending',?)",
+        [newId, "field", data.reminder_date, data.reminder_notes || "", req.user?.id || null]);
     }
 
     const notificationIO = getNotificationIO();
@@ -162,8 +162,8 @@ router.put("/:id", verifyToken, (req, res) => {
           [id, "field", "Follow-up Scheduled", `Date: ${data.followup_date}${data.followup_notes ? " | Notes: " + data.followup_notes : ""}`]);
       }
       if (data.reminder_required === "Yes" && data.reminder_date) {
-        db.query("INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status) VALUES (?,?,?,?,'Pending')",
-          [id, "field", data.reminder_date, data.reminder_notes || ""],
+        db.query("INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status, employee_id) VALUES (?,?,?,?,'Pending',?)",
+          [id, "field", data.reminder_date, data.reminder_notes || "", req.user?.id || null],
           (e) => {
             if (!e) db.query("INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
               [id, "field", "Reminder Added", `Date: ${data.reminder_date}${data.reminder_notes ? " | " + data.reminder_notes : ""}`]);

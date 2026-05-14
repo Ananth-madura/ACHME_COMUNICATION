@@ -132,6 +132,10 @@ function initNotificationsSocket(io, corsOrigin = "*") {
         return `⚠️ ${data.employeeName || "Employee"} has not completed their task: "${data.taskName || "Task"}" (Due: ${data.dueDate || "N/A"})`;
       case "daily_task_summary":
         return `📋 End of day summary: ${data.incompleteCount || 0} task(s) not completed by employees`;
+      case "lead_missed_reminder":
+        return `⚠️ Lead "${data.customerName || "Unknown"}" has ${data.missedCount || 3}+ missed reminders`;
+      case "reminder_due":
+        return `⏰ Reminder: Follow up with ${data.customerName || "customer"} - ${data.mobileNumber || ""}`;
       default:
         return `Notification: ${type}`;
     }

@@ -4,6 +4,7 @@ import {
   Sun, Moon, Monitor, Bell, BellOff, Lock, Shield, 
   Palette, Globe, Clock, Save, X, Check, RefreshCw 
 } from "lucide-react";
+import { isPushSupported, requestPushPermission, savePushPreference, getPushPreference } from "../utils/pushNotifications";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -60,10 +61,25 @@ const Settings = () => {
     setSettings({ ...settings, theme });
   };
 
-  const toggleNotification = (key) => {
+  const toggleNotification = async (key) => {
+    if (key === "push") {
+      if (!isPushSupported()) {
+        setMessage({ type: "error", text: "Push notifications not supported in this browser" });
+        return;
+      }
+      const newValue = !settings.notifications.push;
+      if (newValue) {
+        const granted = await requestPushPermission();
+        if (!granted) {
+          setMessage({ type: "error", text: "Push notification permission denied" });
+          return;
+        }
+      }
+      savePushPreference(newValue);
+    }
     setSettings({
       ...settings,
-      notifications: { ...settings.notifications, [key]: !settings.notifications[key] }
+      notifications: { ...settings.notifications, [key]: key === "push" ? (isPushSupported() && Notification.permission === "granted") : !settings.notifications[key] }
     });
   };
 
