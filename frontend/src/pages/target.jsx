@@ -176,6 +176,7 @@ const Targets = () => {
           yearly_target: parseFloat(form.yearly_target),
           monthly_target: form.monthly_target ? parseFloat(form.monthly_target) : Math.round(parseFloat(form.yearly_target) / 12),
         }, { headers });
+        socket?.emit("target_updated", { targetId: editTarget.id, userName: form.user_name });
         alert("Target updated successfully");
       } else {
         await axios.post(`${API}/api/task/targets`, {
@@ -186,6 +187,7 @@ const Targets = () => {
           monthly_target: form.monthly_target ? parseFloat(form.monthly_target) : Math.round(parseFloat(form.yearly_target) / 12),
           created_by_admin: user?.name || "Admin"
         }, { headers });
+        socket?.emit("new_target", { userName: form.user_name });
         alert("Target saved successfully");
       }
       setOpen(false);
@@ -217,6 +219,7 @@ const Targets = () => {
       await axios.delete(`${API}/api/task/targets/${targetId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      socket?.emit("target_updated", { targetId, action: "deleted" });
       alert("Target deleted successfully");
       fetchAllTargets();
     } catch (err) {
@@ -238,6 +241,7 @@ const Targets = () => {
         description: updateDesc || "Achievement update"
       }, { headers: { Authorization: `Bearer ${token}` } });
       
+      socket?.emit("target_updated", { userId: user?.id, userName, amount: updateAmount });
       alert("Achievement updated!");
       setUpdateAmount("");
       setUpdateDesc("");
