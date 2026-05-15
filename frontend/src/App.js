@@ -15,6 +15,7 @@ import Walkins from "./pages/walkins";
 import Fields from "./pages/field";
 import Proposals from "./pages/proposal";
 import Task from "./pages/task";
+import Targets from "./pages/target";
 import Invoicepage from "./pages/invoice";
 import Payments from "./pages/payment";
 import Estimate from "./pages/estimate";
@@ -143,7 +144,7 @@ export default function App() {
               <Route path="serviceestimation" element={<ServiceEstimation />} />
 <Route path="call-report" element={<CallReport />} />
                <Route path="reports" element={<Reports />} />
-               <Route path="targets" element={<Task />} />
+               <Route path="targets" element={<Targets />} />
                <Route path="task" element={<Task />} />
 <Route path="amc" element={<AMCService />} />
                 <Route path="users" element={<UserManagement />} />

@@ -145,8 +145,8 @@ router.get("/", verifyToken, (req, res) => {
   const params = [];
   if (role === "employee") {
     const tmId = req.user.teammember_id || null;
-    let whereClause = "WHERE (t.created_by = ? OR t.staff_name LIKE ?";
-    params.push(user_id, `%${user_name}%`);
+    let whereClause = "WHERE (t.created_by = ? OR t.staff_name LIKE ? OR t.assigned_to LIKE ?";
+    params.push(user_id, `%${user_name}%`, `%${user_name}%`);
     if (tmId) {
       whereClause += " OR t.assigned_teammember_id = ?";
       params.push(tmId);
@@ -207,14 +207,41 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
 const validPriorities = ['Low', 'Normal', 'Medium', 'High', 'Urgent'];
 const getValidPriority = (p) => validPriorities.includes(p) ? p : 'Medium';
 
-router.put("/:id", verifyToken, isAdmin, (req, res) => {
+router.put("/:id", verifyToken, (req, res) => {
   const { project_name, task_title, task_description, project_status, project_priority, client_name, staff_name, created_date, due_date, assigned_to } = req.body;
   const finalStaffName = assigned_to || staff_name || "";
   const safePriority = getValidPriority(project_priority);
-  db.query("SELECT created_by, assigned_teammember_id FROM tasks WHERE id = ?", [req.params.id], (err, results) => {
+  
+  db.query("SELECT created_by, assigned_teammember_id, staff_name, assigned_to FROM tasks WHERE id = ?", [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     if (results.length === 0) return res.status(404).json({ message: "Not found" });
-    if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) return res.status(403).json({ message: "Access denied" });
+    
+    const task = results[0];
+    const isAdmin = req.user.role === 'admin';
+    const isCreator = task.created_by === req.user.id;
+    const isAssigned = (task.assigned_teammember_id && task.assigned_teammember_id === req.user.teammember_id) || 
+                       (task.staff_name && task.staff_name.includes(req.user.first_name)) ||
+                       (task.assigned_to && task.assigned_to.includes(req.user.first_name));
+
+    if (!isAdmin && !isCreator && !isAssigned) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // If employee, only allow updating project_status
+    if (!isAdmin && !isCreator && isAssigned) {
+      db.query("UPDATE tasks SET project_status = ?, updated_at = NOW() WHERE id = ?",
+        [project_status, req.params.id],
+        (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+          db.query("INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
+            [req.params.id, "Status Updated", `Employee ${req.user.first_name} updated status to ${project_status}`]);
+          return res.json({ message: "Status updated" });
+        }
+      );
+      return;
+    }
+
+    // Full update for admin or creator
     db.query(`UPDATE tasks SET project_name=?, task_title=?, task_description=?, project_status=?, project_priority=?, client_name=?, staff_name=?, created_date=?, due_date=?, assigned_to=? WHERE id=?`,
       [project_name, task_title, task_description || "", project_status, safePriority, client_name, finalStaffName, created_date, due_date, assigned_to || null, req.params.id],
       (err) => {
@@ -295,8 +322,8 @@ router.get("/targets/my", verifyToken, (req, res) => {
   if (!user_id) return res.status(400).json({ error: "User ID required" });
   const currentMonth = new Date().toISOString().slice(0, 7);
   const currentYear = new Date().getFullYear();
-  db.query("SELECT id, user_id, user_name, yearly_target, monthly_target, teammember_id FROM task_targets WHERE (user_id = ? OR user_name = ?) AND YEAR(created_at) = ?",
-    [user_id, user_name, currentYear],
+  db.query("SELECT id, user_id, user_name, yearly_target, monthly_target, teammember_id FROM task_targets WHERE (user_id = ? OR user_name = ?)",
+    [user_id, user_name],
     (err, targetRows) => {
       if (err) return res.status(500).json({ error: err.message });
       if (targetRows.length === 0) return res.json({ message: "No target set", hasTarget: false });
@@ -320,8 +347,8 @@ router.get("/targets/user", verifyToken, (req, res) => {
   if (!user_name) return res.status(400).json({ error: "user_name required" });
   const currentMonth = new Date().toISOString().slice(0, 7);
   const currentYear = new Date().getFullYear();
-  db.query("SELECT id, yearly_target, monthly_target FROM task_targets WHERE user_name = ? AND YEAR(created_at) = ?",
-    [user_name, currentYear],
+  db.query("SELECT id, yearly_target, monthly_target FROM task_targets WHERE user_name = ?",
+    [user_name],
     (err, targetRows) => {
       if (err) return res.status(500).json({ error: err.message });
       if (targetRows.length === 0) return res.json(null);
@@ -357,8 +384,8 @@ router.post("/targets", verifyToken, isAdmin, (req, res) => {
   const monthlyTarget = Math.round(yearly_target / 12);
   const tmId = parseInt(teammember_id) || null;
   const notificationIO = getNotificationIO();
-  db.query("SELECT id FROM task_targets WHERE user_name = ? AND YEAR(created_at) = ?",
-    [user_name, currentYear],
+  db.query("SELECT id FROM task_targets WHERE user_name = ?",
+    [user_name],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       if (rows.length > 0) {
@@ -406,13 +433,46 @@ router.post("/targets", verifyToken, isAdmin, (req, res) => {
   );
 });
 
+router.put("/targets/:id", verifyToken, isAdmin, (req, res) => {
+  const { id } = req.params;
+  const { user_id, user_name, yearly_target, teammember_id } = req.body;
+  if (!yearly_target) return res.status(400).json({ error: "yearly_target is required" });
+  
+  const monthlyTarget = Math.round(yearly_target / 12);
+  const tmId = parseInt(teammember_id) || null;
+  const notificationIO = getNotificationIO();
+  
+  db.query("UPDATE task_targets SET yearly_target = ?, monthly_target = ?, teammember_id = ?, user_id = ?, user_name = ?, updated_at = NOW() WHERE id = ?",
+    [yearly_target, monthlyTarget, tmId, user_id || null, user_name || "", id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (notificationIO) notificationIO.emitNotification("target_updated", { id: parseInt(id), userId: user_id, userName: user_name, newAmount: yearly_target, monthlyTarget, type: "target" }, user_id, true);
+      res.json({ message: "Target updated", id: parseInt(id), yearly_target, monthly_target: monthlyTarget });
+    }
+  );
+});
+
+router.delete("/targets/:id", verifyToken, isAdmin, (req, res) => {
+  const { id } = req.params;
+  db.query("DELETE FROM task_targets WHERE id = ?", [id], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    db.query("DELETE FROM task_achievements WHERE target_id = ?", [id], (err2) => {
+      if (err2) console.warn("task_achievements cleanup skipped:", err2.message);
+    });
+    db.query("DELETE FROM task_updates WHERE target_id = ?", [id], (err3) => {
+      if (err3) console.warn("task_updates cleanup skipped:", err3.message);
+    });
+    res.json({ message: "Target deleted successfully" });
+  });
+});
+
 router.post("/targets/update", verifyToken, (req, res) => {
   const { user_id, user_name, amount, description } = req.body;
   const currentMonth = new Date().toISOString().slice(0, 7);
   if (!user_name || !amount) return res.status(400).json({ error: "user_name and amount (in INR) required" });
   const currentYear = new Date().getFullYear();
-  db.query("SELECT id, yearly_target, monthly_target FROM task_targets WHERE user_name = ? AND YEAR(created_at) = ?",
-    [user_name, currentYear],
+  db.query("SELECT id, yearly_target, monthly_target FROM task_targets WHERE user_name = ?",
+    [user_name],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       if (rows.length === 0) {
@@ -599,8 +659,8 @@ router.put("/assignment/:id/status", verifyToken, (req, res) => {
 function updateTaskAchievement(user_id, user_name, count, description) {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const currentYear = new Date().getFullYear();
-  db.query("SELECT id, yearly_target, monthly_target FROM task_targets WHERE user_name = ? AND YEAR(created_at) = ?",
-    [user_name, currentYear],
+  db.query("SELECT id, yearly_target, monthly_target FROM task_targets WHERE user_name = ?",
+    [user_name],
     (err, targetRows) => {
       if (err || targetRows.length === 0) return;
       const targetId = targetRows[0].id;

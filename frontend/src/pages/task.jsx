@@ -206,8 +206,23 @@ const Task = () => {
   // ── Derived data ───────────────────────────────────────────────────────────
   const myTasks = isEmployee
     ? tasks.filter(t => {
-        const me = (user?.name || user?.email?.split("@")[0] || "").toLowerCase();
-        return t.staff_name?.toLowerCase().includes(me) || t.assigned_to?.toLowerCase().includes(me);
+        const firstName = (user?.first_name || "").toLowerCase();
+        const fullName = (user?.name || "").toLowerCase();
+        const emailPrefix = (user?.email?.split("@")[0] || "").toLowerCase();
+        
+        const staffName = (t.staff_name || "").toLowerCase();
+        const assignedTo = (t.assigned_to || "").toLowerCase();
+        const assignedTmId = t.assigned_teammember_id;
+        const myTmId = user?.teammember_id;
+
+        return (
+          staffName.includes(firstName) || 
+          staffName.includes(fullName) || 
+          staffName.includes(emailPrefix) ||
+          assignedTo.includes(firstName) ||
+          assignedTo.includes(fullName) ||
+          (assignedTmId && myTmId && assignedTmId === myTmId)
+        );
       })
     : tasks;
 
@@ -332,6 +347,16 @@ await axios.post(`${API}/api/task/targets`, {
     } catch (err) { alert(err.response?.data?.error || "Failed to update achievement"); }
   };
 
+  const deleteTask = async (taskId) => {
+    const token = localStorage.getItem("token");
+    try {
+      await axios.delete(`${API}/api/task/${taskId}`, { headers: { Authorization: `Bearer ${token}` } });
+      socket?.emit("task_updated", { taskId });
+      fetchAll(); refreshNotifications();
+      alert("Task deleted successfully");
+    } catch (err) { alert(err.response?.data?.message || "Failed to delete task"); }
+  };
+
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -450,8 +475,12 @@ await axios.post(`${API}/api/task/targets`, {
                             )}
                           </div>
                         ) : (
-                          <button onClick={() => { setSelectedTask(task); setNewStatus(task.project_status); setStatusModalOpen(true); }}
-                            className="text-xs font-medium cursor-pointer" style={{ color: N.primary }}>Update</button>
+                          <div className="flex gap-2 items-center">
+                            <button onClick={() => { setSelectedTask(task); setForm({ project_name: task.project_name || "", task_title: task.task_title || "", task_description: task.task_description || "", client_name: task.client_name || "", staff_name: task.staff_name || task.assigned_to || "", assigned_to: task.assigned_to || task.staff_name || "", assigned_teammember_id: task.assigned_teammember_id || "", created_date: task.created_date || new Date().toISOString().slice(0, 10), due_date: task.due_date || new Date().toISOString().slice(0, 10), project_status: task.project_status || "New", project_priority: task.project_priority || "Medium" }); setOpen(true); }}
+                              className="text-xs font-medium cursor-pointer px-2 py-1 rounded hover:bg-indigo-50" style={{ color: N.primary }}>Edit</button>
+                            <button onClick={() => { if (window.confirm("Are you sure you want to delete this task?")) { deleteTask(task.id); } }}
+                              className="text-xs font-medium cursor-pointer px-2 py-1 rounded hover:bg-red-50" style={{ color: N.error }}>Delete</button>
+                          </div>
                         )}
                       </td>
                     </tr>

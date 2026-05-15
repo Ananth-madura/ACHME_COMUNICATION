@@ -40,9 +40,8 @@ router.get("/my", verifyToken, (req, res) => {
       COALESCE(a.achieved_count, 0) as achieved_count,
       (t.monthly_target - COALESCE(a.achieved_amount, 0)) as pending_amount
     FROM task_targets t
-    LEFT JOIN task_achievements a ON t.id = a.target_id AND a.month_year = ?
-    WHERE (t.user_id = ? OR t.user_name = ?) AND YEAR(t.created_at) = ?`,
-    [currentMonth, user_id, user_name, currentYear],
+    WHERE (t.user_id = ? OR t.user_name = ?)`,
+    [currentMonth, user_id, user_name],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json(rows[0] || null);
@@ -63,8 +62,8 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
   const currentYear = new Date().getFullYear();
 
   db.query(
-    "SELECT id FROM task_targets WHERE user_name = ? AND YEAR(created_at) = ?",
-    [user_name, currentYear],
+    "SELECT id FROM task_targets WHERE user_name = ?",
+    [user_name],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       
@@ -125,8 +124,8 @@ router.post("/update", verifyToken, (req, res) => {
   }
   
   db.query(
-    "SELECT id, monthly_target FROM task_targets WHERE user_name = ? AND YEAR(created_at) = ?",
-    [user_name, currentYear],
+    "SELECT id, monthly_target FROM task_targets WHERE user_name = ?",
+    [user_name],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       if (rows.length === 0) return res.status(404).json({ error: "Target not set for user" });
