@@ -80,7 +80,7 @@ function ensureColumnAsync(table, column, definition, expectedType) {
 
 async function ensureTablesAndColumns() {
   const tableStatements = [
-{
+    {
       name: "pi_from_addresses",
       sql: `CREATE TABLE IF NOT EXISTS pi_from_addresses (id INT AUTO_INCREMENT PRIMARY KEY, label VARCHAR(100) NOT NULL, address TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     },
@@ -317,7 +317,7 @@ async function ensureTablesAndColumns() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     },
     {
-name: "notifications",
+      name: "notifications",
       sql: `CREATE TABLE IF NOT EXISTS notifications (
         id INT AUTO_INCREMENT PRIMARY KEY,
         task_id INT NOT NULL DEFAULT 0,
@@ -448,6 +448,15 @@ name: "notifications",
     { table: "performainvoices", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "services", column: "created_by", definition: "created_by INT DEFAULT NULL" },
     { table: "call_reports", column: "created_by", definition: "created_by INT DEFAULT NULL" },
+    { table: "lead_activity", column: "employee_id", definition: "employee_id INT DEFAULT NULL" },
+    { table: "lead_escalations", column: "missed_threshold_reached", definition: "missed_threshold_reached TINYINT(1) DEFAULT 0" },
+    { table: "lead_escalations", column: "employee_id", definition: "employee_id INT DEFAULT NULL" },
+    { table: "performainvoices", column: "is_latest", definition: "is_latest TINYINT(1) DEFAULT 1" },
+    { table: "performainvoices", column: "version", definition: "version INT DEFAULT 1" },
+    { table: "performainvoices", column: "parent_id", definition: "parent_id INT DEFAULT NULL" },
+    { table: "performa_invoice_items", column: "uom", definition: "uom VARCHAR(50) DEFAULT 'Nos'" },
+    { table: "performainvoice_items", column: "uom", definition: "uom VARCHAR(50) DEFAULT 'Nos'" },
+    { table: "task_assignments", column: "response_notes", definition: "response_notes TEXT DEFAULT NULL" },
     { table: "call_reports", column: "amount_collected", definition: "amount_collected DECIMAL(10,2) DEFAULT 0" },
     { table: "call_reports", column: "payment_mode", definition: "payment_mode VARCHAR(50) DEFAULT NULL" },
     { table: "amc_alc_services", column: "amount_collected", definition: "amount_collected DECIMAL(10,2) DEFAULT 0" },

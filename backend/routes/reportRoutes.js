@@ -61,7 +61,7 @@ router.get("/overview", verifyToken, async (req, res) => {
           (SELECT COUNT(*) FROM Walkins WHERE walkin_date BETWEEN ? AND ? ${userFilterLeads} AND walkin_status = 'Converted' ${customer ? ` AND customer_name LIKE '%${customer}%'` : ""}) as wk_conv,
           (SELECT COUNT(*) FROM fields WHERE visit_date BETWEEN ? AND ? ${userFilterLeads} AND field_outcome = 'Converted' ${customer ? ` AND customer_name LIKE '%${customer}%'` : ""}) as fld_conv
       `,
-      services: `SELECT COUNT(*) as count, SUM(total_expenses) as revenue FROM amc_alc WHERE service_date BETWEEN ? AND ? ${isAdmin ? "" : " AND (service_person_id = " + userId + " OR created_by = " + userId + ")"} ${customer ? ` AND customer_name LIKE '%${customer}%'` : ""}`
+      services: `SELECT COUNT(*) as count, SUM(total_expenses) as revenue FROM amc_alc_services WHERE service_date BETWEEN ? AND ? ${isAdmin ? "" : " AND (service_person_id = " + userId + " OR created_by = " + userId + ")"} ${customer ? ` AND customer_name LIKE '%${customer}%'` : ""}`
     };
 
     const [salesResult] = await db.promise().query(queries.sales, [startDate, endDate]);
@@ -111,7 +111,7 @@ router.get("/employee-comparison", verifyToken, async (req, res) => {
           (SELECT COUNT(*) FROM fields WHERE (created_by = ? OR staff_name LIKE ? OR assigned_to = ?) AND visit_date BETWEEN ? AND ? AND field_outcome = 'Converted') as fld_conv
       `, [empId, `%${empName}%`, empId, startDate, endDate, empId, `%${empName}%`, empId, startDate, endDate, empId, `%${empName}%`, empId, startDate, endDate, empId, `%${empName}%`, empId, startDate, endDate, empId, `%${empName}%`, empId, startDate, endDate, empId, `%${empName}%`, empId, startDate, endDate]);
 
-      const [services] = await db.promise().query(`SELECT COUNT(*) as count, SUM(total_expenses) as revenue FROM amc_alc WHERE (service_person_id = ? OR service_person LIKE ?) AND service_date BETWEEN ? AND ?`, [empId, `%${empName}%`, startDate, endDate]);
+      const [services] = await db.promise().query(`SELECT COUNT(*) as count, SUM(total_expenses) as revenue FROM amc_alc_services WHERE (service_person_id = ? OR service_person LIKE ?) AND service_date BETWEEN ? AND ?`, [empId, `%${empName}%`, startDate, endDate]);
 
       const [tasks] = await db.promise().query(`SELECT COUNT(*) as total, SUM(CASE WHEN project_status = 'Completed' THEN 1 ELSE 0 END) as completed FROM tasks WHERE (assigned_to = ? OR staff_name LIKE ?) AND created_date BETWEEN ? AND ?`, [empId, `%${empName}%`, startDate, endDate]);
 
@@ -166,7 +166,7 @@ router.get("/trends", verifyToken, async (req, res) => {
           CROSS JOIN (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as c
         ) as date_series
         LEFT JOIN performainvoices p ON DATE(p.invoice_date) = date_series.date ${userFilter}
-        LEFT JOIN amc_alc s ON DATE(s.service_date) = date_series.date ${isAdmin ? "" : " AND s.service_person_id = " + userId}
+        LEFT JOIN amc_alc_services s ON DATE(s.service_date) = date_series.date ${isAdmin ? "" : " AND s.service_person_id = " + userId}
         WHERE date_series.date BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND CURDATE()
         GROUP BY date_series.date
         ORDER BY date_series.date ASC
@@ -188,7 +188,7 @@ router.get("/trends", verifyToken, async (req, res) => {
           UNION SELECT 7, 'Jul' UNION SELECT 8, 'Aug' UNION SELECT 9, 'Sep' UNION SELECT 10, 'Oct' UNION SELECT 11, 'Nov' UNION SELECT 12, 'Dec'
         ) as m
         LEFT JOIN performainvoices p ON MONTH(p.invoice_date) = m.month_num AND YEAR(p.invoice_date) = YEAR(CURDATE()) ${userFilter}
-        LEFT JOIN amc_alc s ON MONTH(s.service_date) = m.month_num AND YEAR(s.service_date) = YEAR(CURDATE()) ${isAdmin ? "" : " AND s.service_person_id = " + userId}
+        LEFT JOIN amc_alc_services s ON MONTH(s.service_date) = m.month_num AND YEAR(s.service_date) = YEAR(CURDATE()) ${isAdmin ? "" : " AND s.service_person_id = " + userId}
         GROUP BY m.month_num, m.month_name
         ORDER BY m.month_num ASC
       `);

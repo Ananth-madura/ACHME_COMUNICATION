@@ -25,12 +25,12 @@ router.get("/", verifyToken, (req, res) => {
     LEFT JOIN users u ON t.created_by = u.id
   `;
   const params = [];
-  
+
   if (role === "employee") {
     sql += " WHERE t.created_by = ? OR t.staff_name LIKE ? OR t.assigned_to = ?";
     params.push(user_id, `%${user_name}%`, user_id);
   }
-  
+
   sql += " ORDER BY t.id DESC";
   db.query(sql, params, (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -58,7 +58,7 @@ const syncClient = (data, userId, leadId, teammemberId) => {
                lead_staff_name=?, lead_id_display=?, client_status='converted', converted_at=NOW()
                WHERE id=?`,
               [customer_name, mobile_number, location_city, service_name, email, gst_number || "", leadId, teammemberId || null,
-               staff_name || "", leadIdDisplay, phoneResult[0].id]
+                staff_name || "", leadIdDisplay, phoneResult[0].id]
             );
           } else {
             db.query(
@@ -66,7 +66,7 @@ const syncClient = (data, userId, leadId, teammemberId) => {
                original_lead_id, original_lead_type, lead_staff_name, lead_id_display, client_status, converted_at) 
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'telecall', ?, ?, 'converted', NOW())`,
               [customer_name, mobile_number, location_city, service_name, email, gst_number || "", userId, teammemberId || null,
-               leadId, staff_name || "", leadIdDisplay],
+                leadId, staff_name || "", leadIdDisplay],
               (insertErr) => {
                 if (insertErr) console.error("Client conversion (telecall insert) failed:", insertErr);
               }
@@ -79,7 +79,7 @@ const syncClient = (data, userId, leadId, teammemberId) => {
            assigned_teammember_id=?, lead_staff_name=?, lead_id_display=?
            WHERE original_lead_id=? AND original_lead_type='telecall'`,
           [customer_name, mobile_number, location_city, service_name, email, gst_number || "", teammemberId || null,
-           staff_name || "", leadIdDisplay, leadId],
+            staff_name || "", leadIdDisplay, leadId],
           (updateErr) => {
             if (updateErr) console.error("Client conversion (telecall update) failed:", updateErr);
           }
@@ -102,12 +102,12 @@ router.get("/:id", verifyToken, (req, res) => {
     (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
       if (results.length === 0) return res.status(404).json({ message: "Not found" });
-      
+
       const lead = results[0];
       if (req.user.role !== 'admin' && lead.created_by !== req.user.id) {
         return res.status(403).json({ message: "Access denied" });
       }
-      
+
       res.json(lead);
     }
   );
@@ -258,13 +258,13 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
   db.query("SELECT created_by FROM Telecalls WHERE id = ?", [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     if (results.length === 0) return res.status(404).json({ message: "Not found" });
-    
+
     if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-db.query(
-        `UPDATE Telecalls SET
+    db.query(
+      `UPDATE Telecalls SET
           customer_name=?,
           mobile_number=?,
           location_city=?,
@@ -282,80 +282,80 @@ db.query(
           gst_number=?,
           email=?
          WHERE id=?`,
-        [
-          customer_name,
-          mobile_number,
-          location_city,
-          toDateOnly(call_date),
-          service_name,
-          staff_name,
-          call_outcome,
-          followup_required,
-          toDateOnly(followup_date),
-          followup_notes,
-          reminder_required,
-          toDateOnly(reminder_date),
-          reminder_notes,
-          reference,
-          gst_number,
-          email,
-          req.params.id
-        ],
-        (err) => {
-          if (err) {
-            console.error("Update error:", err);
-            return res.status(500).json({ error: err.message });
-          }
-          syncClient(req.body, results[0].created_by || req.user.id, Number(req.params.id), req.body.teammember_id || null);
-          const id = req.params.id;
+      [
+        customer_name,
+        mobile_number,
+        location_city,
+        toDateOnly(call_date),
+        service_name,
+        staff_name,
+        call_outcome,
+        followup_required,
+        toDateOnly(followup_date),
+        followup_notes,
+        reminder_required,
+        toDateOnly(reminder_date),
+        reminder_notes,
+        reference,
+        gst_number,
+        email,
+        req.params.id
+      ],
+      (err) => {
+        if (err) {
+          console.error("Update error:", err);
+          return res.status(500).json({ error: err.message });
+        }
+        syncClient(req.body, results[0].created_by || req.user.id, Number(req.params.id), req.body.teammember_id || null);
+        const id = req.params.id;
 
-          if (call_outcome === "Converted") {
-            const notificationIO = getNotificationIO();
-            if (notificationIO) {
-              const time = new Date().toLocaleString();
-              notificationIO.emitNotification("lead_converted", {
-                id: id,
-                customerName: customer_name,
-                mobileNumber: mobile_number,
-                staffName: staff_name,
-                leadType: "Telecalling",
-                convertedAt: time,
-                type: "lead"
-              }, null, true);
-            }
+        if (call_outcome === "Converted") {
+          const notificationIO = getNotificationIO();
+          if (notificationIO) {
+            const time = new Date().toLocaleString();
+            notificationIO.emitNotification("lead_converted", {
+              id: id,
+              customerName: customer_name,
+              mobileNumber: mobile_number,
+              staffName: staff_name,
+              leadType: "Telecalling",
+              convertedAt: time,
+              type: "lead"
+            }, null, true);
           }
+        }
 
+        db.query(
+          "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
+          [id, "telecall", "Status Updated", `Outcome: ${call_outcome || "New"}`]
+        );
+
+        if (followup_required === "Yes" && followup_date) {
           db.query(
             "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
-            [id, "telecall", "Status Updated", `Outcome: ${call_outcome || "New"}`]
+            [id, "telecall", "Follow-up Scheduled", `Date: ${toDateOnly(followup_date)}${followup_notes ? " | Notes: " + followup_notes : ""}`]
           );
-
-          if (followup_required === "Yes" && followup_date) {
-            db.query(
-              "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
-              [id, "telecall", "Follow-up Scheduled", `Date: ${toDateOnly(followup_date)}${followup_notes ? " | Notes: " + followup_notes : ""}`]
-            );
-          }
-
-          if (reminder_required === "Yes" && reminder_date) {
-            db.query(
-              "INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status, employee_id) VALUES (?,?,?,?,'Pending',?)",
-              [id, "telecall", toDateOnly(reminder_date), reminder_notes || "", req.user?.id || null],
-              (e) => {
-                if (!e) {
-                  db.query(
-                    "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
-                    [id, "telecall", "Reminder Added", `Date: ${toDateOnly(reminder_date)}${reminder_notes ? " | " + reminder_notes : ""}`]
-                  );
-                }
-              }
-            );
-          }
-
-          res.json({ message: "Telecall updated successfully" });
         }
-      );
-    });
+
+        if (reminder_required === "Yes" && reminder_date) {
+          db.query(
+            "INSERT INTO lead_reminders (lead_id, lead_type, reminder_date, reminder_notes, status, employee_id) VALUES (?,?,?,?,'Pending',?)",
+            [id, "telecall", toDateOnly(reminder_date), reminder_notes || "", req.user?.id || null],
+            (e) => {
+              if (!e) {
+                db.query(
+                  "INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
+                  [id, "telecall", "Reminder Added", `Date: ${toDateOnly(reminder_date)}${reminder_notes ? " | " + reminder_notes : ""}`]
+                );
+              }
+            }
+          );
+        }
+
+        res.json({ message: "Telecall updated successfully" });
+      }
+    );
+  });
 });
 
 router.delete("/:id", verifyToken, isAdmin, (req, res) => {

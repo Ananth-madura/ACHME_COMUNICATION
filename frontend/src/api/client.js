@@ -20,7 +20,7 @@ export const getCachedData = (key, maxAgeMs = 3600000) => {
   try {
     const cached = localStorage.getItem(`cached_${key}`);
     const cachedTime = localStorage.getItem(`cached_${key}_time`);
-    
+
     if (cached && cachedTime) {
       const age = Date.now() - parseInt(cachedTime);
       if (age < maxAgeMs) {

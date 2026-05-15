@@ -58,7 +58,7 @@ const UserSidebar = ({ onNavigate }) => {
         { label: "Clients", path: "/dashboard/clients" }
       ]
     },
-    // { icon: <ListTodo size={20} />, title: "Tasks", path: "/dashboard/task" },
+    { icon: <ListTodo size={20} />, title: "Tasks", path: "/dashboard/task" },
     { icon: <TargetIcon size={20} />, title: "Targets", path: "/dashboard/targets" },
     { icon: <User size={20} />, title: "Profile", path: "/dashboard/profile" },
     { icon: <Settings size={20} />, title: "Settings", path: "/dashboard/settings" }

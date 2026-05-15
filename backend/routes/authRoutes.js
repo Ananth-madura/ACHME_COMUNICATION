@@ -309,11 +309,11 @@ router.get("/notifications", verifyToken, isAdmin, (req, res) => {
              FROM admin_notifications an 
              LEFT JOIN users u ON an.user_id = u.id 
              WHERE 1=1`;
-  
+
   if (type) { sql += " AND an.type = ?"; params.push(type); }
   sql += " ORDER BY an.created_at DESC";
   if (limit) { sql += " LIMIT ?"; params.push(parseInt(limit)); }
-  
+
   db.query(sql, params, (err, rows) => {
     if (err) return res.status(500).json(err);
     res.json(rows);
@@ -328,7 +328,7 @@ router.put("/approve/:userId", verifyToken, isAdmin, (req, res) => {
 
   db.query("UPDATE users SET status = ? WHERE id = ?", [action, userId], (err) => {
     if (err) return res.status(500).json({ message: "Update failed" });
-    
+
     if (action === "active") {
       db.query("UPDATE admin_notifications SET is_read = 1 WHERE user_id = ? AND type = 'registration'", [userId]);
       const userRes = db.query("SELECT first_name, email FROM users WHERE id = ?", [userId], (e2, rows) => {

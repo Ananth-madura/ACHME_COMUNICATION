@@ -37,7 +37,7 @@ router.get("/", verifyToken, (req, res) => {
     JOIN customers c ON c.id = q.customer_id
     LEFT JOIN quotation_items qi ON qi.quotation_id = q.id
     WHERE q.is_latest = 1`;
-  
+
   const params = [];
   if (role === "employee") {
     sql += " AND q.created_by = ?";
@@ -113,7 +113,7 @@ router.get("/:id", verifyToken, (req, res) => {
     LEFT JOIN pi_from_addresses fa ON fa.id = q.from_address_id
     WHERE q.id = ?
   `;
-  
+
   if (role === "employee") {
     sql += " AND q.created_by = ?";
   }
@@ -157,8 +157,8 @@ router.post("/create", verifyToken, (req, res) => {
   const { customer, quotation, invoice, items, extra } = req.body;
   const q = quotation || invoice; // unified form sends "invoice"
   const ex = extra || {};
-  const refNo = `QT-${new Date().toISOString().slice(0,10).replace(/-/g,"")}-${Math.floor(1000+Math.random()*9000)}`;
-  const quotationDate = (q && (q.quotation_date || q.invoice_date)) || new Date().toISOString().slice(0,10);
+  const refNo = `QT-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const quotationDate = (q && (q.quotation_date || q.invoice_date)) || new Date().toISOString().slice(0, 10);
 
   db.beginTransaction(err => {
     if (err) return res.status(500).json({ message: "Transaction error" });
@@ -191,20 +191,20 @@ router.post("/create", verifyToken, (req, res) => {
                 ]
               );
             } else if (!err && clientRows.length > 0) {
-               // Update existing client with latest details from proposal
-               db.query(
-                 `UPDATE clients SET name=?, company_name=?, email=?, gst_number=?, address=?, state=?, pincode=? WHERE id=?`,
-                 [
-                   customer.customer_name,
-                   ex.client_company || customer.customer_name,
-                   customer.email,
-                   customer.gst_number || null,
-                   ex.client_address1 || null,
-                   ex.client_state || null,
-                   ex.client_pincode || null,
-                   clientRows[0].id
-                 ]
-               );
+              // Update existing client with latest details from proposal
+              db.query(
+                `UPDATE clients SET name=?, company_name=?, email=?, gst_number=?, address=?, state=?, pincode=? WHERE id=?`,
+                [
+                  customer.customer_name,
+                  ex.client_company || customer.customer_name,
+                  customer.email,
+                  customer.gst_number || null,
+                  ex.client_address1 || null,
+                  ex.client_state || null,
+                  ex.client_pincode || null,
+                  clientRows[0].id
+                ]
+              );
             }
           }
         );
@@ -286,7 +286,7 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
   const { customer, quotation, invoice, items, extra } = req.body;
   const q = quotation || invoice;
   const ex = extra || {};
-  const quotationDate = (q && (q.quotation_date || q.invoice_date)) || new Date().toISOString().slice(0,10);
+  const quotationDate = (q && (q.quotation_date || q.invoice_date)) || new Date().toISOString().slice(0, 10);
 
   db.beginTransaction(err => {
     if (err) return res.status(500).json(err);
@@ -308,7 +308,7 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
           // The root id is either parent_id (if already a revision) or id itself
           const rootId = current.parent_id || id;
           const newVersion = (current.version || 1) + 1;
-          const refNo = current.reference_no || `QT-${new Date().toISOString().slice(0,10).replace(/-/g,"")}-${Math.floor(1000+Math.random()*9000)}`;
+          const refNo = current.reference_no || `QT-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
 
           // 3. Mark all previous versions as not latest
           db.query(
@@ -392,50 +392,50 @@ router.delete("/:id", verifyToken, isAdmin, (req, res) => {
     db.query("SELECT created_by FROM quotations WHERE id = ?", [id], (err, results) => {
       if (err) return db.rollback(() => res.status(500).json(err));
       if (results.length === 0) return db.rollback(() => res.status(404).json({ message: "Not found" }));
-      
+
       if (req.user.role !== 'admin' && results[0].created_by !== req.user.id) {
         return db.rollback(() => res.status(403).json({ message: "Access denied" }));
       }
 
       // delete items first
-    db.query(
-      "DELETE FROM quotation_items WHERE quotation_id = ?",
-      [id],
-      err => {
-        if (err) {
-          console.error(err);
-          return db.rollback(() =>
-            res.status(500).json({ error: "Item delete failed" })
-          );
-        }
+      db.query(
+        "DELETE FROM quotation_items WHERE quotation_id = ?",
+        [id],
+        err => {
+          if (err) {
+            console.error(err);
+            return db.rollback(() =>
+              res.status(500).json({ error: "Item delete failed" })
+            );
+          }
 
-        // delete quotation
-        db.query(
-          "DELETE FROM quotations WHERE id = ?",
-          [id],
-          err => {
-            if (err) {
-              console.error(err);
-              return db.rollback(() =>
-                res.status(500).json({ error: "Quotation delete failed" })
-              );
-            }
-
-            db.commit(err => {
+          // delete quotation
+          db.query(
+            "DELETE FROM quotations WHERE id = ?",
+            [id],
+            err => {
               if (err) {
                 console.error(err);
                 return db.rollback(() =>
-                  res.status(500).json({ error: "Commit failed" })
+                  res.status(500).json({ error: "Quotation delete failed" })
                 );
               }
 
-              res.json({ message: "Quotation deleted successfully" });
-            });
-          }
-        );
-      }
-    );
-  });
+              db.commit(err => {
+                if (err) {
+                  console.error(err);
+                  return db.rollback(() =>
+                    res.status(500).json({ error: "Commit failed" })
+                  );
+                }
+
+                res.json({ message: "Quotation deleted successfully" });
+              });
+            }
+          );
+        }
+      );
+    });
   });
 });
 
@@ -459,7 +459,7 @@ router.get("/download-pdf/:id", verifyToken, async (req, res) => {
       try {
         const pdfBuffer = await generateInvoicePdf({ invoice: headerRows[0], items, type: "quotation" });
         const year = new Date(headerRows[0].invoice_date).getFullYear();
-        const filename = `Quotation_QT-${year}-${String(headerRows[0].id).padStart(3,"0")}.pdf`;
+        const filename = `Quotation_QT-${year}-${String(headerRows[0].id).padStart(3, "0")}.pdf`;
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
         res.send(pdfBuffer);

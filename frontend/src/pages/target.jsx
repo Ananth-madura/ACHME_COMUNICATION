@@ -11,7 +11,7 @@ const Targets = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const isEmployee = user?.role === "employee";
-  
+
   const [open, setOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -163,10 +163,10 @@ const Targets = () => {
     e.preventDefault();
     if (!form.user_name && !form.teammember_id) return alert("Please select an employee");
     if (!form.yearly_target) return alert("Please enter yearly target");
-    
+
     const token = localStorage.getItem("token");
     const headers = { Authorization: `Bearer ${token}` };
-    
+
     try {
       if (editMode && editTarget) {
         await axios.put(`${API}/api/task/targets/${editTarget.id}`, {
@@ -213,7 +213,7 @@ const Targets = () => {
 
   const handleDelete = async (targetId) => {
     if (!window.confirm("Are you sure you want to delete this target?")) return;
-    
+
     const token = localStorage.getItem("token");
     try {
       await axios.delete(`${API}/api/task/targets/${targetId}`, {
@@ -229,10 +229,10 @@ const Targets = () => {
 
   const updateAchievement = async () => {
     if (!updateAmount || parseFloat(updateAmount) <= 0) return alert("Please enter a valid amount");
-    
+
     const userName = user?.first_name || user?.name || user?.email?.split("@")[0] || "";
     const token = localStorage.getItem("token");
-    
+
     try {
       await axios.post(`${API}/api/task/targets/update`, {
         user_id: user?.id,
@@ -240,7 +240,7 @@ const Targets = () => {
         amount: parseFloat(updateAmount),
         description: updateDesc || "Achievement update"
       }, { headers: { Authorization: `Bearer ${token}` } });
-      
+
       socket?.emit("target_updated", { userId: user?.id, userName, amount: updateAmount });
       alert("Achievement updated!");
       setUpdateAmount("");
@@ -279,7 +279,7 @@ const Targets = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <button 
+            <button
               onClick={() => { resetForm(); setOpen(true); }}
               className="bg-[#FF3355] text-white px-4 py-2 rounded-lg shadow hover:bg-[#e62848] flex items-center gap-2"
             >
@@ -308,7 +308,7 @@ const Targets = () => {
                     const achieved = parseFloat(t.achieved_amount || t.achieved_count || 0);
                     const monthlyTarget = parseFloat(t.monthly_target || 0);
                     const pending = Math.max(0, monthlyTarget - achieved);
-                    
+
                     return (
                       <tr key={t.id} className="border-b hover:bg-gray-50">
                         <td className="p-3 font-medium">{t.user_name}</td>
@@ -317,22 +317,21 @@ const Targets = () => {
                         <td className="p-3 text-right text-green-600 font-medium">₹{formatIndian(achieved)}</td>
                         <td className="p-3 text-right text-orange-600 font-medium">₹{formatIndian(pending)}</td>
                         <td className="p-3 text-center">
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                            achieved >= monthlyTarget ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-                          }`}>
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${achieved >= monthlyTarget ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                            }`}>
                             {achieved >= monthlyTarget ? "Achieved" : "Pending"}
                           </span>
                         </td>
                         <td className="p-3 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button 
+                            <button
                               onClick={() => handleEdit(t)}
                               className="p-1.5 rounded hover:bg-blue-100 text-blue-600"
                               title="Edit"
                             >
                               <Edit size={16} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDelete(t.id)}
                               className="p-1.5 rounded hover:bg-red-100 text-red-600"
                               title="Delete"
@@ -382,24 +381,24 @@ const Targets = () => {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Yearly Target (₹)</label>
-                    <input 
-                      type="number" 
-                      name="yearly_target" 
-                      value={form.yearly_target} 
+                    <input
+                      type="number"
+                      name="yearly_target"
+                      value={form.yearly_target}
                       onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1" 
+                      className="w-full border rounded-lg p-2 mt-1"
                       placeholder="e.g. 36000000"
                       required
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-600">Monthly Target (₹)</label>
-                    <input 
-                      type="number" 
-                      name="monthly_target" 
-                      value={form.monthly_target} 
+                    <input
+                      type="number"
+                      name="monthly_target"
+                      value={form.monthly_target}
                       onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1" 
+                      className="w-full border rounded-lg p-2 mt-1"
                       placeholder="e.g. 3000000 (optional - auto-calculated)"
                     />
                   </div>
@@ -452,25 +451,25 @@ const Targets = () => {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-gray-600">Amount Achieved (₹)</label>
-                <input 
-                  type="number" 
-                  value={updateAmount} 
+                <input
+                  type="number"
+                  value={updateAmount}
                   onChange={(e) => setUpdateAmount(e.target.value)}
-                  className="w-full border rounded-lg p-2 mt-1" 
+                  className="w-full border rounded-lg p-2 mt-1"
                   placeholder="Enter amount achieved today"
                 />
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">Description</label>
-                <input 
-                  type="text" 
-                  value={updateDesc} 
+                <input
+                  type="text"
+                  value={updateDesc}
                   onChange={(e) => setUpdateDesc(e.target.value)}
-                  className="w-full border rounded-lg p-2 mt-1" 
+                  className="w-full border rounded-lg p-2 mt-1"
                   placeholder="e.g. Closed deal with ABC company"
                 />
               </div>
-              <button 
+              <button
                 onClick={updateAchievement}
                 className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
               >
@@ -522,9 +521,8 @@ const Targets = () => {
                           <td className="p-2 text-right text-green-600">₹{formatIndian(achieved)}</td>
                           <td className="p-2 text-right text-orange-600">₹{formatIndian(Math.max(0, target - achieved))}</td>
                           <td className="p-2 text-center">
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              achieved >= target ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-                            }`}>
+                            <span className={`px-2 py-1 rounded-full text-xs ${achieved >= target ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                              }`}>
                               {achieved >= target ? "Achieved" : "Pending"}
                             </span>
                           </td>

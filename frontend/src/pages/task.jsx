@@ -47,10 +47,10 @@ const PillTab = ({ active, onClick, children }) => (
 
 const StatusBadge = ({ status }) => {
   const map = {
-    New:       { bg: N.peach,    color: N.orange },
-    Process:   { bg: N.sky,      color: "#0075de" },
-    Completed: { bg: N.mint,     color: N.green },
-    Expired:   { bg: N.rose,     color: N.error },
+    New: { bg: N.peach, color: N.orange },
+    Process: { bg: N.sky, color: "#0075de" },
+    Completed: { bg: N.mint, color: N.green },
+    Expired: { bg: N.rose, color: N.error },
   };
   const s = map[status] || { bg: N.surface, color: N.steel };
   return (
@@ -73,11 +73,11 @@ const applyDateFilter = (items, dateField, filter, customFrom, customTo) => {
   const now = new Date();
   return items.filter(item => {
     const d = new Date(item[dateField]);
-    if (filter === "day")    return d.toDateString() === now.toDateString();
-    if (filter === "month")  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    if (filter === "day") return d.toDateString() === now.toDateString();
+    if (filter === "month") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     if (filter === "custom") {
       const from = customFrom ? new Date(customFrom) : null;
-      const to   = customTo   ? new Date(customTo + "T23:59:59") : null;
+      const to = customTo ? new Date(customTo + "T23:59:59") : null;
       return (!from || d >= from) && (!to || d <= to);
     }
     return true;
@@ -110,39 +110,39 @@ const Task = () => {
   const isAdmin = user?.role === "admin";
   const isEmployee = user?.role === "employee";
 
-  const [tasks, setTasks]             = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [taskTargets, setTaskTargets] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
-  const [activeTab, setActiveTab]     = useState("tasks");
-  const [lastUpdate, setLastUpdate]   = useState(null);
+  const [activeTab, setActiveTab] = useState("tasks");
+  const [lastUpdate, setLastUpdate] = useState(null);
 
   // Task form / modals
-  const [open, setOpen]                     = useState(false);
-  const [selectedTask, setSelectedTask]     = useState(null);
+  const [open, setOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [newStatus, setNewStatus]           = useState("");
+  const [newStatus, setNewStatus] = useState("");
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
-  const [detailTask, setDetailTask]         = useState(null);
+  const [detailTask, setDetailTask] = useState(null);
 
   // Target form / modal
   const [targetModalOpen, setTargetModalOpen] = useState(false);
   const [targetForm, setTargetForm] = useState({ user_name: "", yearly_target: "", user_id: "", teammember_id: "" });
 
   // Active tasks filters
-  const [searchTerm, setSearchTerm]       = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [employeeFilter, setEmployeeFilter] = useState("all");
 
   // History drill-in state (tasks)
   const [historyEmployee, setHistoryEmployee] = useState(null); // null = list view
-  const [histFilter, setHistFilter]           = useState("all");
-  const [histCustomFrom, setHistCustomFrom]   = useState("");
-  const [histCustomTo, setHistCustomTo]       = useState("");
+  const [histFilter, setHistFilter] = useState("all");
+  const [histCustomFrom, setHistCustomFrom] = useState("");
+  const [histCustomTo, setHistCustomTo] = useState("");
 
   // Target history drill-in state
   const [targetHistEmployee, setTargetHistEmployee] = useState(null);
-  const [tHistFilter, setTHistFilter]               = useState("all");
-  const [tHistCustomFrom, setTHistCustomFrom]       = useState("");
-  const [tHistCustomTo, setTHistCustomTo]           = useState("");
+  const [tHistFilter, setTHistFilter] = useState("all");
+  const [tHistCustomFrom, setTHistCustomFrom] = useState("");
+  const [tHistCustomTo, setTHistCustomTo] = useState("");
 
   const [form, setForm] = useState({
     project_name: "", task_title: "", task_description: "", client_name: "", staff_name: "",
@@ -153,9 +153,11 @@ const Task = () => {
   });
 
   const resetForm = () => {
-    setForm({ project_name: "", task_title: "", task_description: "", client_name: "", staff_name: "", assigned_to: "", assigned_teammember_id: "",
+    setForm({
+      project_name: "", task_title: "", task_description: "", client_name: "", staff_name: "", assigned_to: "", assigned_teammember_id: "",
       created_date: new Date().toISOString().slice(0, 10), due_date: new Date().toISOString().slice(0, 10),
-      project_status: "New", project_priority: "Medium" });
+      project_status: "New", project_priority: "Medium"
+    });
     setSelectedTask(null);
   };
 
@@ -206,24 +208,24 @@ const Task = () => {
   // ── Derived data ───────────────────────────────────────────────────────────
   const myTasks = isEmployee
     ? tasks.filter(t => {
-        const firstName = (user?.first_name || "").toLowerCase();
-        const fullName = (user?.name || "").toLowerCase();
-        const emailPrefix = (user?.email?.split("@")[0] || "").toLowerCase();
-        
-        const staffName = (t.staff_name || "").toLowerCase();
-        const assignedTo = (t.assigned_to || "").toLowerCase();
-        const assignedTmId = t.assigned_teammember_id;
-        const myTmId = user?.teammember_id;
+      const firstName = (user?.first_name || "").toLowerCase();
+      const fullName = (user?.name || "").toLowerCase();
+      const emailPrefix = (user?.email?.split("@")[0] || "").toLowerCase();
 
-        return (
-          staffName.includes(firstName) || 
-          staffName.includes(fullName) || 
-          staffName.includes(emailPrefix) ||
-          assignedTo.includes(firstName) ||
-          assignedTo.includes(fullName) ||
-          (assignedTmId && myTmId && assignedTmId === myTmId)
-        );
-      })
+      const staffName = (t.staff_name || "").toLowerCase();
+      const assignedTo = (t.assigned_to || "").toLowerCase();
+      const assignedTmId = t.assigned_teammember_id;
+      const myTmId = user?.teammember_id;
+
+      return (
+        staffName.includes(firstName) ||
+        staffName.includes(fullName) ||
+        staffName.includes(emailPrefix) ||
+        assignedTo.includes(firstName) ||
+        assignedTo.includes(fullName) ||
+        (assignedTmId && myTmId && assignedTmId === myTmId)
+      );
+    })
     : tasks;
 
   // Active = pending (New or Process), not completed/expired
@@ -235,15 +237,15 @@ const Task = () => {
   // Unique employees who have history tasks (for admin drill-in list)
   const historyEmployees = isAdmin
     ? [...new Map(historyTasks.map(t => [t.staff_name || t.assigned_to, t])).values()]
-        .map(t => t.staff_name || t.assigned_to).filter(Boolean)
+      .map(t => t.staff_name || t.assigned_to).filter(Boolean)
     : [];
 
   // Tasks for selected employee in history drill-in
   const drillTasks = historyEmployee
     ? applyDateFilter(
-        historyTasks.filter(t => (t.staff_name || t.assigned_to) === historyEmployee),
-        "due_date", histFilter, histCustomFrom, histCustomTo
-      )
+      historyTasks.filter(t => (t.staff_name || t.assigned_to) === historyEmployee),
+      "due_date", histFilter, histCustomFrom, histCustomTo
+    )
     : [];
 
   // Filtered active tasks
@@ -264,9 +266,9 @@ const Task = () => {
 
   const drillTargetHistory = targetHistEmployee
     ? applyDateFilter(
-        (taskTargets.find(t => t.user_name === targetHistEmployee)?.history || []),
-        "date", tHistFilter, tHistCustomFrom, tHistCustomTo
-      )
+      (taskTargets.find(t => t.user_name === targetHistEmployee)?.history || []),
+      "month_year", tHistFilter, tHistCustomFrom, tHistCustomTo
+    )
     : [];
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -299,7 +301,7 @@ const Task = () => {
     } catch (err) { alert(err.response?.data?.message || "Failed to save task"); }
   };
 
-const updateStatus = async (taskId, status) => {
+  const updateStatus = async (taskId, status) => {
     const token = localStorage.getItem("token");
     try {
       await axios.put(`${API}/api/task/${taskId}`, { project_status: status }, { headers: { Authorization: `Bearer ${token}` } });
@@ -323,7 +325,7 @@ const updateStatus = async (taskId, status) => {
         const m = teamMembers.find(m => m.user_id == targetForm.user_id || m.id == targetForm.user_id);
         name = `${m?.first_name} ${m?.last_name || ""}`.trim();
       }
-await axios.post(`${API}/api/task/targets`, {
+      await axios.post(`${API}/api/task/targets`, {
         user_id: targetForm.user_id, user_name: targetForm.user_name,
         teammember_id: targetForm.teammember_id,
         yearly_target: parseFloat(targetForm.yearly_target), created_by_admin: true
@@ -369,7 +371,7 @@ await axios.post(`${API}/api/task/targets`, {
 
       {/* Top-level tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
-        {[["tasks","Active Tasks"],["history","Task History"],["targets","Targets"],["targetHistory","Target History"]].map(([key, label]) => (
+        {[["tasks", "Active Tasks"], ["history", "Task History"], ["targets", "Targets"], ["targetHistory", "Target History"]].map(([key, label]) => (
           <PillTab key={key} active={activeTab === key} onClick={() => setActiveTab(key)}>{label}</PillTab>
         ))}
         {lastUpdate && (
@@ -412,10 +414,10 @@ await axios.post(`${API}/api/task/targets`, {
           {/* Stats row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "New",       count: activeTasks.filter(t => t.project_status === "New").length,     bg: N.peach,    color: N.orange },
-              { label: "In Process",count: activeTasks.filter(t => t.project_status === "Process").length, bg: N.sky,      color: "#0075de" },
-              { label: "Completed", count: historyTasks.filter(t => t.project_status === "Completed").length, bg: N.mint,  color: N.green },
-              { label: "Total",     count: myTasks.length,                                                  bg: N.lavender, color: N.primary },
+              { label: "New", count: activeTasks.filter(t => t.project_status === "New").length, bg: N.peach, color: N.orange },
+              { label: "In Process", count: activeTasks.filter(t => t.project_status === "Process").length, bg: N.sky, color: "#0075de" },
+              { label: "Completed", count: historyTasks.filter(t => t.project_status === "Completed").length, bg: N.mint, color: N.green },
+              { label: "Total", count: myTasks.length, bg: N.lavender, color: N.primary },
             ].map(s => (
               <div key={s.label} className="rounded-xl p-4 border" style={{ background: s.bg, borderColor: "transparent" }}>
                 <p className="text-xs font-medium" style={{ color: s.color }}>{s.label}</p>
@@ -568,7 +570,7 @@ await axios.post(`${API}/api/task/targets`, {
             </div>
           )}
         </div>
-)}
+      )}
       )}
 
       {/* ── STATUS MODAL ─────────────────────────────────────────────────── */}
@@ -579,7 +581,7 @@ await axios.post(`${API}/api/task/targets`, {
               <h3 className="text-base font-semibold" style={{ color: N.ink }}>Update Task Status</h3>
             </div>
             <div className="p-4 space-y-2">
-              {["New","Process","Completed"].map(status => (
+              {["New", "Process", "Completed"].map(status => (
                 <button key={status} onClick={() => updateStatus(selectedTask.id, status)}
                   disabled={isEmployee && status === "New"}
                   className="w-full p-3 rounded-lg text-left text-sm font-medium border cursor-pointer transition-colors"
@@ -612,17 +614,17 @@ await axios.post(`${API}/api/task/targets`, {
               <button onClick={() => { setOpen(false); resetForm(); }} className="cursor-pointer" style={{ color: N.steel }}><X size={18} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-4 space-y-3">
-              {[["project_name","Project Name *","text",true],["task_title","Task Title","text",false]].map(([name,label,type,req]) => (
+              {[["project_name", "Project Name *", "text", true], ["task_title", "Task Title", "text", false]].map(([name, label, type, req]) => (
                 <div key={name}>
                   <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>{label}</label>
-                  <input type={type} name={name} value={form[name]} onChange={e => setForm({...form,[e.target.name]:e.target.value})}
+                  <input type={type} name={name} value={form[name]} onChange={e => setForm({ ...form, [e.target.name]: e.target.value })}
                     className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
                     style={{ borderColor: N.hairlineStrong, color: N.ink }} required={req} />
                 </div>
               ))}
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Task Description</label>
-                <textarea name="task_description" value={form.task_description} onChange={e => setForm({...form,task_description:e.target.value})}
+                <textarea name="task_description" value={form.task_description} onChange={e => setForm({ ...form, task_description: e.target.value })}
                   rows={3}
                   className="w-full border rounded-lg px-3 py-2 text-sm outline-none resize-none"
                   style={{ borderColor: N.hairlineStrong, color: N.ink }}
@@ -631,7 +633,7 @@ await axios.post(`${API}/api/task/targets`, {
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Client Name</label>
-                <input type="text" name="client_name" value={form.client_name} onChange={e => setForm({...form,[e.target.name]:e.target.value})}
+                <input type="text" name="client_name" value={form.client_name} onChange={e => setForm({ ...form, [e.target.name]: e.target.value })}
                   className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
                   style={{ borderColor: N.hairlineStrong, color: N.ink }}
                   placeholder="Enter client name" />
@@ -641,39 +643,39 @@ await axios.post(`${API}/api/task/targets`, {
                   <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Assign To</label>
                   <select name="assigned_to" value={form.assigned_teammember_id || ""} onChange={e => {
                     const m = teamMembers.find(t => String(t.id) === e.target.value);
-                    setForm({...form, assigned_teammember_id: m ? Number(m.id) : "", assigned_to: m ? `${m.first_name} ${m.last_name||""}`.trim() : e.target.value });
+                    setForm({ ...form, assigned_teammember_id: m ? Number(m.id) : "", assigned_to: m ? `${m.first_name} ${m.last_name || ""}`.trim() : e.target.value });
                   }}
                     className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
                     <option value="">— Select Staff —</option>
                     {teamMembers.map(t => (
                       <option key={t.id} value={String(t.id)}>
-                        {t.first_name} {t.last_name||""}
+                        {t.first_name} {t.last_name || ""}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Priority</label>
-                  <select name="project_priority" value={form.project_priority} onChange={e => setForm({...form,project_priority:e.target.value})}
+                  <select name="project_priority" value={form.project_priority} onChange={e => setForm({ ...form, project_priority: e.target.value })}
                     className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
-                    {["Low","Medium","High","Urgent"].map(p => <option key={p}>{p}</option>)}
+                    {["Low", "Medium", "High", "Urgent"].map(p => <option key={p}>{p}</option>)}
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {[["created_date","Created Date"],["due_date","Due Date"]].map(([name,label]) => (
+                {[["created_date", "Created Date"], ["due_date", "Due Date"]].map(([name, label]) => (
                   <div key={name}>
                     <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>{label}</label>
-                    <input type="date" name={name} value={form[name]} onChange={e => setForm({...form,[e.target.name]:e.target.value})}
+                    <input type="date" name={name} value={form[name]} onChange={e => setForm({ ...form, [e.target.name]: e.target.value })}
                       className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong }} />
                   </div>
                 ))}
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Status</label>
-                <select name="project_status" value={form.project_status} onChange={e => setForm({...form,project_status:e.target.value})}
+                <select name="project_status" value={form.project_status} onChange={e => setForm({ ...form, project_status: e.target.value })}
                   className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
-                  {["New","Process","Completed"].map(s => <option key={s}>{s}</option>)}
+                  {["New", "Process", "Completed"].map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
               <div className="flex gap-2 pt-1">
@@ -717,7 +719,7 @@ await axios.post(`${API}/api/task/targets`, {
                   </div>
                   <div>
                     <p className="font-medium text-sm" style={{ color: N.ink }}>{t.user_name || "Unknown"}</p>
-                    <p className="text-xs" style={{ color: N.stone }}>Yearly: ₹{(parseFloat(t.yearly_target)||0).toLocaleString()}</p>
+                    <p className="text-xs" style={{ color: N.stone }}>Yearly: ₹{(parseFloat(t.yearly_target) || 0).toLocaleString()}</p>
                   </div>
                 </div>
                 {isEmployee ? (
@@ -726,19 +728,19 @@ await axios.post(`${API}/api/task/targets`, {
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs" style={{ color: N.steel }}>
                       <span>Monthly Target</span>
-                      <span className="font-medium" style={{ color: N.ink }}>₹{(parseFloat(t.monthly_target)||0).toLocaleString()}</span>
+                      <span className="font-medium" style={{ color: N.ink }}>₹{(parseFloat(t.monthly_target) || 0).toLocaleString()}</span>
                     </div>
                     {(() => {
                       const now = new Date();
-                      const monthYear = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+                      const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
                       const ach = t.current_month === monthYear ? (t.achieved_amount || 0) : 0;
                       const pct = t.monthly_target > 0 ? Math.round((ach / t.monthly_target) * 100) : 0;
                       return (
                         <>
                           <div className="w-full rounded-full h-2" style={{ background: N.hairline }}>
-                            <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(pct,100)}%`, background: pct >= 100 ? N.green : pct >= 50 ? N.orange : N.error }} />
+                            <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, background: pct >= 100 ? N.green : pct >= 50 ? N.orange : N.error }} />
                           </div>
-                          <p className="text-xs" style={{ color: N.stone }}>This month: ₹{ach.toLocaleString()} / ₹{(parseFloat(t.monthly_target)||0).toLocaleString()} ({pct}%)</p>
+                          <p className="text-xs" style={{ color: N.stone }}>This month: ₹{ach.toLocaleString()} / ₹{(parseFloat(t.monthly_target) || 0).toLocaleString()} ({pct}%)</p>
                         </>
                       );
                     })()}
@@ -780,8 +782,8 @@ await axios.post(`${API}/api/task/targets`, {
                               <span className="font-medium" style={{ color: N.ink }}>{emp}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{(parseFloat(t?.yearly_target)||0).toLocaleString()}</td>
-                          <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{(parseFloat(t?.monthly_target)||0).toLocaleString()}</td>
+                          <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{(parseFloat(t?.yearly_target) || 0).toLocaleString()}</td>
+                          <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{(parseFloat(t?.monthly_target) || 0).toLocaleString()}</td>
                           <td className="px-4 py-3">
                             <button className="text-xs font-medium cursor-pointer" style={{ color: N.primary }}>View History →</button>
                           </td>
@@ -821,8 +823,8 @@ await axios.post(`${API}/api/task/targets`, {
                     {drillTargetHistory.map(h => (
                       <tr key={h.month_year} className="border-t" style={{ borderColor: N.hairline }}>
                         <td className="px-4 py-3" style={{ color: N.charcoal }}>{h.month_year}</td>
-                        <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{(parseFloat(h.monthly_target)||0).toLocaleString()}</td>
-                        <td className="px-4 py-3" style={{ color: N.green }}>₹{(parseFloat(h.achieved_amount)||0).toLocaleString()}</td>
+                        <td className="px-4 py-3" style={{ color: N.charcoal }}>₹{(parseFloat(h.monthly_target) || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3" style={{ color: N.green }}>₹{(parseFloat(h.achieved_amount) || 0).toLocaleString()}</td>
                         <td className="px-4 py-3">
                           {(() => {
                             const pct = h.monthly_target > 0 ? Math.round((h.achieved_amount / h.monthly_target) * 100) : 0;
@@ -857,7 +859,7 @@ const HistoryTable = ({ tasks }) => (
       <table className="w-full text-sm">
         <thead style={{ background: "#f6f5f4" }}>
           <tr>
-            {["Task","Assigned To","Due Date","Status"].map(h => (
+            {["Task", "Assigned To", "Due Date", "Status"].map(h => (
               <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "#787671" }}>{h}</th>
             ))}
           </tr>
@@ -871,7 +873,7 @@ const HistoryTable = ({ tasks }) => (
                 {task.task_description && <div className="text-xs mt-1 text-gray-400 line-clamp-2">{task.task_description}</div>}
               </td>
               <td className="px-4 py-3" style={{ color: "#37352f" }}>{task.staff_name || task.assigned_to || "—"}</td>
-              <td className="px-4 py-3 text-xs" style={{ color: "#787671" }}>{task.due_date ? new Date(task.due_date).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}) : "—"}</td>
+              <td className="px-4 py-3 text-xs" style={{ color: "#787671" }}>{task.due_date ? new Date(task.due_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</td>
               <td className="px-4 py-3"><StatusBadge status={task.project_status} /></td>
             </tr>
           ))}
@@ -887,13 +889,13 @@ const HistoryTable = ({ tasks }) => (
 // ─── EmployeeTargetCard sub-component ────────────────────────────────────────
 const EmployeeTargetCard = ({ user, onUpdateAchievement }) => {
   const [myTarget, setMyTarget] = useState(null);
-  const [amount, setAmount]     = useState("");
-  const [desc, setDesc]         = useState("");
-  const [loading, setLoading]   = useState(true);
+  const [amount, setAmount] = useState("");
+  const [desc, setDesc] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const fetch = async () => {
     try {
-      const userName = user?.name || `${user?.first_name||""} ${user?.last_name||""}`.trim();
+      const userName = user?.name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
       const token = localStorage.getItem("token");
       const res = await axios.get(`${API}/api/task/targets/my?user_name=${encodeURIComponent(userName)}`,
         { headers: { Authorization: `Bearer ${token}` } });
@@ -923,7 +925,7 @@ const EmployeeTargetCard = ({ user, onUpdateAchievement }) => {
     </div>
   );
 
-const monthly = myTarget.monthly_target || 0;
+  const monthly = myTarget.monthly_target || 0;
   const achieved = myTarget.achieved_amount || myTarget.achieved_count || 0;
   const carry = myTarget.carry_forward || 0;
   const effective = myTarget.effective_target || monthly;
@@ -934,10 +936,10 @@ const monthly = myTarget.monthly_target || 0;
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "Monthly Target", val: `₹${monthly.toLocaleString()}`,   color: "#0075de", bg: "#dcecfa" },
-          { label: "Carry Forward",  val: `₹${carry.toLocaleString()}`,     color: "#dd5b00", bg: "#ffe8d4" },
-          { label: "Achieved",       val: `₹${achieved.toLocaleString()}`,  color: "#1aae39", bg: "#d9f3e1" },
-          { label: "Remaining",      val: `₹${balance.toLocaleString()}`,   color: "#e03131", bg: "#fde0ec" },
+          { label: "Monthly Target", val: `₹${monthly.toLocaleString()}`, color: "#0075de", bg: "#dcecfa" },
+          { label: "Carry Forward", val: `₹${carry.toLocaleString()}`, color: "#dd5b00", bg: "#ffe8d4" },
+          { label: "Achieved", val: `₹${achieved.toLocaleString()}`, color: "#1aae39", bg: "#d9f3e1" },
+          { label: "Remaining", val: `₹${balance.toLocaleString()}`, color: "#e03131", bg: "#fde0ec" },
         ].map(s => (
           <div key={s.label} className="rounded-xl p-4 border" style={{ background: s.bg, borderColor: "transparent" }}>
             <p className="text-xs font-medium" style={{ color: s.color }}>{s.label}</p>
@@ -953,7 +955,7 @@ const monthly = myTarget.monthly_target || 0;
         </div>
         <div className="w-full rounded-full h-2.5" style={{ background: "#e5e3df" }}>
           <div className="h-2.5 rounded-full transition-all"
-            style={{ width: `${Math.min(pct,100)}%`, background: pct >= 100 ? "#1aae39" : pct >= 50 ? "#dd5b00" : "#e03131" }} />
+            style={{ width: `${Math.min(pct, 100)}%`, background: pct >= 100 ? "#1aae39" : pct >= 50 ? "#dd5b00" : "#e03131" }} />
         </div>
       </div>
 
@@ -979,6 +981,44 @@ const monthly = myTarget.monthly_target || 0;
           </div>
         </form>
       </div>
+
+      {myTarget.history && myTarget.history.length > 0 && (
+        <div className="rounded-xl border overflow-hidden" style={{ background: "#ffffff", borderColor: "#e5e3df" }}>
+          <div className="px-4 py-3 border-b" style={{ borderColor: "#e5e3df", background: "#f6f5f4" }}>
+            <h4 className="text-sm font-semibold" style={{ color: "#1a1a1a" }}>Target History</h4>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead style={{ background: "#fafaf9" }}>
+                <tr>
+                  {["Month", "Target", "Achieved", "Status"].map(h => (
+                    <th key={h} className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: "#787671" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {myTarget.history.slice(0, 6).map(h => {
+                  const pct = h.monthly_target > 0 ? Math.round((h.achieved_amount / h.monthly_target) * 100) : 0;
+                  return (
+                    <tr key={h.month_year} className="border-t" style={{ borderColor: "#e5e3df" }}>
+                      <td className="px-4 py-2" style={{ color: "#37352f" }}>{h.month_year}</td>
+                      <td className="px-4 py-2" style={{ color: "#37352f" }}>₹{(parseFloat(h.monthly_target) || 0).toLocaleString()}</td>
+                      <td className="px-4 py-2" style={{ color: "#1aae39" }}>₹{(parseFloat(h.achieved_amount) || 0).toLocaleString()}</td>
+                      <td className="px-4 py-2">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold" 
+                          style={{ background: pct >= 100 ? "#d9f3e1" : pct >= 50 ? "#ffe8d4" : "#fde0ec", 
+                                   color: pct >= 100 ? "#1aae39" : pct >= 50 ? "#dd5a00" : "#e03131" }}>
+                          {pct >= 100 ? "Completed" : pct >= 50 ? "Process" : "New"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

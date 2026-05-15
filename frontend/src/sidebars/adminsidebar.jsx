@@ -40,7 +40,7 @@ const Sidebar = ({ onNavigate }) => {
     { icon: <TargetIcon size={20} />, title: "Team Targets", path: "/dashboard/targets" },
     // { icon: <UserCog size={20} />, title: "User Management", path: "/dashboard/users" },
     { icon: <Users size={20} />, title: "Customers", subitems: [{ label: "Clients", path: "/dashboard/clients" }] },
-    // { icon: <ListTodo size={20} />, title: "Tasks", path: "/dashboard/task" },
+    { icon: <ListTodo size={20} />, title: "Tasks", path: "/dashboard/task" },
     {
       icon: <ShieldCheck size={20} />, title: "Contracts & AMC",
       subitems: [

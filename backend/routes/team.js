@@ -4,11 +4,11 @@ const db = require("../config/database");
 const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
 // CREATE - Admin only
-router.post("/new", verifyToken, isAdmin, (req,res)=>{
-  const { first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count,emp_id } = req.body;
+router.post("/new", verifyToken, isAdmin, (req, res) => {
+  const { first_name, last_name, emp_email, mobile, job_title, emp_role, quotation_count, emp_id } = req.body;
 
-  if(!first_name || !last_name || !emp_email || !mobile || !job_title || !emp_role){
-    return res.status(400).json({message:"All Field Required"});
+  if (!first_name || !last_name || !emp_email || !mobile || !job_title || !emp_role) {
+    return res.status(400).json({ message: "All Field Required" });
   }
 
   const sql = `
@@ -17,10 +17,10 @@ router.post("/new", verifyToken, isAdmin, (req,res)=>{
   VALUES (?,?,?,?,?,?,?,?)
   `;
 
-  db.query(sql,[first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count || 0, emp_id || null],
-    (err,result)=>{
-      if(err) return res.status(500).json(err);
-      res.json({success:true});
+  db.query(sql, [first_name, last_name, emp_email, mobile, job_title, emp_role, quotation_count || 0, emp_id || null],
+    (err, result) => {
+      if (err) return res.status(500).json(err);
+      res.json({ success: true });
     });
 });
 
@@ -79,8 +79,8 @@ router.get("/:id", verifyToken, (req, res) => {
 
 
 // Edit - Admin only
-router.put("/:id", verifyToken, isAdmin, (req,res)=>{
-  const { first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count,emp_id } = req.body;
+router.put("/:id", verifyToken, isAdmin, (req, res) => {
+  const { first_name, last_name, emp_email, mobile, job_title, emp_role, quotation_count, emp_id } = req.body;
 
   const sql = `
    UPDATE teammember 
@@ -89,20 +89,20 @@ router.put("/:id", verifyToken, isAdmin, (req,res)=>{
   `;
 
   db.query(sql,
-    [first_name,last_name,emp_email,mobile,job_title,emp_role,quotation_count || 0,emp_id || null,req.params.id],
-    (err)=>{
-      if(err) return res.status(500).json(err);
-      res.json({success:true});
+    [first_name, last_name, emp_email, mobile, job_title, emp_role, quotation_count || 0, emp_id || null, req.params.id],
+    (err) => {
+      if (err) return res.status(500).json(err);
+      res.json({ success: true });
     }
   );
 });
 
 
 /* DELETE - Admin only */
-router.delete("/:id", verifyToken, isAdmin, (req,res)=>{
-  db.query("DELETE FROM teammember WHERE id=?",[req.params.id],(err)=>{
-    if(err) return res.status(500).json(err);
-    res.json({success:true});
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
+  db.query("DELETE FROM teammember WHERE id=?", [req.params.id], (err) => {
+    if (err) return res.status(500).json(err);
+    res.json({ success: true });
   });
 });
 

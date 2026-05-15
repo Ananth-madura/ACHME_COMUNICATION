@@ -1,148 +1,341 @@
-CREATE TABLE IF NOT EXISTS `clientinvoices` (
+CREATE TABLE IF NOT EXISTS `admin_notifications` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `client_company` varchar(150) DEFAULT NULL,
-  `project_names` varchar(150) DEFAULT NULL,
-  `invoice_date` date DEFAULT NULL,
-  `invoice_duedate` date DEFAULT NULL,
-  `category` enum('Default') DEFAULT 'Default',
-  `created_by` int DEFAULT NULL,
+  `type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'registration',
+  `user_id` int DEFAULT NULL,
+  `message` text COLLATE utf8mb4_unicode_ci,
+  `is_read` tinyint(1) DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `related_id` int DEFAULT NULL,
+  `related_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `priority` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'normal',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `amc_alc_services` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `contract_id` int NOT NULL,
+  `service_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `customer_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `mobile_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `location_city` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `service_date` date NOT NULL,
+  `service_person` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `petrol_charges` decimal(10,2) DEFAULT '0.00',
+  `spare_parts_price` decimal(10,2) DEFAULT '0.00',
+  `labour_charges` decimal(10,2) DEFAULT '0.00',
+  `total_expenses` decimal(10,2) DEFAULT '0.00',
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `contract_title` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `start_time` time DEFAULT NULL,
+  `end_time` time DEFAULT NULL,
+  `km` decimal(10,2) DEFAULT NULL,
+  `technician` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `sales_person` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `remarks` text COLLATE utf8mb4_unicode_ci,
+  `email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `next_service_date` date DEFAULT NULL,
+  `amount_collected` decimal(10,2) DEFAULT '0.00',
+  `payment_mode` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `call_reports` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `location` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `complaint` text COLLATE utf8mb4_unicode_ci,
+  `time_spent` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `km` decimal(10,2) DEFAULT NULL,
+  `report_date` date DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `start_time` time DEFAULT NULL,
+  `end_time` time DEFAULT NULL,
+  `remarks` text COLLATE utf8mb4_unicode_ci,
+  `technician` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `sales_person` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `amount_collected` decimal(10,2) DEFAULT '0.00',
+  `payment_mode` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `profile_change_requests` (
+CREATE TABLE IF NOT EXISTS `clientinvoices` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `user_id` int NOT NULL,
-  `field` varchar(50) NOT NULL,
-  `new_value` text,
-  `status` enum('pending','approved','declined') DEFAULT 'pending',
+  `client_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `project_names` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `invoice_date` date DEFAULT NULL,
+  `invoice_duedate` date DEFAULT NULL,
+  `category` enum('Default') COLLATE utf8mb4_unicode_ci DEFAULT 'Default',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `admin_response_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `created_by` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `clients` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `company_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `address` text COLLATE utf8mb4_unicode_ci,
+  `state` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `pincode` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `gst_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_by` int DEFAULT NULL,
+  `service` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `original_lead_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `converted_at` timestamp NULL DEFAULT NULL,
+  `lead_email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lead_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lead_reference` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lead_purpose` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_status` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `original_lead_id` int DEFAULT NULL,
+  `lead_staff_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lead_id_display` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `assigned_teammember_id` int DEFAULT NULL,
+  `alternate_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `notes` text COLLATE utf8mb4_unicode_ci,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `contracts` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `client_company` varchar(150) DEFAULT NULL,
-  `template_names` varchar(150) DEFAULT NULL,
-  `contract_title` varchar(150) DEFAULT NULL,
+  `client_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `template_names` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `contract_title` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `start_date` date DEFAULT NULL,
   `end_date` date DEFAULT NULL,
-  `category` enum('Default') DEFAULT 'Default',
-  `created_by` int DEFAULT NULL,
+  `category` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'Default',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `amount_value` decimal(10,2) NOT NULL,
+  `contract_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Service',
+  `quotation_id` int DEFAULT NULL,
+  `mobile_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `location_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `customers` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `customer_name` varchar(100) NOT NULL,
-  `mobile_number` varchar(20) DEFAULT NULL,
-  `email` varchar(100) DEFAULT NULL,
-  `location_city` varchar(100) DEFAULT NULL,
-  `created_by` int DEFAULT NULL,
+  `customer_name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `mobile_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `location_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `gst_number` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `email_otp` (
-  `otp` char(6) DEFAULT NULL,
+  `otp` char(6) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `expires_at` datetime DEFAULT NULL,
-  `email` char(100) DEFAULT NULL,
+  `email` char(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `estimate_invoice_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `invoice_id` int NOT NULL,
+  `product_number` int NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `brand_model` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hsn_sac` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `uom` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Nos',
+  `price` decimal(10,2) NOT NULL,
+  `quantity` int NOT NULL,
+  `tax` decimal(10,2) DEFAULT '0.00',
+  `discount` decimal(10,2) DEFAULT '0.00',
+  `subtotal` decimal(10,2) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `estimate_invoices` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `customer_id` int NOT NULL,
+  `invoice_date` date NOT NULL,
+  `subtotal` decimal(12,2) DEFAULT '0.00',
+  `total_tax` decimal(12,2) DEFAULT '0.00',
+  `total_discount` decimal(12,2) DEFAULT '0.00',
+  `grand_total` decimal(12,2) DEFAULT '0.00',
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `total_cgst` decimal(12,2) DEFAULT '0.00',
+  `total_sgst` decimal(12,2) DEFAULT '0.00',
+  `total_igst` decimal(12,2) DEFAULT '0.00',
+  `reference_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `from_address_id` int DEFAULT NULL,
+  `from_address_custom` text COLLATE utf8mb4_unicode_ci,
+  `client_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_address1` text COLLATE utf8mb4_unicode_ci,
+  `client_address2` text COLLATE utf8mb4_unicode_ci,
+  `client_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_state` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_pincode` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_country` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'India',
+  `tax_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'GST18',
+  `custom_tax` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_general` tinyint(1) DEFAULT '0',
+  `terms_tax` tinyint(1) DEFAULT '0',
+  `terms_project_period` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_validity` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_separate_orders` text COLLATE utf8mb4_unicode_ci,
+  `terms_payment` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_payment_custom` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_warranty` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hsn_sac_code` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `supplier_branch` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_details_id` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_account` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_ifsc` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_branch` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `custom_terms` text COLLATE utf8mb4_unicode_ci,
+  `is_latest` tinyint(1) DEFAULT '1',
+  `parent_id` int DEFAULT NULL,
+  `version` int DEFAULT '1',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `estimate_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `estimate_id` int NOT NULL,
+  `product_number` int NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `brand_model` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hsn_sac` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `uom` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Nos',
+  `price` decimal(10,2) NOT NULL,
+  `quantity` int NOT NULL,
+  `tax` decimal(10,2) DEFAULT '0.00',
+  `discount` decimal(10,2) DEFAULT '0.00',
+  `subtotal` decimal(10,2) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `estimateclient` (
-  `client_company` varchar(150) DEFAULT NULL,
-  `project_names` varchar(150) DEFAULT NULL,
+  `client_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `project_names` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `Estimate_date` date DEFAULT NULL,
   `Expiry_date` date DEFAULT NULL,
-  `category` enum('Default') DEFAULT 'Default',
+  `category` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'Default',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `id` int NOT NULL AUTO_INCREMENT,
+  `subtotal` decimal(12,2) DEFAULT '0.00',
+  `total_tax` decimal(12,2) DEFAULT '0.00',
+  `total_discount` decimal(12,2) DEFAULT '0.00',
+  `grand_total` decimal(12,2) DEFAULT '0.00',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `estimatenew` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `company_name` varchar(150) DEFAULT NULL,
-  `client_firstname` varchar(150) DEFAULT NULL,
-  `client_lastname` varchar(150) DEFAULT NULL,
-  `client_email` varchar(150) DEFAULT NULL,
+  `company_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_firstname` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_lastname` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `client_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_address` text COLLATE utf8mb4_unicode_ci,
+  `client_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_state` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_gst` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `subtotal` decimal(12,2) DEFAULT '0.00',
+  `total_tax` decimal(12,2) DEFAULT '0.00',
+  `total_discount` decimal(12,2) DEFAULT '0.00',
+  `grand_total` decimal(12,2) DEFAULT '0.00',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `fields` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `customer_name` varchar(150) NOT NULL,
-  `mobile_number` varchar(20) DEFAULT NULL,
-  `location_city` varchar(100) DEFAULT NULL,
+  `customer_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `mobile_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `location_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `visit_date` date NOT NULL,
-  `purpose` varchar(255) DEFAULT NULL,
-  `staff_name` varchar(150) DEFAULT NULL,
-  `field_outcome` enum('New','Hot Case','Warm Case','Cold Case','Not Required','Converted') DEFAULT 'New',
-  `followup_required` varchar(50) DEFAULT 'Default',
+  `purpose` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `staff_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `field_outcome` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `followup_required` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'Default',
   `followup_date` date DEFAULT NULL,
-  `followup_notes` text,
-  `reminder_required` varchar(50) DEFAULT 'Default',
+  `followup_notes` text COLLATE utf8mb4_unicode_ci,
+  `reminder_required` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'Default',
   `reminder_date` date DEFAULT NULL,
-  `reminder_notes` text,
-  `reference` varchar(255) DEFAULT NULL,
-  `gst_number` varchar(50) DEFAULT NULL,
-  `email` varchar(150) DEFAULT NULL,
-  `created_by` int DEFAULT NULL,
+  `reminder_notes` text COLLATE utf8mb4_unicode_ci,
+  `reference` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `gst_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `assigned_to` int DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `lead_reminders` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `lead_id` int NOT NULL,
-  `lead_type` enum('telecall','walkin','field') DEFAULT 'telecall',
-  `reminder_date` date,
-  `reminder_time` time DEFAULT NULL,
-  `reminder_notes` text,
-  `status` enum('Pending','Done','Missed') DEFAULT 'Pending',
-  `missed_count` int DEFAULT 0,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `lead_activity` (
   `id` int NOT NULL AUTO_INCREMENT,
   `lead_id` int NOT NULL,
-  `lead_type` enum('telecall','walkin','field') DEFAULT 'telecall',
-  `action` varchar(100),
-  `details` text,
+  `lead_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `action` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `details` text COLLATE utf8mb4_unicode_ci,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `employee_id` int DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `lead_escalations` (
   `id` int NOT NULL AUTO_INCREMENT,
   `lead_id` int NOT NULL,
-  `lead_type` enum('telecall','walkin','field') DEFAULT 'telecall',
-  `customer_name` varchar(150),
-  `mobile_number` varchar(20),
-  `staff_name` varchar(150),
-  `last_followup_date` date,
-  `missed_count` int DEFAULT 0,
-  `status` enum('Open','Resolved') DEFAULT 'Open',
+  `lead_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `customer_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `mobile_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `staff_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `last_followup_date` date DEFAULT NULL,
+  `missed_count` int DEFAULT '0',
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `missed_threshold_reached` tinyint(1) DEFAULT '0',
+  `employee_id` int DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `lead_reminders` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `lead_id` int NOT NULL,
+  `lead_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `reminder_date` date DEFAULT NULL,
+  `reminder_time` time DEFAULT NULL,
+  `reminder_notes` text COLLATE utf8mb4_unicode_ci,
+  `status` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `missed_count` int DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `notification_sent` tinyint(1) DEFAULT '0',
+  `employee_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `messages` (
   `id` int NOT NULL AUTO_INCREMENT,
   `sender_id` int DEFAULT NULL,
   `receiver_id` int DEFAULT NULL,
-  `message` text,
-  `type` varchar(20) DEFAULT NULL,
+  `message` text COLLATE utf8mb4_unicode_ci,
+  `type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `seen` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`id`)
@@ -150,22 +343,22 @@ CREATE TABLE IF NOT EXISTS `messages` (
 
 CREATE TABLE IF NOT EXISTS `notifications` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `task_id` int NOT NULL DEFAULT 0,
-  `user_id` int DEFAULT NULL,
-  `type` varchar(50) DEFAULT NULL,
-  `title` varchar(150) DEFAULT NULL,
-  `description` varchar(255) DEFAULT NULL,
+  `task_id` int NOT NULL,
+  `title` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `is_read` tinyint DEFAULT '0',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `user_id` int DEFAULT NULL,
+  `type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `payments` (
   `amount` decimal(10,2) NOT NULL,
   `payment_date` date NOT NULL,
-  `payment_method` enum('Paypal','Cash','Bank') DEFAULT 'Paypal',
+  `payment_method` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `Transaction_ID` int DEFAULT NULL,
-  `invoice_email` varchar(150) DEFAULT NULL,
+  `invoice_email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `invoice_id` int DEFAULT NULL,
@@ -173,285 +366,40 @@ CREATE TABLE IF NOT EXISTS `payments` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- CREATE TABLE IF NOT EXISTS `quotation_items` (
---   `id` int NOT NULL AUTO_INCREMENT,
---   `quotation_id` int NOT NULL,
---   `product_number` int NOT NULL,
---   `description` varchar(255) NOT NULL,
---   `price` decimal(10,2) NOT NULL,
---   `quantity` int NOT NULL,
---   `tax` decimal(10,2) DEFAULT '0.00',
---   `discount` decimal(10,2) DEFAULT '0.00',
---   `subtotal` decimal(10,2) NOT NULL,
---   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
---   PRIMARY KEY (`id`),
---   KEY `quotation_id` (`quotation_id`),
---   CONSTRAINT `quotation_items_ibfk_1` FOREIGN KEY (`quotation_id`) REFERENCES `quotations` (`id`)
--- ) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- CREATE TABLE IF NOT EXISTS `quotations` (
---   `id` int NOT NULL AUTO_INCREMENT,
---   `customer_id` int NOT NULL,
---   `quotation_date` date NOT NULL,
---   `subtotal` decimal(10,2) DEFAULT '0.00',
---   `total_tax` decimal(10,2) DEFAULT '0.00',
---   `total_discount` decimal(10,2) DEFAULT '0.00',
---   `grand_total` decimal(10,2) DEFAULT '0.00',
---   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
---   `total_cgst` decimal(10,2) DEFAULT '0.00',
---   `total_sgst` decimal(10,2) DEFAULT '0.00',
---   PRIMARY KEY (`id`),
---   KEY `customer_id` (`customer_id`),
---   CONSTRAINT `quotations_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`)
--- ) ENGINE=InnoDB AUTO_INCREMENT=39 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- FIRST create parent table
-CREATE TABLE IF NOT EXISTS `quotations` (
+CREATE TABLE IF NOT EXISTS `performa_invoice_items` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `customer_id` int NOT NULL,
-  `quotation_date` date NOT NULL,
-  `subtotal` decimal(10,2) DEFAULT '0.00',
-  `total_tax` decimal(10,2) DEFAULT '0.00',
-  `total_discount` decimal(10,2) DEFAULT '0.00',
-  `grand_total` decimal(10,2) DEFAULT '0.00',
-  `created_by` int DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `total_cgst` decimal(10,2) DEFAULT '0.00',
-  `total_sgst` decimal(10,2) DEFAULT '0.00',
-  `total_igst` decimal(10,2) DEFAULT '0.00',
-  `hsn_sac_code` varchar(50) DEFAULT NULL,
-  `supplier_branch` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `customer_id` (`customer_id`),
-  CONSTRAINT `quotations_ibfk_1`
-  FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`)
-) ENGINE=InnoDB;
--- THEN child table
-CREATE TABLE IF NOT EXISTS `quotation_items` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `quotation_id` int NOT NULL,
+  `invoice_id` int NOT NULL,
   `product_number` int NOT NULL,
-  `description` varchar(255) NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `brand_model` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hsn_sac` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `uom` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Nos',
   `price` decimal(10,2) NOT NULL,
-  `brand_model` varchar(150) DEFAULT NULL,
-  `hsn_sac` varchar(20) DEFAULT NULL,
   `quantity` int NOT NULL,
   `tax` decimal(10,2) DEFAULT '0.00',
   `discount` decimal(10,2) DEFAULT '0.00',
   `subtotal` decimal(10,2) NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `performainvoice_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `invoice_id` int NOT NULL,
+  `product_number` int NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `price` decimal(10,2) NOT NULL,
+  `brand_model` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hsn_sac` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `quantity` int NOT NULL,
+  `tax` decimal(10,2) DEFAULT '0.00',
+  `discount` decimal(10,2) DEFAULT '0.00',
+  `subtotal` decimal(10,2) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `uom` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'Nos',
   PRIMARY KEY (`id`),
-  KEY `quotation_id` (`quotation_id`),
-  CONSTRAINT `quotation_items_ibfk_1`
-  FOREIGN KEY (`quotation_id`) REFERENCES `quotations` (`id`)
-) ENGINE=InnoDB;
-
-
-
-
-
-
-
-
-CREATE TABLE IF NOT EXISTS `task_activity` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `task_id` int NOT NULL,
-  `action` varchar(50) DEFAULT NULL,
-  `message` varchar(255) DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `tasks` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `project_name` varchar(150) NOT NULL,
-  `task_title` varchar(200) NOT NULL,
-  `task_description` text DEFAULT NULL,
-  `client_name` varchar(150) NOT NULL,
-  `project_status` enum('New','Process','Completed') NOT NULL,
-  `project_priority` enum('Low','Normal','Medium','High','Urgent') NOT NULL,
-  `created_date` date NOT NULL,
-  `due_date` date NOT NULL,
-  `created_by` int DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `staff_name` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `teammember` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `first_name` varchar(150) DEFAULT NULL,
-  `last_name` varchar(150) DEFAULT NULL,
-  `emp_email` varchar(150) DEFAULT NULL,
-  `mobile` char(10) DEFAULT NULL,
-  `job_title` varchar(150) DEFAULT NULL,
-  `emp_role` enum('Developer','BDM','Manager','Sales') DEFAULT 'Sales',
-  `quotation_count` int DEFAULT 0,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `telecalls` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `customer_name` varchar(100) NOT NULL,
-  `mobile_number` varchar(15) NOT NULL,
-  `location_city` varchar(100) DEFAULT NULL,
-  `call_date` date NOT NULL,
-  `service_name` varchar(150) DEFAULT NULL,
-  `staff_name` varchar(150) DEFAULT NULL,
-  `call_outcome` enum('New','Hot Case','Warm Case','Cold Case','Not Required','Converted') DEFAULT 'New',
-  `followup_required` varchar(50) DEFAULT 'Default',
-  `followup_date` date DEFAULT NULL,
-  `followup_notes` text,
-  `reminder_required` varchar(50) DEFAULT 'Default',
-  `reminder_date` date DEFAULT NULL,
-  `reminder_notes` text,
-  `reference` varchar(255) DEFAULT NULL,
-  `gst_number` varchar(50) DEFAULT NULL,
-  `email` varchar(150) DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `assigned_to` int DEFAULT NULL,
-  `created_by` int DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `users` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `first_name` varchar(100) DEFAULT NULL,
-  `last_name` varchar(100) DEFAULT NULL,
-  `emp_id` varchar(50) DEFAULT NULL,
-  `user_password` varchar(255) DEFAULT NULL,
-  `role` enum('admin','employee') DEFAULT 'employee',
-  `status` enum('pending','active','rejected') DEFAULT 'pending',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `email` varchar(150) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `admin_notifications` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `type` varchar(50) DEFAULT 'registration',
-  `user_id` int,
-  `message` text,
-  `related_id` int DEFAULT NULL,
-  `related_type` varchar(50) DEFAULT NULL,
-  `created_by` int DEFAULT NULL,
-  `priority` varchar(20) DEFAULT 'normal',
-  `is_read` tinyint(1) DEFAULT 0,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  KEY `invoice_id` (`invoice_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `task_targets` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `user_id` int DEFAULT NULL,
-  `user_name` varchar(150) NOT NULL,
-  `teammember_id` int DEFAULT NULL,
-  `yearly_target` decimal(15,2) DEFAULT 0,
-  `monthly_target` decimal(15,2) DEFAULT 0,
-  `carry_forward` decimal(15,2) DEFAULT 0,
-  `effective_target` decimal(15,2) DEFAULT 0,
-  `created_by_admin` tinyint(1) DEFAULT 1,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `task_achievements` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `user_id` int DEFAULT NULL,
-  `user_name` varchar(150) NOT NULL,
-  `target_id` int NOT NULL,
-  `month_year` varchar(7) NOT NULL,
-  `achieved_count` int DEFAULT 0,
-  `achieved_amount` decimal(15,2) DEFAULT 0,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY `unique_target_month` (`target_id`, `month_year`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `task_updates` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `user_id` int DEFAULT NULL,
-  `user_name` varchar(150) NOT NULL,
-  `target_id` int NOT NULL,
-  `month_year` varchar(7) NOT NULL,
-  `amount` decimal(15,2) DEFAULT 0,
-  `count` int DEFAULT 0,
-  `description` text,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `task_assignments` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `task_id` int NOT NULL,
-  `assigned_to_user_id` int DEFAULT NULL,
-  `assigned_to_user_name` varchar(150) DEFAULT NULL,
-  `assigned_by` int DEFAULT NULL,
-  `assigned_date` date DEFAULT NULL,
-  `due_date` date DEFAULT NULL,
-  `priority` varchar(20) DEFAULT 'normal',
-  `notes` text,
-  `status` enum('Pending','Accepted','Declined','In Progress','Completed') DEFAULT 'Pending',
-  `response_notes` text,
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `task_activity` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `task_id` int NOT NULL,
-  `action` varchar(50) DEFAULT NULL,
-  `message` varchar(255) DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `tasks` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `project_name` varchar(150) NOT NULL,
-  `task_title` varchar(200) NOT NULL,
-  `task_description` text DEFAULT NULL,
-  `client_name` varchar(150) NOT NULL,
-  `project_status` enum('New','Process','Completed') NOT NULL,
-  `project_priority` enum('Low','Normal','Medium','High','Urgent') NOT NULL,
-  `created_date` date NOT NULL,
-  `due_date` date NOT NULL,
-  `created_by` int DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `staff_name` varchar(100) DEFAULT NULL,
-  `assigned_to` varchar(150) DEFAULT NULL,
-  `assigned_teammember_id` int DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `walkins` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `customer_name` varchar(100) NOT NULL,
-  `mobile_number` varchar(15) NOT NULL,
-  `location_city` varchar(100) DEFAULT NULL,
-  `walkin_date` datetime DEFAULT NULL,
-  `purpose` varchar(150) DEFAULT NULL,
-  `staff_name` varchar(150) DEFAULT NULL,
-  `walkin_status` enum('New','Hot Case','Warm Case','Cold Case','Not Required','Converted') DEFAULT 'New',
-  `followup_required` varchar(50) DEFAULT 'Default',
-  `followup_date` date DEFAULT NULL,
-  `followup_notes` text,
-  `reminder_required` varchar(50) DEFAULT 'Default',
-  `reminder_date` date DEFAULT NULL,
-  `reminder_notes` text,
-  `reference` varchar(255) DEFAULT NULL,
-  `gst_number` varchar(50) DEFAULT NULL,
-  `email` varchar(150) DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `assigned_to` int DEFAULT NULL,
-  `created_by` int DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `performainvoices` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -461,84 +409,470 @@ CREATE TABLE IF NOT EXISTS `performainvoices` (
   `total_tax` decimal(10,2) DEFAULT '0.00',
   `total_discount` decimal(10,2) DEFAULT '0.00',
   `grand_total` decimal(10,2) DEFAULT '0.00',
-  `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `total_cgst` decimal(10,2) DEFAULT '0.00',
   `total_sgst` decimal(10,2) DEFAULT '0.00',
   `total_igst` decimal(10,2) DEFAULT '0.00',
-  `hsn_sac_code` varchar(50) DEFAULT NULL,
-  `supplier_branch` varchar(100) DEFAULT NULL,
+  `hsn_sac_code` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `supplier_branch` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `reference_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `from_address_id` int DEFAULT NULL,
+  `from_address_custom` text COLLATE utf8mb4_unicode_ci,
+  `client_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_address1` text COLLATE utf8mb4_unicode_ci,
+  `client_address2` text COLLATE utf8mb4_unicode_ci,
+  `client_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_state` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_pincode` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_country` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'India',
+  `tax_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'GST18',
+  `custom_tax` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_general` tinyint(1) DEFAULT '0',
+  `terms_tax` tinyint(1) DEFAULT '0',
+  `terms_project_period` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_validity` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_separate_orders` text COLLATE utf8mb4_unicode_ci,
+  `terms_payment` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_payment_custom` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_warranty` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_details_id` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_account` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_ifsc` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_branch` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `custom_terms` text COLLATE utf8mb4_unicode_ci,
+  `is_latest` tinyint(1) DEFAULT '1',
+  `version` int DEFAULT '1',
+  `parent_id` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `customer_id` (`customer_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `performainvoice_items` (
+CREATE TABLE IF NOT EXISTS `pi_from_addresses` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `invoice_id` int NOT NULL,
+  `label` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `address` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `profile_change_requests` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `field` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `new_value` text COLLATE utf8mb4_unicode_ci,
+  `status` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `admin_response_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `quotation_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `quotation_id` int NOT NULL,
   `product_number` int NOT NULL,
-  `description` varchar(255) NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `price` decimal(10,2) NOT NULL,
-  `brand_model` varchar(150) DEFAULT NULL,
-  `hsn_sac` varchar(20) DEFAULT NULL,
+  `brand_model` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hsn_sac` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `quantity` int NOT NULL,
   `tax` decimal(10,2) DEFAULT '0.00',
   `discount` decimal(10,2) DEFAULT '0.00',
   `subtotal` decimal(10,2) NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `uom` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Nos',
   PRIMARY KEY (`id`),
-  KEY `invoice_id` (`invoice_id`)
+  KEY `quotation_id` (`quotation_id`),
+  CONSTRAINT `quotation_items_ibfk_1` FOREIGN KEY (`quotation_id`) REFERENCES `quotations` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `quotations` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `customer_id` int NOT NULL,
+  `quotation_date` date NOT NULL,
+  `subtotal` decimal(10,2) DEFAULT '0.00',
+  `total_tax` decimal(10,2) DEFAULT '0.00',
+  `total_discount` decimal(10,2) DEFAULT '0.00',
+  `grand_total` decimal(10,2) DEFAULT '0.00',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `total_cgst` decimal(10,2) DEFAULT '0.00',
+  `total_sgst` decimal(10,2) DEFAULT '0.00',
+  `total_igst` decimal(10,2) DEFAULT '0.00',
+  `hsn_sac_code` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `supplier_branch` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lead_id` int DEFAULT NULL,
+  `lead_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `reference_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `parent_id` int DEFAULT NULL,
+  `version` int DEFAULT '1',
+  `is_latest` tinyint(1) DEFAULT '1',
+  `from_address_id` int DEFAULT NULL,
+  `from_address_custom` text COLLATE utf8mb4_unicode_ci,
+  `client_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_address1` text COLLATE utf8mb4_unicode_ci,
+  `client_address2` text COLLATE utf8mb4_unicode_ci,
+  `client_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_state` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_pincode` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_country` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'India',
+  `tax_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'GST18',
+  `custom_tax` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_general` tinyint(1) DEFAULT '0',
+  `terms_tax` tinyint(1) DEFAULT '0',
+  `terms_project_period` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_validity` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_separate_orders` text COLLATE utf8mb4_unicode_ci,
+  `terms_payment` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_payment_custom` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_warranty` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_details_id` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_account` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_ifsc` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_branch` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `custom_terms` text COLLATE utf8mb4_unicode_ci,
+  PRIMARY KEY (`id`),
+  KEY `customer_id` (`customer_id`),
+  CONSTRAINT `quotations_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `sales_targets` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
+  `user_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `yearly_target` decimal(15,2) DEFAULT '0.00',
+  `monthly_target` decimal(15,2) DEFAULT '0.00',
+  `created_by_admin` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `service_activity` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `service_id` int DEFAULT NULL,
+  `activity_type` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `service_estimation_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `invoice_id` int NOT NULL,
+  `product_number` int NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `brand_model` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hsn_sac` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `uom` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Nos',
+  `price` decimal(10,2) NOT NULL,
+  `quantity` int NOT NULL,
+  `tax` decimal(10,2) DEFAULT '0.00',
+  `discount` decimal(10,2) DEFAULT '0.00',
+  `subtotal` decimal(10,2) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `service_estimations` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `customer_id` int NOT NULL,
+  `invoice_date` date NOT NULL,
+  `subtotal` decimal(12,2) DEFAULT '0.00',
+  `total_tax` decimal(12,2) DEFAULT '0.00',
+  `total_discount` decimal(12,2) DEFAULT '0.00',
+  `grand_total` decimal(12,2) DEFAULT '0.00',
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `total_cgst` decimal(12,2) DEFAULT '0.00',
+  `total_sgst` decimal(12,2) DEFAULT '0.00',
+  `total_igst` decimal(12,2) DEFAULT '0.00',
+  `reference_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `from_address_id` int DEFAULT NULL,
+  `from_address_custom` text COLLATE utf8mb4_unicode_ci,
+  `client_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_address1` text COLLATE utf8mb4_unicode_ci,
+  `client_address2` text COLLATE utf8mb4_unicode_ci,
+  `client_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_state` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_pincode` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_country` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'India',
+  `tax_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'GST18',
+  `custom_tax` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_general` tinyint(1) DEFAULT '0',
+  `terms_tax` tinyint(1) DEFAULT '0',
+  `terms_project_period` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_validity` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_separate_orders` text COLLATE utf8mb4_unicode_ci,
+  `terms_payment` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_payment_custom` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_warranty` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hsn_sac_code` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `supplier_branch` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_details_id` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_account` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_ifsc` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_branch` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `custom_terms` text COLLATE utf8mb4_unicode_ci,
+  `is_latest` tinyint(1) DEFAULT '1',
+  `parent_id` int DEFAULT NULL,
+  `version` int DEFAULT '1',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `service_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `service_id` int NOT NULL,
+  `product_number` int NOT NULL,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `brand_model` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hsn_sac` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `uom` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'Nos',
+  `price` decimal(10,2) NOT NULL,
+  `quantity` int NOT NULL,
+  `tax` decimal(10,2) DEFAULT '0.00',
+  `discount` decimal(10,2) DEFAULT '0.00',
+  `subtotal` decimal(10,2) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `services` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `client` varchar(150) DEFAULT NULL,
-  `material` varchar(255) DEFAULT NULL,
-  `warranty` varchar(100) DEFAULT NULL,
+  `client` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `material` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `warranty` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `amc` tinyint(1) DEFAULT '0',
   `date` date DEFAULT NULL,
-  `images` text,
-  `issues` text,
-  `created_by` int DEFAULT NULL,
+  `images` text COLLATE utf8mb4_unicode_ci,
+  `issues` text COLLATE utf8mb4_unicode_ci,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_by` int DEFAULT NULL,
+  `reference_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `from_address_id` int DEFAULT NULL,
+  `from_address_custom` text COLLATE utf8mb4_unicode_ci,
+  `client_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_address1` text COLLATE utf8mb4_unicode_ci,
+  `client_address2` text COLLATE utf8mb4_unicode_ci,
+  `client_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_state` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_pincode` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `client_country` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT 'India',
+  `tax_type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT 'GST18',
+  `custom_tax` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `exec_email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_general` tinyint(1) DEFAULT '0',
+  `terms_tax` tinyint(1) DEFAULT '0',
+  `terms_project_period` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_validity` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_separate_orders` text COLLATE utf8mb4_unicode_ci,
+  `terms_payment` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_payment_custom` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `terms_warranty` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `hsn_sac_code` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `supplier_branch` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_details_id` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_company` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_account` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_ifsc` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_branch` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `custom_terms` text COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `target_achievements` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
+  `user_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_id` int NOT NULL,
+  `month_year` varchar(7) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `achieved_amount` decimal(15,2) DEFAULT '0.00',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_target_month` (`target_id`,`month_year`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `clients` (
+CREATE TABLE IF NOT EXISTS `task_achievements` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(150) NOT NULL,
-  `company_name` varchar(150) DEFAULT NULL,
-  `email` varchar(150) DEFAULT NULL,
-  `phone` varchar(20) DEFAULT NULL,
-  `address` text DEFAULT NULL,
-  `service` varchar(255) DEFAULT NULL,
-  `gst_number` varchar(50) DEFAULT NULL,
-  `created_by` int DEFAULT NULL,
+  `user_id` int DEFAULT NULL,
+  `user_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_id` int NOT NULL,
+  `month_year` varchar(7) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `achieved_count` int DEFAULT '0',
+  `achieved_amount` decimal(15,2) DEFAULT '0.00',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_target_month` (`target_id`,`month_year`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `task_activity` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `task_id` int NOT NULL,
+  `action` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `message` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `task_assignments` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `task_id` int DEFAULT NULL,
+  `assigned_to_user_id` int DEFAULT NULL,
+  `assigned_to_user_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `assigned_by` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` enum('Pending','Accepted','Declined','In Progress','Completed') COLLATE utf8mb4_unicode_ci DEFAULT 'Pending',
+  `assigned_date` date DEFAULT NULL,
+  `due_date` date DEFAULT NULL,
+  `priority` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `notes` text COLLATE utf8mb4_unicode_ci,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `original_lead_id` int DEFAULT NULL,
-  `original_lead_type` enum('telecall','walkin','field') DEFAULT NULL,
-  `converted_at` timestamp NULL DEFAULT NULL,
-  `lead_email` varchar(150) DEFAULT NULL,
-  `lead_city` varchar(100) DEFAULT NULL,
-  `lead_reference` varchar(255) DEFAULT NULL,
-  `lead_purpose` varchar(255) DEFAULT NULL,
-  `client_status` enum('active','inactive','converted') DEFAULT 'active',
-  `lead_staff_name` varchar(150) DEFAULT NULL,
-  `lead_id_display` varchar(50) DEFAULT NULL,
+  `response_notes` text COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `call_reports` (
+CREATE TABLE IF NOT EXISTS `task_targets` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(150) NOT NULL,
-  `location` varchar(150) DEFAULT NULL,
-  `phone` varchar(20) DEFAULT NULL,
-  `complaint` text,
-  `time_spent` varchar(50) DEFAULT NULL,
-  `km` decimal(10,2) DEFAULT NULL,
-  `report_date` date DEFAULT NULL,
-  `created_by` int DEFAULT NULL,
+  `user_id` int DEFAULT NULL,
+  `user_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `yearly_target` decimal(15,2) DEFAULT '0.00',
+  `monthly_target` decimal(15,2) DEFAULT '0.00',
+  `created_by_admin` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `carry_forward` decimal(15,2) DEFAULT '0.00',
+  `effective_target` decimal(15,2) DEFAULT '0.00',
+  `teammember_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `task_updates` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
+  `user_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_id` int NOT NULL,
+  `month_year` varchar(7) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `count` int DEFAULT '0',
+  `amount` decimal(15,2) DEFAULT '0.00',
+  `description` text COLLATE utf8mb4_unicode_ci,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `tasks` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `project_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `task_title` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `client_name` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `project_status` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `project_priority` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_date` date NOT NULL,
+  `due_date` date NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `staff_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `assigned_to` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `assigned_teammember_id` int DEFAULT NULL,
+  `task_description` text COLLATE utf8mb4_unicode_ci,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `teammember` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `last_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `emp_email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `mobile` char(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `job_title` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `emp_role` enum('Developer','BDM','Manager','Sales') COLLATE utf8mb4_unicode_ci DEFAULT 'Sales',
+  `quotation_count` int DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `mobile_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `emp_address` text COLLATE utf8mb4_unicode_ci,
+  `user_id` int DEFAULT NULL,
+  `emp_id` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `telecalls` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `customer_name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `mobile_number` varchar(15) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `location_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `call_date` date NOT NULL,
+  `service_name` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `staff_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `call_outcome` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `followup_required` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'Default',
+  `followup_date` date DEFAULT NULL,
+  `followup_notes` text COLLATE utf8mb4_unicode_ci,
+  `reminder_required` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'Default',
+  `reminder_date` date DEFAULT NULL,
+  `reminder_notes` text COLLATE utf8mb4_unicode_ci,
+  `reference` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `gst_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `assigned_to` int DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_password` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `role` enum('admin','employee','user') COLLATE utf8mb4_unicode_ci DEFAULT 'employee',
+  `status` enum('pending','active','rejected') COLLATE utf8mb4_unicode_ci DEFAULT 'pending',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `emp_id` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `last_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB AUTO_INCREMENT=708 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `walkins` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `customer_name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `mobile_number` varchar(15) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `location_city` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `walkin_date` datetime DEFAULT NULL,
+  `purpose` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `staff_name` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `walkin_status` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `followup_required` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'Default',
+  `followup_date` date DEFAULT NULL,
+  `followup_notes` text COLLATE utf8mb4_unicode_ci,
+  `reminder_required` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'Default',
+  `reminder_date` date DEFAULT NULL,
+  `reminder_notes` text COLLATE utf8mb4_unicode_ci,
+  `reference` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `gst_number` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `assigned_to` int DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `email` varchar(150) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
