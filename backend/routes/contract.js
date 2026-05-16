@@ -57,7 +57,8 @@ router.post("/new", verifyToken, (req, res) => {
         return res.status(500).json({ message: "Insert failed: " + err.message });
       }
 
-      // Send notification for contract creation
+      // DISABLED: Old notification system
+      /*
       const notificationIO = getNotificationIO();
       if (notificationIO) {
         const time = new Date().toLocaleString();
@@ -71,6 +72,7 @@ router.post("/new", verifyToken, (req, res) => {
           type: "contract"
         }, null, true);
       }
+      */
 
       res.json({ success: true, id: result.insertId });
     }

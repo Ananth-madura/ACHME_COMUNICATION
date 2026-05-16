@@ -231,10 +231,16 @@ const Contracts = () => {
       mobile_number: contract.mobile_number || "",
       email: contract.email || "",
       location_city: contract.location_city || "",
-      lead_id: contract.id || null,
-      lead_type: "contract",
+      company_name: contract.client_company || "",
+      contract_id: contract.id || null,
+      contract_title: contract.contract_title || "",
+      contract_value: contract.amount_value || "",
+      service_type: contract.contract_type || "",
+      start_date: contract.start_date || "",
+      end_date: contract.end_date || "",
+      source: "contract"
     }));
-    window.location.href = "/proposal";
+    window.location.href = "/dashboard/quotation";
   };
 
   return (
@@ -446,6 +452,28 @@ const Contracts = () => {
                   className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg"
                 >
                   {isEdit ? "Update Contract" : "Create Contract"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sessionStorage.setItem("qt_prefill", JSON.stringify({
+                      customer_name: clientSearch,
+                      mobile_number: "",
+                      email: "",
+                      location_city: "",
+                      company_name: clientSearch,
+                      contract_title: contractName,
+                      contract_value: Amount,
+                      service_type: contractType,
+                      start_date: invoiceDate,
+                      end_date: invoiceDueDate,
+                      source: "contract"
+                    }));
+                    window.location.href = "/dashboard/quotation";
+                  }}
+                  className="flex-1 bg-purple-600 text-white py-2 rounded-lg font-bold hover:bg-purple-700 transition shadow-lg"
+                >
+                  Create Quotation
                 </button>
                 <button
                   type="button"

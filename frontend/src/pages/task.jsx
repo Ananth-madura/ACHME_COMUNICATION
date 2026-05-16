@@ -194,6 +194,12 @@ const Task = () => {
 
   useEffect(() => { fetchAll(); }, []);
 
+  // Auto-refresh every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchAll, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (!socket) return;
     const refresh = () => { fetchAll(); refreshNotifications(); };
@@ -571,7 +577,6 @@ const Task = () => {
           )}
         </div>
       )}
-      )}
 
       {/* ── STATUS MODAL ─────────────────────────────────────────────────── */}
       {statusModalOpen && (
@@ -686,6 +691,45 @@ const Task = () => {
                   className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer" style={{ background: N.surface, color: N.slate }}>
                   Cancel
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── TARGET FORM MODAL ───────────────────────────────────────────── */}
+      {targetModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="rounded-xl shadow-xl w-full max-w-md" style={{ background: N.canvas }}>
+            <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: N.hairline }}>
+              <h3 className="text-base font-semibold" style={{ color: N.ink }}>Set User Target</h3>
+              <button onClick={() => { setTargetModalOpen(false); setTargetForm({ user_name: "", yearly_target: "", user_id: "", teammember_id: "" }); }} className="cursor-pointer" style={{ color: N.steel }}><X size={18} /></button>
+            </div>
+            <form onSubmit={handleTargetSubmit} className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Select User</label>
+                <select value={targetForm.teammember_id || ""} onChange={e => {
+                  const m = teamMembers.find(t => String(t.id) === e.target.value);
+                  setTargetForm({ ...targetForm, teammember_id: m ? m.id : "", user_name: m ? `${m.first_name} ${m.last_name || ""}`.trim() : "", user_id: m?.user_id || "" });
+                }} className="w-full border rounded-lg px-3 py-2 text-sm bg-white outline-none" style={{ borderColor: N.hairlineStrong }}>
+                  <option value="">— Select Staff —</option>
+                  {teamMembers.map(t => (
+                    <option key={t.id} value={String(t.id)}>{t.first_name} {t.last_name || ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: N.slate }}>Yearly Target (₹)</label>
+                <input type="number" value={targetForm.yearly_target} onChange={e => setTargetForm({ ...targetForm, yearly_target: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none" style={{ borderColor: N.hairlineStrong }} required placeholder="e.g. 3600000" />
+                {targetForm.yearly_target && (
+                  <p className="text-xs mt-1" style={{ color: N.primary }}>Monthly: ₹{Math.round(parseFloat(targetForm.yearly_target) / 12).toLocaleString()}</p>
+                )}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="submit" className="flex-1 py-2 rounded-lg text-sm font-medium text-white cursor-pointer" style={{ background: N.primary }}>Save Target</button>
+                <button type="button" onClick={() => { setTargetModalOpen(false); setTargetForm({ user_name: "", yearly_target: "", user_id: "", teammember_id: "" }); }}
+                  className="flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer" style={{ background: N.surface, color: N.slate }}>Cancel</button>
               </div>
             </form>
           </div>

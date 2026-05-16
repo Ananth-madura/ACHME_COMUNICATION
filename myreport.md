@@ -555,4 +555,38 @@ The clients page received a comprehensive UI overhaul with new fields and stats 
 
 ---
 
+## ESLint Warning Fixes — Zero-Warning Build (Phase 4 - Code Quality)
+
+### Overview
+Fixed all ESLint `no-unused-vars` and `react-hooks/exhaustive-deps` warnings across 9 frontend files without removing any functionality. All unused imports, variables, and functions were properly removed or utilized. Corrupted edits from initial attempts were repaired to restore full compilation.
+
+---
+
+### 30. Unused Import & Variable Cleanup (9 Files)
+
+Multiple files had imported icons, utilities, and declared variables that were never used, causing ESLint warnings during build.
+
+- **Files modified**:
+  - `frontend/src/components/ClientSearchDropdown.jsx` — Removed unused `Mail` icon import
+  - `frontend/src/components/invoicetemplate.jsx` — Removed unused `BANK_DETAILS`, `Card`, `LogoSVG`, `HeaderWaves` definitions
+  - `frontend/src/pages/callreport.jsx` — Removed unused `AlertCircle`, `Eye`, `ArrowRight`, `TrendingUp` imports; removed unused `selectedContract`, `reports`, `performance`, `totalUsed` variables
+  - `frontend/src/pages/clients.jsx` — Removed unused `FileText`, `Users`, `UserCheck`, `Calendar`, `Hash`, `CreditCard` imports; removed unused `downloadExcel` function
+  - `frontend/src/pages/estimateinvoice.jsx` — Removed unused `PlusCircle`, `ChevronDown` imports; removed unused `calculateTotals`, `html2pdf`, `INDIAN_STATES`, `GST_STATE_MAP`, `showAddAddress`, `handleAddAddress`, `handleDeleteAddress`, `historySelectedId`; added `eslint-disable-next-line` for useEffect dependency array
+  - `frontend/src/pages/performainvoice.jsx` — Removed unused `PlusCircle`, `ChevronDown`, `calculateTotals`, `html2pdf`, `handleDeleteAddress`, `handleDescInput`, `addItem`; restored `BRANCH_DATA`/`BRANCH_OPTIONS` imports; restored `showAddAddress` state
+  - `frontend/src/pages/products.jsx` — Added `fetchServices` to useEffect dependency array
+  - `frontend/src/pages/quotation.jsx` — Removed unused `historySelectedId`, `historySearch`; added `eslint-disable-next-line` for useEffect dependency array
+  - `frontend/src/pages/serviceestimation.jsx` — Removed unused `PlusCircle`, `ChevronDown`, `calculateTotals`, `html2pdf`, `handleDeleteAddress`, `handleDescInput`, `addItem`, `historySelectedId`; restored `BRANCH_DATA`/`BRANCH_OPTIONS` imports
+
+- **Key approach**:
+  - Removed only imports/variables that were genuinely unused (not referenced anywhere in the component)
+  - Preserved all functionality — no features were removed
+  - Used `// eslint-disable-next-line react-hooks/exhaustive-deps` for useEffect hooks where adding dependencies would cause infinite loops
+  - Fixed corrupted edits from initial batch operations (duplicate imports, missing function names, broken JSX)
+
+- **Rolling back**: Re-adding the removed imports and variable declarations would restore the warnings.
+
+> *Done by ananth-dev* - Should a pre-commit ESLint check be added to prevent future warnings?
+
+---
+
 *Document updated by ananth-dev*

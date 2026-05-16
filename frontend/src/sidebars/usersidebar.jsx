@@ -47,21 +47,16 @@ const UserSidebar = ({ onNavigate }) => {
       ]
     },
     { icon: <FileText size={20} />, title: "Proposals", path: "/dashboard/proposal" },
-    {
-      icon: <ShieldCheck size={20} />, title: "Contracts & AMC",
-      subitems: [
-        { label: "Contracts", path: "/dashboard/amc" },
-      ]
-    },
+    // { icon: <ShieldCheck size={20} />, title: "Contracts & AMC", subitems: [{ label: "Contracts", path: "/dashboard/amc" }] },
     {
       icon: <Users size={20} />, title: "Customers", subitems: [
         { label: "Clients", path: "/dashboard/clients" }
       ]
     },
     { icon: <ListTodo size={20} />, title: "Tasks", path: "/dashboard/task" },
-    { icon: <TargetIcon size={20} />, title: "Targets", path: "/dashboard/targets" },
+    // { icon: <TargetIcon size={20} />, title: "Targets", path: "/dashboard/targets" },
     { icon: <User size={20} />, title: "Profile", path: "/dashboard/profile" },
-    { icon: <Settings size={20} />, title: "Settings", path: "/dashboard/settings" }
+    // { icon: <Settings size={20} />, title: "Settings", path: "/dashboard/settings" }
   ];
 
   const toggleMenu = (i) => setOpenMenu(openMenu === i ? null : i);

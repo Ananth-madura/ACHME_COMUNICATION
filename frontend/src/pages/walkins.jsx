@@ -173,8 +173,19 @@ const saveWalkins = async (e) => {
     setIsEdit(false);
   } catch (err) {
     console.error("Error saving walkin:", err);
-    const msg = err.response?.data?.error || err.response?.data?.message || err.message || "Failed to save walkin";
-    alert(msg);
+    if (err.response?.status === 409) {
+      const dups = err.response?.data?.duplicates;
+      const details = err.response?.data?.details || "This lead already exists.";
+      if (dups && dups.length > 0) {
+        const dupList = dups.map(d => `• ${d.name} (${d.phone || "N/A"})`).join("\n");
+        alert(`⚠️ Duplicate Lead Found!\n\n${details}\n\nExisting leads:\n${dupList}\n\nPlease check before creating a new one.`);
+      } else {
+        alert(`⚠️ ${details}`);
+      }
+    } else {
+      const msg = err.response?.data?.error || err.response?.data?.message || err.message || "Failed to save walkin";
+      alert(msg);
+    }
   }
 };
 

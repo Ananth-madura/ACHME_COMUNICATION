@@ -14,6 +14,7 @@ import Telecall from "./pages/telecalling";
 import Walkins from "./pages/walkins";
 import Fields from "./pages/field";
 import Proposals from "./pages/proposal";
+import Quotation from "./pages/quotation";
 import Task from "./pages/task";
 import Targets from "./pages/target";
 import Invoicepage from "./pages/invoice";
@@ -65,7 +66,7 @@ function DBConnectionChecker() {
       const timeout = 3000;
       let connected = false;
       let connectedViaProxy = false;
-      
+
       try {
         await axios.get(`${API_BACKEND}/api/auth/users`, { timeout });
         connected = true;
@@ -119,42 +120,42 @@ export default function App() {
           <DBConnectionChecker />
           <BrowserRouter>
             <Routes>
-            <Route path="/" element={<Navigate to="/login" />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/login/admin" element={<LoginAdmin />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/invoice-preview/:type/:id" element={<InvoicePreview />} />
-            <Route path="/dashboard" element={<DashboardLayout />}>
-              <Route index element={<DashboardRouter />} />
-              <Route path="telecalling" element={<Telecall />} />
-              <Route path="walkins" element={<Walkins />} />
-              <Route path="field" element={<Fields />} />
-              <Route path="products" element={<Products />} />
-              <Route path="proposal" element={<Proposals />} />
-              <Route path="task" element={<Task />} />
-              <Route path="invoice" element={<Invoicepage />} />
-              <Route path="payments" element={<Payments />} />
-              <Route path="estimates" element={<Estimate />} />
-              <Route path="contracts" element={<Contracts />} />
-              <Route path="team" element={<Team />} />
-              <Route path="followupslist" element={<FollowupList />} />
-              <Route path="clients" element={<Clients />} />
-              <Route path="performainvoice" element={<PerformaInvoice />} />
-              <Route path="estimateinvoice" element={<EstimateInvoice />} />
-              <Route path="serviceestimation" element={<ServiceEstimation />} />
-<Route path="call-report" element={<CallReport />} />
-               <Route path="reports" element={<Reports />} />
-               <Route path="targets" element={<Targets />} />
-               <Route path="task" element={<Task />} />
-<Route path="amc" element={<AMCService />} />
+              <Route path="/" element={<Navigate to="/login" />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/login/admin" element={<LoginAdmin />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/invoice-preview/:type/:id" element={<InvoicePreview />} />
+              <Route path="/dashboard" element={<DashboardLayout />}>
+                <Route index element={<DashboardRouter />} />
+                <Route path="telecalling" element={<Telecall />} />
+                <Route path="walkins" element={<Walkins />} />
+                <Route path="field" element={<Fields />} />
+                <Route path="products" element={<Products />} />
+                <Route path="proposal" element={<Proposals />} />
+                <Route path="quotation" element={<Quotation />} />
+                <Route path="task" element={<Task />} />
+                <Route path="invoice" element={<Invoicepage />} />
+                <Route path="payments" element={<Payments />} />
+                <Route path="estimates" element={<Estimate />} />
+                <Route path="contracts" element={<Contracts />} />
+                <Route path="team" element={<Team />} />
+                <Route path="followupslist" element={<FollowupList />} />
+                <Route path="clients" element={<Clients />} />
+                <Route path="performainvoice" element={<PerformaInvoice />} />
+                <Route path="estimateinvoice" element={<EstimateInvoice />} />
+                <Route path="serviceestimation" element={<ServiceEstimation />} />
+                <Route path="call-report" element={<CallReport />} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="targets" element={<Targets />} />
+                <Route path="amc" element={<AMCService />} />
                 <Route path="users" element={<UserManagement />} />
                 <Route path="notifications" element={<AdminNotifications />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
-          </Routes>
-        </BrowserRouter>
-      </ToastProvider>
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
       </NotificationProvider>
     </AuthProvider>
   );

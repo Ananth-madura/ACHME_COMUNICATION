@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { CheckCircle, XCircle, Clock, User, Edit, Lock, Bell, ShieldCheck, ChevronRight, ChevronLeft, Filter } from "lucide-react";
+import { CheckCircle, XCircle, Clock, User, Edit, Lock, Bell, ShieldCheck, ChevronRight, ChevronLeft, Filter, AlertTriangle, Calendar, FileText } from "lucide-react";
 import { API } from "../config/api";
 
 const formatDate = (d) =>
@@ -33,6 +33,45 @@ const ActionButtons = ({ onApprove, onReject }) => (
     </button>
   </div>
 );
+
+const NOTIF_TYPE_CONFIG = {
+  overdue_task: { icon: AlertTriangle, color: "#e03131", bg: "#fde0ec", label: "Overdue Task" },
+  missed_reminder: { icon: Calendar, color: "#dd5b00", bg: "#ffe8d4", label: "Missed Reminder" },
+  approval_request: { icon: FileText, color: "#5645d4", bg: "#e6e0f5", label: "Approval Request" },
+  target_achievement: { icon: CheckCircle, color: "#1aae39", bg: "#d9f3e1", label: "Target Achievement" },
+  task_completed: { icon: CheckCircle, color: "#1aae39", bg: "#d9f3e1", label: "Task Completed" },
+  task_assigned: { icon: User, color: "#5645d4", bg: "#e6e0f5", label: "Task Assigned" },
+};
+
+const AdminNotifCard = ({ n }) => {
+  const config = NOTIF_TYPE_CONFIG[n.type] || { icon: Bell, color: "#5645d4", bg: "#e6e0f5", label: n.type?.replaceAll("_", " ") };
+  const Icon = config.icon;
+  const priorityColors = { high: "border-l-4 border-[#e03131]", medium: "border-l-4 border-[#dd5b00]", normal: "" };
+
+  return (
+    <div className={`rounded-xl border bg-white p-4 ${priorityColors[n.priority] || ""} ${!n.is_read ? "border-[#d6b6f6]" : "border-[#e5e3df]"}`}>
+      <div className="flex items-start gap-3">
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0`} style={{ background: config.bg }}>
+          <Icon size={16} style={{ color: config.color }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold" style={{ color: "#1a1a1a" }}>{config.label}</p>
+            {n.priority === "high" && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#e03131] text-white font-semibold">HIGH</span>
+            )}
+            {!n.is_read && <span className="w-2 h-2 rounded-full bg-[#5645d4] flex-shrink-0" />}
+          </div>
+          {n.employee_name && <p className="text-xs font-medium" style={{ color: "#5d5b54" }}>Employee: {n.employee_name}</p>}
+          {n.message && <p className="text-xs mt-1" style={{ color: "#5d5b54" }}>{n.message}</p>}
+          <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#a4a097" }}>
+            <Clock size={10} /> {formatDate(n.created_at)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const NotifCard = ({ n }) => (
   <div className={`rounded-xl border bg-white p-4 ${!n.is_read ? "border-[#d6b6f6]" : "border-[#e5e3df]"}`}>
@@ -81,6 +120,7 @@ const applyHistoryFilter = (items, filter, customFrom, customTo) => {
 
 // ── Main component ────────────────────────────────────────────────────────────
 const AdminNotifications = () => {
+  const [adminNotifs, setAdminNotifs] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [changeRequests, setChangeRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +128,16 @@ const AdminNotifications = () => {
   const [histFilter, setHistFilter] = useState("all");
   const [histCustomFrom, setHistCustomFrom] = useState("");
   const [histCustomTo, setHistCustomTo] = useState("");
+
+  const fetchAdminNotifs = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API}/api/notifications/admin`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAdminNotifs(res.data);
+    } catch (err) { console.error(err); }
+  };
 
   const fetchNotifications = async () => {
     try {
@@ -110,7 +160,7 @@ const AdminNotifications = () => {
     } catch (err) { console.error(err); }
   };
 
-  useEffect(() => { fetchNotifications(); fetchChangeRequests(); }, []);
+  useEffect(() => { fetchAdminNotifs(); fetchNotifications(); fetchChangeRequests(); }, []);
 
   const handleAction = async (userId, action, notifId) => {
     if (!userId) { alert("User ID missing"); return; }
@@ -118,10 +168,20 @@ const AdminNotifications = () => {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
       await axios.put(`${API}/api/auth/approve/${userId}`, { action }, { headers });
-      await axios.put(`${API}/api/notifications/admin/${notifId}/read`, {}, { headers });
+      if (notifId) await axios.put(`${API}/api/notifications/admin/${notifId}/read`, {}, { headers });
       window.dispatchEvent(new Event("refresh-pending-count"));
       fetchNotifications();
     } catch (err) { alert(err.response?.data?.message || "Action failed"); }
+  };
+
+  const markAdminNotifRead = async (notifId) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put(`${API}/api/notifications/admin/${notifId}/read`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchAdminNotifs();
+    } catch (err) { console.error(err); }
   };
 
   const handleProfileChange = async (requestId, action) => {
@@ -136,13 +196,15 @@ const AdminNotifications = () => {
   };
 
   const now = new Date();
+  const recentAdminNotifs = adminNotifs.filter(n => (now - new Date(n.created_at)) <= SEVEN_DAYS_MS);
+  const olderAdminNotifs = adminNotifs.filter(n => (now - new Date(n.created_at)) > SEVEN_DAYS_MS);
   const recentNotifs = notifications.filter(n => (now - new Date(n.created_at)) <= SEVEN_DAYS_MS);
   const olderNotifs  = notifications.filter(n => (now - new Date(n.created_at)) >  SEVEN_DAYS_MS);
-  const unread = recentNotifs.filter(n => n.is_read === 0).length;
+  const unread = recentAdminNotifs.filter(n => n.is_read === 0).length + recentNotifs.filter(n => n.is_read === 0).length;
   const pendingApprovals = recentNotifs.filter(n => n.status === "pending" && n.user_id);
   const totalApprovalNeeded = pendingApprovals.length + changeRequests.length;
 
-  const filteredHistory = applyHistoryFilter(olderNotifs, histFilter, histCustomFrom, histCustomTo);
+  const filteredHistory = applyHistoryFilter([...olderAdminNotifs, ...olderNotifs], histFilter, histCustomFrom, histCustomTo);
 
   // ── History view ────────────────────────────────────────────────────────────
   if (showHistory) {
@@ -153,7 +215,7 @@ const AdminNotifications = () => {
             <ChevronLeft size={16} /> Back
           </button>
           <h2 className="text-2xl font-semibold" style={{ color: "#1a1a1a", letterSpacing: "-0.5px" }}>Notification History</h2>
-          <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: "#e6e0f5", color: "#391c57" }}>{olderNotifs.length} older</span>
+          <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: "#e6e0f5", color: "#391c57" }}>{olderAdminNotifs.length + olderNotifs.length} older</span>
         </div>
 
         {/* Filters */}
@@ -185,7 +247,7 @@ const AdminNotifications = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredHistory.map(n => <NotifCard key={n.id} n={n} />)}
+            {filteredHistory.map(n => n.type && NOTIF_TYPE_CONFIG[n.type] ? <AdminNotifCard key={n.id} n={n} /> : <NotifCard key={n.id} n={n} />)}
           </div>
         )}
       </div>
@@ -209,23 +271,28 @@ const AdminNotifications = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-            {/* LEFT — Recent Notifications */}
+            {/* LEFT — System Notifications (Overdue, Missed, Approvals) */}
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <Bell size={16} style={{ color: "#5645d4" }} />
                 <h3 className="text-sm font-semibold uppercase tracking-wide" style={{ color: "#5d5b54", letterSpacing: "1px" }}>
-                  Recent
+                  System Alerts
                 </h3>
-                <span className="ml-auto text-xs" style={{ color: "#a4a097" }}>{recentNotifs.length} this week</span>
+                <span className="ml-auto text-xs" style={{ color: "#a4a097" }}>{recentAdminNotifs.length} this week</span>
               </div>
 
-              {recentNotifs.length === 0 ? (
+              {recentAdminNotifs.length === 0 ? (
                 <div className="rounded-xl border border-[#e5e3df] bg-white p-8 text-center" style={{ color: "#a4a097" }}>
-                  No notifications in the last 7 days.
+                  <CheckCircle size={32} className="mx-auto mb-2 text-[#1aae39]" />
+                  No system alerts in the last 7 days.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {recentNotifs.map(n => <NotifCard key={n.id} n={n} />)}
+                  {recentAdminNotifs.map(n => (
+                    <div key={n.id} onClick={() => !n.is_read && markAdminNotifRead(n.id)} className={!n.is_read ? "cursor-pointer" : ""}>
+                      <AdminNotifCard n={n} />
+                    </div>
+                  ))}
                 </div>
               )}
             </section>
@@ -291,7 +358,7 @@ const AdminNotifications = () => {
           </div>
 
           {/* Notification History collapsed row */}
-          {olderNotifs.length > 0 && (
+          {(olderAdminNotifs.length > 0 || olderNotifs.length > 0) && (
             <button onClick={() => setShowHistory(true)}
               className="w-full flex items-center justify-between px-5 py-4 rounded-xl border cursor-pointer transition-colors"
               style={{ background: "#f6f5f4", borderColor: "#e5e3df" }}>
@@ -299,7 +366,7 @@ const AdminNotifications = () => {
                 <Clock size={16} style={{ color: "#787671" }} />
                 <span className="text-sm font-medium" style={{ color: "#37352f" }}>Notification History</span>
                 <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#e5e3df", color: "#5d5b54" }}>
-                  {olderNotifs.length} older notifications
+                  {olderAdminNotifs.length + olderNotifs.length} older notifications
                 </span>
               </div>
               <ChevronRight size={16} style={{ color: "#787671" }} />

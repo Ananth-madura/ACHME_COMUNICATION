@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Search, Download, X, Edit2, MinusCircle, PlusCircle, Trash2, Mail, MapPin, ChevronDown, History } from "lucide-react";
+import { Plus, Search, Download, X, Edit2, MinusCircle, Trash2, Mail, MapPin, History } from "lucide-react";
+import ClientSearchDropdown from "../components/ClientSearchDropdown";
 import Invoice from "../components/invoicetemplate";
-import { calculateItemTotal, calculateTotals } from "../utils/invoicecal";
+import { calculateItemTotal } from "../utils/invoicecal";
 import axios from "axios";
-import html2pdf from "html2pdf.js";
 import { useAuth } from "../auth/AuthContext";
 import { API } from "../config";
-import { BRANCH_DATA, BRANCH_OPTIONS, BANK_DETAILS } from "../config/branchConfig";
+import { BRANCH_DATA, BRANCH_OPTIONS } from "../config/branchConfig";
+
 
 const API_BACKEND = API;
 
@@ -69,6 +70,7 @@ const PerformaInvoice = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [mailOpen, setMailOpen] = useState(false);
   const [mailTo, setMailTo] = useState("");
+  const [mailCc, setMailCc] = useState("");
   const [mailSubject, setMailSubject] = useState("");
   const [mailSending, setMailSending] = useState(false);
   const [descInput, setDescInput] = useState("");
@@ -90,9 +92,6 @@ const PerformaInvoice = () => {
   const [historyCustomerName, setHistoryCustomerName] = useState("");
   const [historySearch, setHistorySearch] = useState("");
   const [historyRootId, setHistoryRootId] = useState(null);
-  const [historySelectedId, setHistorySelectedId] = useState(null);
-  const [clientSearchResults, setClientSearchResults] = useState([]);
-  const [clientSearchOpen, setClientSearchOpen] = useState(false);
 
   const formatPINumber = (id, dateStr) => {
     const year = dateStr ? new Date(dateStr).getFullYear() : new Date().getFullYear();
@@ -101,18 +100,20 @@ const PerformaInvoice = () => {
 
   const downloadPDF = async () => {
     const id = viewId || selectedId;
-    if (!id) return;
+    if (!id) return alert("Select an invoice first");
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${API_BACKEND}/api/performainvoice/download-pdf/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (!res.ok) { const err = await res.json(); return alert(err.message || "Download failed"); }
+      if (!res.headers.get("content-type")?.includes("application/pdf")) { const err = await res.json(); return alert(err.message || "Invalid response"); }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a"); a.href = url;
       a.download = `ProformaInvoice_${formatPINumber(id, performaInvoices.find(p=>p.id===id)?.invoice_date)}.pdf`;
       a.click(); URL.revokeObjectURL(url);
-    } catch(e) { alert("Download failed"); }
+    } catch(e) { alert("Download failed: " + e.message); }
   };
 
   useEffect(() => {
@@ -167,7 +168,6 @@ const PerformaInvoice = () => {
       setHistoryList(res.data);
       setHistoryCustomerName(customerName);
       setHistorySearch("");
-      setHistorySelectedId(null);
       setHistoryRootId(parentId || invoiceId);
       setHistoryOpen(true);
     } catch (err) { console.error(err); alert("Failed to load history"); }
@@ -189,36 +189,7 @@ const PerformaInvoice = () => {
     return `PI-${year}-${String(rootId).padStart(3, "0")}-${version}`;
   };
 
-  const handleClientSearch = async (val) => {
-    if (val.length < 2) { setClientSearchResults([]); setClientSearchOpen(false); return; }
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${API_BACKEND}/api/client/search?name=${encodeURIComponent(val)}`, { headers: { Authorization: `Bearer ${token}` } });
-      setClientSearchResults(res.data);
-      setClientSearchOpen(true);
-    } catch(e) { console.error(e); }
-  };
 
-  const handleSelectClient = (client) => {
-    setCustomer({
-      customer_name: client.name || "",
-      mobile_number: client.phone || "",
-      email: client.email || client.lead_email || "",
-      gst_number: client.gst_number || "",
-      location_city: client.lead_city || client.city || client.location_city || ""
-    });
-    setExtra(ex => ({
-      ...ex,
-      client_company: client.company_name || "",
-      client_address1: client.address || "",
-      client_address2: "",
-      client_city: client.lead_city || client.city || "",
-      client_state: client.state || "",
-      client_pincode: client.pincode || "",
-      client_country: "India"
-    }));
-    setClientSearchResults([]); setClientSearchOpen(false);
-  };
 
   const handleAddAddress = async () => {
     if (!newAddrLabel || !newAddrText) return alert("Label and address required");
@@ -231,16 +202,7 @@ const PerformaInvoice = () => {
     } catch (err) { alert("Failed to add address"); }
   };
 
-  const handleDeleteAddress = async (id) => {
-    if (!window.confirm("Remove this address?")) return;
-    try {
-      const token = localStorage.getItem("token");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      await axios.delete(`${API_BACKEND}/api/performainvoice/from-addresses/${id}`, config);
-      setFromAddresses(prev => prev.filter(a => a.id !== id));
-      if (extra.from_address_id === id) setExtra(e => ({ ...e, from_address_id: "" }));
-    } catch (err) { alert("Failed to delete address"); }
-  };
+
 
   const handleSelectProposal = async (proposalId) => {
     if (!proposalId) return;
@@ -425,6 +387,7 @@ const PerformaInvoice = () => {
     if (!selectedId) return alert("Select an invoice to send");
     const inv = performaInvoices.find(p => p.id === selectedId);
     setMailTo(inv?.email || "");
+    setMailCc(user?.email || "");
     setMailSubject(`Proforma Invoice ${formatPINumber(selectedId, inv?.invoice_date)}`);
     setMailOpen(true);
   };
@@ -435,18 +398,13 @@ const PerformaInvoice = () => {
     try {
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      await axios.post(`${API_BACKEND}/api/performainvoice/send-email/${selectedId}`, { to: mailTo, subject: mailSubject }, config);
+      await axios.post(`${API_BACKEND}/api/performainvoice/send-email/${selectedId}`, { to: mailTo, cc: mailCc, subject: mailSubject }, config);
       alert("Email sent successfully"); setMailOpen(false);
     } catch (error) { alert(error.response?.data?.message || "Failed to send email"); }
     finally { setMailSending(false); }
   };
 
-  const handleDescInput = (value) => {
-    setDescInput(value);
-  };
-
   const updateItem = (i, field, value) => { const copy = [...items]; copy[i][field] = value; setItems(copy); };
-  const addItem = () => { setItems(p => [...p, { name: "", brand_model: "", hsn_sac: "", uom: "Nos", price: 0, qty: 1, tax: 18, discount: 0 }]); setDescInput(prev => prev ? prev + ", " : ""); };
   const removeItem = () => { if (items.length <= 1) return; const n = items.slice(0, -1); setItems(n); setDescInput(n.map(i => i.name).join(", ")); };
   const formatDate = (date) => date ? new Date(date).toLocaleString("en-IN", { dateStyle: "medium" }) : "---";
 
@@ -706,30 +664,29 @@ const PerformaInvoice = () => {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-bold text-gray-500 uppercase">Customer Name *</label>
                 <div className="relative">
-                  <input
-                    type="text"
-                    value={customer.customer_name}
-                    onChange={e => {
-                      setCustomer({ ...customer, customer_name: e.target.value });
-                      handleClientSearch(e.target.value);
-                    }}
-                    onFocus={e => { if (customer.customer_name.length >= 2) setClientSearchOpen(true); }}
-                    onBlur={() => setTimeout(() => setClientSearchOpen(false), 300)}
-                    placeholder="Type to search client..."
-                    className="border rounded-lg px-3 py-2 outline-none text-sm w-full"
-                    required
-                  />
-                  {clientSearchOpen && clientSearchResults.length > 0 && (
-                    <div className="absolute z-50 bg-white border rounded-xl shadow-2xl mt-1 w-full max-h-60 overflow-y-auto">
-                      {clientSearchResults.map(c => (
-                        <button key={c.id} type="button" onMouseDown={() => handleSelectClient(c)}
-                          className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b last:border-b-0 transition">
-                          <div className="font-bold text-sm text-gray-800">{c.name}</div>
-                          <div className="text-xs text-gray-500">{c.company_name || "—"} | {c.phone || "No phone"}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                <ClientSearchDropdown
+                  value={customer.customer_name}
+                  onSelect={(client) => {
+                    setCustomer({
+                      customer_name: client.name || "",
+                      mobile_number: client.phone || "",
+                      email: client.email || client.lead_email || "",
+                      gst_number: client.gst_number || "",
+                      location_city: client.lead_city || client.city || ""
+                    });
+                    setExtra(ex => ({
+                      ...ex,
+                      client_company: client.company_name || "",
+                      client_address1: client.address || "",
+                      client_address2: "",
+                      client_city: client.lead_city || client.city || "",
+                      client_state: client.state || "",
+                      client_pincode: client.pincode || "",
+                      client_country: "India"
+                    }));
+                  }}
+                  required
+                />
                 </div>
               </div>
               <div className="flex flex-col gap-1">
@@ -1029,9 +986,9 @@ const PerformaInvoice = () => {
                     </thead>
                     <tbody>
                       {filtered.map(q => (
-                        <tr key={q.id} onClick={() => setHistorySelectedId(q.id)}
+                        <tr key={q.id}
                           onDoubleClick={() => { setViewId(q.id); setTimeout(() => setShowInvoice(true), 50); setHistoryOpen(false); }}
-                          className={`border-b cursor-pointer hover:bg-indigo-50/40 transition ${historySelectedId === q.id ? "bg-indigo-50" : ""}`}>
+                          className="border-b cursor-pointer hover:bg-indigo-50/40 transition">
                           <td className="px-4 py-3 font-semibold text-blue-600">
                             {formatSubPINumber(q.parent_id || historyRootId, q.version, q.invoice_date)}
                             <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-bold">v{q.version || 1}</span>
@@ -1065,16 +1022,20 @@ const PerformaInvoice = () => {
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Mail size={20} /> Send Proforma Invoice</h2>
             <X className="cursor-pointer text-gray-400 hover:text-red-500" onClick={() => setMailOpen(false)} />
           </div>
-          <div className="space-y-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-gray-500 uppercase">To (Email)</label>
-              <input type="email" value={mailTo} onChange={e => setMailTo(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" placeholder="recipient@email.com" />
+            <div className="space-y-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-gray-500 uppercase">To (Email)</label>
+                <input type="email" value={mailTo} onChange={e => setMailTo(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" placeholder="recipient@email.com" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-gray-500 uppercase">CC (Email)</label>
+                <input type="email" value={mailCc} onChange={e => setMailCc(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" placeholder="cc@email.com" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-bold text-gray-500 uppercase">Subject</label>
+                <input type="text" value={mailSubject} onChange={e => setMailSubject(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" />
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold text-gray-500 uppercase">Subject</label>
-              <input type="text" value={mailSubject} onChange={e => setMailSubject(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" />
-            </div>
-          </div>
           <div className="flex gap-4 pt-6">
             <button onClick={handleSendEmail} disabled={mailSending} className="bg-blue-600 text-white px-8 py-2.5 rounded-lg hover:bg-blue-700 font-bold shadow transition disabled:opacity-60">
               {mailSending ? "Sending..." : "Send Email"}
@@ -1085,8 +1046,8 @@ const PerformaInvoice = () => {
       </div>
 
       {/* Invoice Preview */}
-      {viewId && (
-        <div key={viewId} ref={invoiceRef} className={`invoicewrapper w-full mt-6 bg-white shadow-xl p-6 relative overflow-y-auto ${showinvoice ? "See" : ""}`}>
+      {viewId && showinvoice && (
+        <div key={viewId} ref={invoiceRef} className="w-full mt-6 bg-white shadow-xl p-6 relative">
           <div className="flex gap-3 absolute right-6 top-6 z-10">
             <X className="cursor-pointer text-gray-400 hover:text-red-500 bg-white rounded-full p-1" onClick={() => { setShowInvoice(false); setTimeout(() => setViewId(null), 400); }} />
           </div>

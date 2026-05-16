@@ -215,7 +215,21 @@ const fetchServices = useCallback(async () => {
   };
 
   const openQuotation = (contract) => {
-    navigate(`/dashboard/proposal?contract_id=${contract.id}&client=${encodeURIComponent(contract.client_company)}`);
+    sessionStorage.setItem("qt_prefill", JSON.stringify({
+      customer_name: contract.client_company,
+      mobile_number: contract.mobile_number,
+      email: contract.email || "",
+      location_city: contract.location_city || "",
+      company_name: contract.client_company || "",
+      contract_id: contract.id,
+      contract_title: contract.contract_title,
+      contract_value: contract.amount_value,
+      service_type: contract.contract_type,
+      start_date: contract.start_date,
+      end_date: contract.end_date,
+      source: "contract"
+    }));
+    window.location.href = "/dashboard/quotation";
   };
 
   // Prefill contract form from Leads pages
@@ -448,7 +462,8 @@ const fetchServices = useCallback(async () => {
         </button>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — Services tab removed, only Contracts */}
+      {/*
       <div className="bg-white rounded-xl shadow mb-4 overflow-hidden">
         <div className="flex border-b">
           <button onClick={() => setActiveTab("contracts")} className={`px-4 md:px-6 py-3 font-medium text-sm ${activeTab === "contracts" ? "bg-blue-50 text-blue-600 border-b-2 border-blue-600" : "text-gray-600 hover:text-gray-800"}`}>
@@ -459,6 +474,7 @@ const fetchServices = useCallback(async () => {
           </button>
         </div>
       </div>
+      */}
 
       {/* Search & Actions */}
       <div className="bg-[#F3F8FA] p-3 md:p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center shadow mb-4 gap-3">
@@ -467,20 +483,13 @@ const fetchServices = useCallback(async () => {
           <input type="text" placeholder={`Search ${activeTab}...`} className="outline-none text-sm w-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
         <div className="flex gap-2">
-          {activeTab === "contracts" && (
             <button onClick={() => { resetContractForm(); setContractModalOpen(true); }} className="bg-[#FF3355] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#e62848]">
               <Plus size={18} /> New Contract
             </button>
-          )}
-          {activeTab === "services" && (
-            <button onClick={() => { resetForm(); setOpen(true); }} className="bg-[#FF3355] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#e62848]">
-              <Plus size={18} /> Add Service
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats — Services tab removed
       {activeTab === "services" && (
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 md:gap-4 mb-4 md:mb-6">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 md:p-4">
@@ -530,9 +539,9 @@ const fetchServices = useCallback(async () => {
         </div>
       </div>
       )}
+      */}
 
       {/* CONTRACTS TABLE */}
-      {activeTab === "contracts" && (
         <div className="bg-white rounded-xl shadow overflow-x-auto mb-4">
           <table className="w-full text-xs md:text-sm border-collapse">
             <thead className="bg-gray-50">
@@ -577,9 +586,8 @@ const fetchServices = useCallback(async () => {
             </tbody>
           </table>
         </div>
-      )}
 
-      {/* SERVICES TABLE */}
+      {/* SERVICES TABLE — removed
       {activeTab === "services" && (
       <div className="bg-white rounded-xl shadow overflow-x-auto">
         <table className="w-full text-xs md:text-sm border-collapse">
@@ -652,7 +660,21 @@ const fetchServices = useCallback(async () => {
                   <td className="p-2 md:p-3 text-center">
                     <div className="flex gap-1 md:gap-2 justify-center">
                       <button 
-                        onClick={() => navigate(`/dashboard/proposal?client=${encodeURIComponent(s.customer_name || "")}&service_id=${s.id}`)} 
+                        onClick={() => {
+                          sessionStorage.setItem("qt_prefill", JSON.stringify({
+                            customer_name: s.customer_name,
+                            mobile_number: s.mobile_number,
+                            email: s.email || "",
+                            location_city: s.location_city || "",
+                            contract_id: s.contract_id || "",
+                            contract_title: s.contract_title,
+                            service_id: s.id,
+                            service_type: s.service_type,
+                            service_description: s.description,
+                            source: "service"
+                          }));
+                          window.location.href = "/dashboard/quotation";
+                        }} 
                         className="text-purple-600 hover:underline text-xs md:text-sm"
                         title="Create Quotation"
                       >
@@ -669,7 +691,9 @@ const fetchServices = useCallback(async () => {
         </table>
       </div>
       )}
+      */}
 
+      {/* Service modal — removed
       {open && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-2 md:p-4 overflow-y-auto">
           <div className="bg-white rounded-xl p-4 md:p-6 w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
@@ -915,6 +939,7 @@ const fetchServices = useCallback(async () => {
           </div>
         </div>
       )}
+      */}
 
       {/* CONTRACT CREATION MODAL */}
       {contractModalOpen && (
@@ -1001,7 +1026,7 @@ const fetchServices = useCallback(async () => {
                 <button 
                   type="button" 
                   onClick={() => {
-                    sessionStorage.setItem("quotation_prefill", JSON.stringify({
+                    sessionStorage.setItem("qt_prefill", JSON.stringify({
                       customer_name: contractForm.client_company,
                       mobile_number: contractForm.mobile_number,
                       email: contractForm.email,
@@ -1011,9 +1036,9 @@ const fetchServices = useCallback(async () => {
                       service_type: contractForm.service_type,
                       start_date: contractForm.start_date,
                       end_date: contractForm.end_date,
-                      from_contract: true
+                      source: "contract"
                     }));
-                    navigate("/dashboard/proposal");
+                    window.location.href = "/dashboard/quotation";
                   }}
                   className="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700"
                 >

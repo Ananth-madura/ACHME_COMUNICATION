@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, X, Edit, Trash2, FileText, FileSignature, Users, UserCheck, Phone, Calendar, User, Mail, Building, MapPin, Hash, FileBarChart, CreditCard, RefreshCw } from "lucide-react";
+import { Search, X, Edit, Trash2, FileSignature, Phone, User, Mail, Building, MapPin, FileBarChart, RefreshCw } from "lucide-react";
 import "../Styles/tailwind.css";
 import axios from "axios";
 import { useAuth } from "../auth/AuthContext";
@@ -55,36 +55,7 @@ const Clients = () => {
     }
   };
 
-  const downloadExcel = () => {
-    const data = filteredClients.length > 0 ? filteredClients : clients;
-    if (!data.length) return alert("No client data to export");
 
-    const headers = ["ID", "Name", "Email", "Phone", "City", "Service", "Source", "Converted By", "Converted Date", "Status"];
-    const rows = data.map(c => [
-      c.id,
-      c.name || "",
-      c.email || "",
-      c.phone || "",
-      c.address || "",
-      c.service || "",
-      c.original_lead_type ? `${c.original_lead_type.charAt(0).toUpperCase() + c.original_lead_type.slice(1)} Lead` : "Direct",
-      c.lead_staff_name || c.creator_name || "Admin",
-      c.converted_at ? new Date(c.converted_at).toLocaleDateString() : "",
-      c.client_status || "active"
-    ]);
-
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Clients_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   useEffect(() => {
     fetchClients();
@@ -139,7 +110,20 @@ const Clients = () => {
       setOpen(false);
       fetchClients();
     } catch (err) {
-      alert("Error: " + (err.response?.data?.error || err.message));
+      if (err.response?.status === 409) {
+        const dups = err.response?.data?.duplicates;
+        const details = err.response?.data?.details || "This client already exists.";
+        if (dups && dups.length > 0) {
+          const dupList = dups.map(d => `• ${d.name} (${d.phone || "N/A"})`).join("\n");
+          alert(`⚠️ Duplicate Client Found!\n\n${details}\n\nExisting clients:\n${dupList}\n\nPlease check before creating a new one.`);
+        } else {
+          alert(`⚠️ ${details}`);
+        }
+      } else {
+        const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to save client";
+        console.error("Client save error:", err.response?.data);
+        alert(`Error: ${errMsg}`);
+      }
     }
   };
 
@@ -212,7 +196,7 @@ const Clients = () => {
       c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.phone?.includes(searchTerm) ||
       c.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.lead_staff_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      c.creator_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSource = filterSource === "all" || c.original_lead_type === filterSource;
     const isConverted = c.original_lead_id !== null && c.original_lead_type !== null;
     if (activeTab === "converted") return matchesSearch && matchesSource && isConverted;
@@ -304,7 +288,7 @@ const Clients = () => {
           <table className="w-full text-sm">
             <thead style={{ background: N.surface }}>
               <tr>
-                {["Client", "Phone", "Company", "Source", "Converted By", "Date", "Status", "Actions"].map(h => (
+                {["Client", "Phone", "Company", "Source", "Created By", "Status", "Actions"].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: N.steel }}>{h}</th>
                 ))}
               </tr>
@@ -312,7 +296,7 @@ const Clients = () => {
             <tbody>
               {filteredClients.map(c => (
                 <tr key={c.id} className="border-t cursor-pointer hover:bg-gray-50 transition" style={{ borderColor: N.hairline }}
-                  onClick={() => openDetailsModal(c)}>
+                  onDoubleClick={() => openDetailsModal(c)}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm" style={{ background: N.lavender, color: N.primary }}>
@@ -335,23 +319,43 @@ const Clients = () => {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1" style={{ color: N.charcoal }}>
                       <User size={12} style={{ color: N.stone }} />
-                      {c.lead_staff_name || c.creator_name || "Admin"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1" style={{ color: N.steel }}>
-                      <Calendar size={12} />
-                      <span className="text-xs">{c.converted_at ? new Date(c.converted_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}</span>
+                      {c.creator_name || "Admin"}
                     </div>
                   </td>
                   <td className="px-4 py-3">{getStatusBadge(c.client_status)}</td>
                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => window.location.href = `/proposal?client_name=${encodeURIComponent(c.name)}&client_email=${encodeURIComponent(c.email || "")}`}
-                        className="p-1.5 rounded-lg hover:bg-blue-50 transition" style={{ color: "#0075de" }} title="Create Proposal">
+                      <button onClick={() => {
+                        sessionStorage.setItem("qt_prefill", JSON.stringify({
+                          customer_name: c.name,
+                          mobile_number: c.phone || "",
+                          email: c.email || "",
+                          location_city: c.address || c.city || "",
+                          company_name: c.company_name || "",
+                          gst_number: c.gst_number || "",
+                          state: c.state || "",
+                          pincode: c.pincode || "",
+                          address: c.address || "",
+                          client_id: c.id,
+                          source: "client"
+                        }));
+                        window.location.href = "/dashboard/quotation";
+                      }}
+                        className="p-1.5 rounded-lg hover:bg-blue-50 transition" style={{ color: "#0075de" }} title="Create Quotation">
                         <FileBarChart size={16} />
                       </button>
-                      <button onClick={() => window.location.href = `/contract?client_name=${encodeURIComponent(c.name)}&client_email=${encodeURIComponent(c.email || "")}`}
+                      <button onClick={() => {
+                        sessionStorage.setItem("contract_prefill", JSON.stringify({
+                          customer_name: c.name,
+                          mobile_number: c.phone || "",
+                          email: c.email || "",
+                          location_city: c.address || c.city || "",
+                          company_name: c.company_name || "",
+                          client_id: c.id,
+                          source: "client"
+                        }));
+                        window.location.href = "/dashboard/amc";
+                      }}
                         className="p-1.5 rounded-lg hover:bg-green-50 transition" style={{ color: N.green }} title="Create Contract">
                         <FileSignature size={16} />
                       </button>
@@ -368,7 +372,7 @@ const Clients = () => {
                 </tr>
               ))}
               {filteredClients.length === 0 && (
-                <tr><td colSpan={8} className="py-12 text-center" style={{ color: N.stone }}>No clients found</td></tr>
+                <tr><td colSpan={7} className="py-12 text-center" style={{ color: N.stone }}>No clients found</td></tr>
               )}
             </tbody>
           </table>
@@ -423,9 +427,12 @@ const Clients = () => {
               <div className="border-t pt-4">
                 <label className="text-xs font-medium" style={{ color: N.stone }}>Conversion Details</label>
                 <div className="grid grid-cols-2 gap-3 mt-1">
-                  <div><span className="text-xs" style={{ color: N.steel }}>Lead ID: </span><span className="text-xs font-mono" style={{ color: N.charcoal }}>{selectedClientDetails.lead_id_display || "-"}</span></div>
-                  <div><span className="text-xs" style={{ color: N.steel }}>Converted By: </span><span className="text-xs" style={{ color: N.charcoal }}>{selectedClientDetails.lead_staff_name || selectedClientDetails.creator_name || "Admin"}</span></div>
-                  <div><span className="text-xs" style={{ color: N.steel }}>Date: </span><span className="text-xs" style={{ color: N.charcoal }}>{selectedClientDetails.converted_at ? new Date(selectedClientDetails.converted_at).toLocaleDateString("en-IN") : "-"}</span></div>
+                  <div><span className="text-xs" style={{ color: N.steel }}>Lead ID: </span><span className="text-xs font-mono" style={{ color: N.charcoal }}>{selectedClientDetails.original_lead_id ? `${selectedClientDetails.original_lead_type?.toUpperCase()}-${selectedClientDetails.original_lead_id}` : "Direct Client"}</span></div>
+                  <div><span className="text-xs" style={{ color: N.steel }}>Created By: </span><span className="text-xs" style={{ color: N.charcoal }}>{selectedClientDetails.creator_name || "Admin"}</span></div>
+                  <div><span className="text-xs" style={{ color: N.steel }}>Created Date: </span><span className="text-xs" style={{ color: N.charcoal }}>{selectedClientDetails.created_at ? new Date(selectedClientDetails.created_at).toLocaleDateString("en-IN") : "-"}</span></div>
+                  {selectedClientDetails.original_lead_type && (
+                    <div><span className="text-xs" style={{ color: N.steel }}>Source: </span><span className="text-xs" style={{ color: N.charcoal }}>{selectedClientDetails.original_lead_type.charAt(0).toUpperCase() + selectedClientDetails.original_lead_type.slice(1)}</span></div>
+                  )}
                 </div>
               </div>
 

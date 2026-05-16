@@ -21,7 +21,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API } from "../config/api";
-import backheadImage from "../images/backhead1.png";
+import backheadImage from "../images/achme logo high.jpg.jpeg";
 
 const Topbar = ({ onHamburgerClick, showSearch, onSearch, reminderData, reminderNotes, escalationCount = 0, escalations = [] }) => {
   const [openProfile, setOpenProfile] = useState(false);
@@ -103,7 +103,7 @@ const Topbar = ({ onHamburgerClick, showSearch, onSearch, reminderData, reminder
           src={backheadImage}
           alt="Madhura Softwares"
           className="object-contain"
-          style={{ height: "112px", width: "auto", maxWidth: "560px" }}
+          style={{ height: "47px", width: "auto", maxWidth: "190px" }}
         />
       </div>
 

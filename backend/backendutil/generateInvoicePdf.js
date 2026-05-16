@@ -294,13 +294,13 @@ ${LOGO_SRC ? `<div id="wm"><img src="${LOGO_SRC}" style="width:100%;" /></div>` 
 
   const browser = await puppeteer.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-extensions"],
+    args: ["--disable-gpu", "--disable-extensions", "--disable-software-rasterizer"],
   });
 
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 });
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.evaluate(async () => {
       await document.fonts.ready;
       await Promise.all(Array.from(document.images).map(i =>

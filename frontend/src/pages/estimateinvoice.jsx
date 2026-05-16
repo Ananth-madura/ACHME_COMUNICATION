@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Search, Download, X, Edit2, MinusCircle, PlusCircle, Trash2, Mail, MapPin, ChevronDown, History } from "lucide-react";
-import { calculateItemTotal, calculateTotals } from "../utils/invoicecal";
+import { Plus, Search, Download, X, Edit2, MinusCircle, Trash2, Mail, MapPin, History } from "lucide-react";
+import ClientSearchDropdown from "../components/ClientSearchDropdown";
+import { calculateItemTotal } from "../utils/invoicecal";
 import axios from "axios";
 import { API } from "../config";
-
-import html2pdf from "html2pdf.js";
-import "../Styles/tailwind.css";
 import Invoice from "../components/invoicetemplate";
+import "../Styles/tailwind.css";
 
 const UOM_OPTIONS = ["Nos", "Units", "Pieces", "Boxes", "Sets", "Meters", "Kg", "Liters"];
 const BRANCH_OPTIONS = [
@@ -19,24 +18,12 @@ const BRANCH_DATA = {
   "Bangalore": { address: "14th Main Road, GK Layout, Electronic City Post, Bangalore-560100", gstin: "29AAHFA7876M1ZM" },
   "Chennai": { address: "5th Floor, 5CD PM Towers, Dreams Road, Thousand Lights, Chennai-600006", gstin: "33AAHFA7876M1ZX" },
 };
-const INDIAN_STATES = [
-  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
-];
+
 const VALIDITY_OPTIONS = ["2 days", "5 days", "10 days", "15 days", "30 days"];
 const PAYMENT_OPTIONS = ["100% Advance", "Payment Against Delivery", "15 Days", "30 Days", "45 Days", "Custom"];
 const WARRANTY_OPTIONS = ["No Warranty", "Testing Warranty", "1 Month", "3 Months", "6 Months", "12 Months", "24 Months", "36 Months", "OEM Warranty", "Supplier Warranty", "OEM Hardware Warranty", "No Software Warranty"];
 
-const GST_STATE_MAP = {
-  "01": "Jammu and Kashmir", "02": "Himachal Pradesh", "03": "Punjab", "04": "Chandigarh", "05": "Uttarakhand",
-  "06": "Haryana", "07": "Delhi", "08": "Rajasthan", "09": "Uttar Pradesh", "10": "Bihar",
-  "11": "Sikkim", "12": "Arunachal Pradesh", "13": "Nagaland", "14": "Manipur", "15": "Mizoram",
-  "16": "Tripura", "17": "Meghalaya", "18": "Assam", "19": "West Bengal", "20": "Jharkhand",
-  "21": "Odisha", "22": "Chhattisgarh", "23": "Madhya Pradesh", "24": "Gujarat",
-  "25": "Dadra and Nagar Haveli and Daman and Diu", "26": "Dadra and Nagar Haveli and Daman and Diu",
-  "27": "Maharashtra", "29": "Karnataka", "30": "Goa", "31": "Lakshadweep",
-  "32": "Kerala", "33": "Tamil Nadu", "34": "Puducherry", "35": "Andaman and Nicobar Islands",
-  "36": "Telangana", "37": "Andhra Pradesh", "38": "Ladakh"
-};
+
 
 const BANK_DETAILS = [
   { id: "hdfc", company: "ACHME COMMUNICATION", bank: "HDFC BANK", account: "00312320005822", ifsc: "HDFC0000031", branch: "Coimbatore" },
@@ -76,10 +63,10 @@ const EstimateInvoice = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [mailOpen, setMailOpen] = useState(false);
   const [mailTo, setMailTo] = useState("");
+  const [mailCc, setMailCc] = useState("");
   const [mailSubject, setMailSubject] = useState("");
   const [mailSending, setMailSending] = useState(false);
   const [descInput, setDescInput] = useState("");
-  const [showAddAddress, setShowAddAddress] = useState(false);
   const [newAddrLabel, setNewAddrLabel] = useState("");
   const [newAddrText, setNewAddrText] = useState("");
 
@@ -97,9 +84,6 @@ const EstimateInvoice = () => {
   const [historyCustomerName, setHistoryCustomerName] = useState("");
   const [historySearch, setHistorySearch] = useState("");
   const [historyRootId, setHistoryRootId] = useState(null);
-  const [historySelectedId, setHistorySelectedId] = useState(null);
-  const [clientSearchResults, setClientSearchResults] = useState([]);
-  const [clientSearchOpen, setClientSearchOpen] = useState(false);
 
   const formatEINumber = (id, dateStr) => {
     const year = dateStr ? new Date(dateStr).getFullYear() : new Date().getFullYear();
@@ -110,6 +94,7 @@ const EstimateInvoice = () => {
     fetchEstimateInvoices();
     fetchQuotations();
     fetchFromAddresses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getAuthConfig = () => {
@@ -136,7 +121,7 @@ const EstimateInvoice = () => {
       const res = await axios.get(`${API}/api/estimate-invoice/version-history/${invoiceId}`, getAuthConfig());
       setHistoryList(res.data);
       setHistoryCustomerName(customerName);
-      setHistorySearch(""); setHistorySelectedId(null);
+      setHistorySearch("");
       setHistoryRootId(parentId || invoiceId);
       setHistoryOpen(true);
     } catch (err) { alert("Failed to load history"); }
@@ -156,53 +141,9 @@ const EstimateInvoice = () => {
     return `EI-${year}-${String(rootId).padStart(3, "0")}-${version}`;
   };
 
-  const handleClientSearch = async (val) => {
-    if (val.length < 2) { setClientSearchResults([]); setClientSearchOpen(false); return; }
-    try {
-      const res = await axios.get(`${API}/api/client/search?name=${encodeURIComponent(val)}`, getAuthConfig());
-      setClientSearchResults(res.data);
-      setClientSearchOpen(true);
-    } catch(e) { console.error(e); }
-  };
 
-  const handleSelectClient = (client) => {
-    setCustomer({
-      customer_name: client.name || "",
-      mobile_number: client.phone || "",
-      email: client.email || client.lead_email || "",
-      gst_number: client.gst_number || "",
-      location_city: client.lead_city || client.city || client.location_city || ""
-    });
-    setExtra(ex => ({
-      ...ex,
-      client_company: client.company_name || "",
-      client_address1: client.address || "",
-      client_address2: "",
-      client_city: client.lead_city || client.city || "",
-      client_state: client.state || "",
-      client_pincode: client.pincode || "",
-      client_country: "India"
-    }));
-    setClientSearchResults([]); setClientSearchOpen(false);
-  };
 
-  const handleAddAddress = async () => {
-    if (!newAddrLabel || !newAddrText) return alert("Label and address required");
-    try {
-      const res = await axios.post(`${API}/api/estimate-invoice/from-addresses`, { label: newAddrLabel, address: newAddrText }, getAuthConfig());
-      setFromAddresses(prev => [...prev, res.data]);
-      setNewAddrLabel(""); setNewAddrText(""); setShowAddAddress(false);
-    } catch (err) { alert("Failed to add address"); }
-  };
 
-  const handleDeleteAddress = async (id) => {
-    if (!window.confirm("Remove this address?")) return;
-    try {
-      await axios.delete(`${API}/api/estimate-invoice/from-addresses/${id}`, getAuthConfig());
-      setFromAddresses(prev => prev.filter(a => a.id !== id));
-      if (extra.from_address_id === id) setExtra(e => ({ ...e, from_address_id: "" }));
-    } catch (err) { alert("Failed to delete address"); }
-  };
 
   const handleSelectProposal = async (proposalId) => {
     if (!proposalId) return;
@@ -372,7 +313,9 @@ const EstimateInvoice = () => {
   const openMailModal = () => {
     if (!selectedId) return alert("Select an invoice to send");
     const inv = estimateInvoices.find(p => p.id === selectedId);
+    const adminEmail = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").email || ""; } catch { return ""; } })();
     setMailTo(inv?.email || "");
+    setMailCc(adminEmail);
     setMailSubject(`Estimate Invoice ${formatEINumber(selectedId, inv?.invoice_date)}`);
     setMailOpen(true);
   };
@@ -381,7 +324,7 @@ const EstimateInvoice = () => {
     if (!mailTo) return alert("Please enter recipient email");
     setMailSending(true);
     try {
-      await axios.post(`${API}/api/estimate-invoice/send-email/${selectedId}`, { to: mailTo, subject: mailSubject }, getAuthConfig());
+      await axios.post(`${API}/api/estimate-invoice/send-email/${selectedId}`, { to: mailTo, cc: mailCc, subject: mailSubject }, getAuthConfig());
       alert("Email sent successfully"); setMailOpen(false);
     } catch (error) { alert(error.response?.data?.message || "Failed to send email"); }
     finally { setMailSending(false); }
@@ -425,12 +368,14 @@ const EstimateInvoice = () => {
               if (!id) return alert("Select an invoice first");
               try {
                 const res = await fetch(`${API}/api/estimate-invoice/download-pdf/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
+                if (!res.ok) { const err = await res.json(); return alert(err.message || "Download failed"); }
+                if (!res.headers.get("content-type")?.includes("application/pdf")) { const err = await res.json(); return alert(err.message || "Invalid response"); }
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a"); a.href = url;
                 a.download = `Estimation_${formatEINumber(id, estimateInvoices.find(p=>p.id===id)?.invoice_date)}.pdf`;
                 a.click(); URL.revokeObjectURL(url);
-              } catch(e) { alert("Download failed"); }
+              } catch(e) { alert("Download failed: " + e.message); }
             }} title="Download PDF" className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50 transition"><Download size={20} /></button>
             <button onClick={openMailModal} title="Send Email" className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50 transition"><Mail size={18} /></button>
             <button onClick={() => { if (!selectedId) return alert("Select an item"); handleEdit(selectedId); }} title="Edit" className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50 transition"><Edit2 size={18} /></button>
@@ -637,30 +582,29 @@ const EstimateInvoice = () => {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-bold text-gray-500 uppercase">Customer Name *</label>
                 <div className="relative">
-                  <input
-                    type="text"
-                    value={customer.customer_name}
-                    onChange={e => {
-                      setCustomer({ ...customer, customer_name: e.target.value });
-                      handleClientSearch(e.target.value);
-                    }}
-                    onFocus={e => { if (customer.customer_name.length >= 2) setClientSearchOpen(true); }}
-                    onBlur={() => setTimeout(() => setClientSearchOpen(false), 300)}
-                    placeholder="Type to search client..."
-                    className="border rounded-lg px-3 py-2 outline-none text-sm w-full"
-                    required
-                  />
-                  {clientSearchOpen && clientSearchResults.length > 0 && (
-                    <div className="absolute z-50 bg-white border rounded-xl shadow-2xl mt-1 w-full max-h-60 overflow-y-auto">
-                      {clientSearchResults.map(c => (
-                        <button key={c.id} type="button" onMouseDown={() => handleSelectClient(c)}
-                          className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b last:border-b-0 transition">
-                          <div className="font-bold text-sm text-gray-800">{c.name}</div>
-                          <div className="text-xs text-gray-500">{c.company_name || "—"} | {c.phone || "No phone"}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                <ClientSearchDropdown
+                  value={customer.customer_name}
+                  onSelect={(client) => {
+                    setCustomer({
+                      customer_name: client.name || "",
+                      mobile_number: client.phone || "",
+                      email: client.email || client.lead_email || "",
+                      gst_number: client.gst_number || "",
+                      location_city: client.lead_city || client.city || ""
+                    });
+                    setExtra(ex => ({
+                      ...ex,
+                      client_company: client.company_name || "",
+                      client_address1: client.address || "",
+                      client_address2: "",
+                      client_city: client.lead_city || client.city || "",
+                      client_state: client.state || "",
+                      client_pincode: client.pincode || "",
+                      client_country: "India"
+                    }));
+                  }}
+                  required
+                />
                 </div>
               </div>
               <div className="flex flex-col gap-1">
@@ -885,9 +829,9 @@ const EstimateInvoice = () => {
                     </thead>
                     <tbody>
                       {filtered.map(q => (
-                        <tr key={q.id} onClick={() => setHistorySelectedId(q.id)}
+                        <tr key={q.id}
                           onDoubleClick={() => { setViewId(q.id); setTimeout(() => setShowInvoice(true), 50); setHistoryOpen(false); }}
-                          className={`border-b cursor-pointer hover:bg-indigo-50/40 transition ${historySelectedId === q.id ? "bg-indigo-50" : ""}`}>
+                          className="border-b cursor-pointer hover:bg-indigo-50/40 transition">
                           <td className="px-4 py-3 font-semibold text-blue-600">
                             {formatSubEINumber(q.parent_id || historyRootId, q.version, q.invoice_date)}
                             <span className="ml-2 text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-bold">v{q.version || 1}</span>
@@ -927,6 +871,10 @@ const EstimateInvoice = () => {
               <input type="email" value={mailTo} onChange={e => setMailTo(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" placeholder="recipient@email.com" />
             </div>
             <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-gray-500 uppercase">CC (Email)</label>
+              <input type="email" value={mailCc} onChange={e => setMailCc(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" placeholder="cc@email.com" />
+            </div>
+            <div className="flex flex-col gap-1">
               <label className="text-xs font-bold text-gray-500 uppercase">Subject</label>
               <input type="text" value={mailSubject} onChange={e => setMailSubject(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" />
             </div>
@@ -941,8 +889,8 @@ const EstimateInvoice = () => {
       </div>
 
       {/* Invoice Preview */}
-      {viewId && (
-        <div key={viewId} ref={invoiceRef} className={`invoicewrapper w-full mt-6 bg-white shadow-xl p-6 relative overflow-y-auto ${showinvoice ? "See" : ""}`}>
+      {viewId && showinvoice && (
+        <div key={viewId} ref={invoiceRef} className="w-full mt-6 bg-white shadow-xl p-6 relative">
           <div className="flex gap-3 absolute right-6 top-6 z-10">
             <X className="cursor-pointer text-gray-400 hover:text-red-500 bg-white rounded-full p-1" onClick={() => { setShowInvoice(false); setTimeout(() => setViewId(null), 400); }} />
           </div>

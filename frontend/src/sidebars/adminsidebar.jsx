@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Home, Users, ListTodo, Phone, ShoppingCart,
-  FileText, Briefcase, Headphones, Users2, BarChart2, ChevronDown, Wrench, Bell, TargetIcon, ShieldCheck, Settings, User, UserCog
+  FileText, Briefcase, Headphones, Users2, BarChart2, ChevronDown, Wrench, Bell, TargetIcon, Settings, User, UserCog
 } from "lucide-react";
 import "../Styles/tailwind.css";
 import { Link } from "react-router-dom";
@@ -37,16 +37,11 @@ const Sidebar = ({ onNavigate }) => {
   const menu = [
     { icon: <Home size={20} />, title: "Dashboard", path: "/dashboard" },
     { icon: <Bell size={20} />, title: "Notifications", path: "/dashboard/notifications", badge: pendingCount },
-    { icon: <TargetIcon size={20} />, title: "Team Targets", path: "/dashboard/targets" },
+    // { icon: <TargetIcon size={20} />, title: "Team Targets", path: "/dashboard/targets" },
     // { icon: <UserCog size={20} />, title: "User Management", path: "/dashboard/users" },
     { icon: <Users size={20} />, title: "Customers", subitems: [{ label: "Clients", path: "/dashboard/clients" }] },
     { icon: <ListTodo size={20} />, title: "Tasks", path: "/dashboard/task" },
-    {
-      icon: <ShieldCheck size={20} />, title: "Contracts & AMC",
-      subitems: [
-        { label: "Contracts", path: "/dashboard/amc" },
-      ]
-    },
+    // { icon: <ShieldCheck size={20} />, title: "Contracts & AMC", subitems: [{ label: "Contracts", path: "/dashboard/amc" }] },
     {
       icon: <Phone size={20} />, title: "Leads",
       subitems: [
@@ -78,7 +73,7 @@ const Sidebar = ({ onNavigate }) => {
     },
     { icon: <BarChart2 size={20} />, title: "Reports", path: "/dashboard/reports" },
     { icon: <User size={20} />, title: "Profile", path: "/dashboard/profile" },
-    { icon: <Settings size={20} />, title: "Settings", path: "/dashboard/settings" }
+    // { icon: <Settings size={20} />, title: "Settings", path: "/dashboard/settings" }
   ];
 
   const toggleMenu = (i) => setOpenMenu(openMenu === i ? null : i);

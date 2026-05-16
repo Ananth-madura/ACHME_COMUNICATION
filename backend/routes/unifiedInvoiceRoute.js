@@ -291,9 +291,10 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
     const typeMap = { QT: "quotation", PI: "proforma", EI: "estimation", SE: "service" };
     const docType = typeMap[prefix] || "estimation";
     db.query(headerSql, [id], (err, headerRows) => {
-      if (err || !headerRows.length) return res.status(404).json({ message: "Not found" });
+      if (err) { console.error(`${prefix} PDF header error:`, err); return res.status(500).json({ message: "Database error: " + err.message }); }
+      if (!headerRows.length) return res.status(404).json({ message: `${label} not found` });
       db.query(itemsSql, [id], async (err, items) => {
-        if (err) return res.status(500).json(err);
+        if (err) { console.error(`${prefix} PDF items error:`, err); return res.status(500).json({ message: "Database error: " + err.message }); }
         try {
           const pdfBuffer = await generateInvoicePdf({ invoice: headerRows[0], items, type: docType });
           const year = new Date(headerRows[0].invoice_date).getFullYear();
@@ -301,13 +302,13 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
           res.setHeader("Content-Type", "application/pdf");
           res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
           res.send(pdfBuffer);
-        } catch (e) { res.status(500).json({ message: e.message }); }
+        } catch (e) { console.error(`${prefix} PDF generation error:`, e); res.status(500).json({ message: "PDF generation failed: " + e.message }); }
       });
     });
   });
   router.post("/send-email/:id", verifyToken, (req, res) => {
     const { id } = req.params;
-    const { to, subject } = req.body;
+    const { to, subject, cc } = req.body;
     const headerSql = `
       SELECT t.*, c.email, c.customer_name, c.mobile_number, c.location_city,
              t.${dateField} AS invoice_date,
@@ -341,6 +342,7 @@ function createUnifiedRouter({ table, itemsTable, prefix, dateField, label }) {
           await transporter.sendMail({
             from: `"Achme Communication" <${process.env.EMAIL_USER}>`,
             to: recipientEmail,
+            cc: cc || undefined,
             subject: subject || `${label} ${docNumber}`,
             html: `<div style="font-family:Arial,sans-serif;padding:24px;max-width:600px;margin:0 auto;">
               <p>Dear Customer,</p>

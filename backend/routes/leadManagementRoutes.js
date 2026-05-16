@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
 const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
+const { getNotificationIO } = require("../sockets/notifications");
 const toDateOnly = (val) => (!val ? null : val.toString().slice(0, 10));
 const toTimeOnly = (val) => {
   if (!val) return null;
@@ -9,6 +10,8 @@ const toTimeOnly = (val) => {
   if (s.length >= 8) return s.slice(-8);
   return s;
 };
+// DISABLED: Old notification system - replaced with 3-type redesign
+/*
 const notifyMissedLead = (lead, req) => {
   const notificationIO = req?.app?.get("io");
   if (!notificationIO || !notificationIO.emitNotification) return;
@@ -24,6 +27,7 @@ const notifyMissedLead = (lead, req) => {
     priority: "high"
   }, null, true);
 };
+*/
 
 // ── REMINDERS ──────────────────────────────────────────────────────────────
 
@@ -105,8 +109,8 @@ router.post("/check-missed", verifyToken, (req, res) => {
                COALESCE(t.staff_name, w.staff_name, f.staff_name) as staff_name,
                COALESCE(t.followup_date, w.followup_date, f.followup_date) as followup_date
         FROM lead_reminders lr
-        LEFT JOIN Telecalls t ON t.id = lr.lead_id AND lr.lead_type = 'telecall'
-        LEFT JOIN Walkins w ON w.id = lr.lead_id AND lr.lead_type = 'walkin'
+        LEFT JOIN telecalls t ON t.id = lr.lead_id AND lr.lead_type = 'telecall'
+        LEFT JOIN walkins w ON w.id = lr.lead_id AND lr.lead_type = 'walkin'
         LEFT JOIN fields f ON f.id = lr.lead_id AND lr.lead_type = 'field'
         WHERE lr.status = 'Missed'
         GROUP BY lr.lead_id, lr.lead_type, lr.employee_id
@@ -128,7 +132,27 @@ router.post("/check-missed", verifyToken, (req, res) => {
                 // Update missed count on existing escalation
                 if (existing.length > 0) {
                   db.query("UPDATE lead_escalations SET missed_count=?, missed_threshold_reached=1 WHERE id=?", [lead.missed_count, existing[0].id]);
-                  if ([3, 5, 7, 9, 10].includes(Number(lead.missed_count))) notifyMissedLead(lead, req);
+                  if ([3, 5, 7, 9, 10].includes(Number(lead.missed_count))) {
+                    db.query("INSERT INTO admin_notifications (type, user_id, message, related_id, related_type, priority) VALUES (?, ?, ?, ?, ?, ?)",
+                      ["missed_reminder", lead.employee_id || null, `Missed reminder #${lead.missed_count} for lead "${lead.customer_name}" (${lead.lead_type})`, lead.lead_id, "lead", "high"],
+                      (err, result) => {
+                        if (!err) {
+                          const notificationIO = getNotificationIO();
+                          if (notificationIO) {
+                            notificationIO.sendToAdmin("new_notification", {
+                              id: result.insertId,
+                              type: "missed_reminder",
+                              message: `Missed reminder #${lead.missed_count} for lead "${lead.customer_name}"`,
+                              employee_name: lead.staff_name,
+                              priority: "high",
+                              is_read: 0,
+                              created_at: new Date().toISOString()
+                            });
+                          }
+                        }
+                      }
+                    );
+                  }
                 }
                 if (--pending === 0) res.json({ markedMissed, escalated });
                 return;
@@ -139,7 +163,25 @@ router.post("/check-missed", verifyToken, (req, res) => {
                 (e2) => {
                   if (!e2) {
                     escalated++;
-                    notifyMissedLead(lead, req);
+                    db.query("INSERT INTO admin_notifications (type, user_id, message, related_id, related_type, priority) VALUES (?, ?, ?, ?, ?, ?)",
+                      ["missed_reminder", lead.employee_id || null, `New escalation: missed reminder for lead "${lead.customer_name}" (${lead.lead_type})`, lead.lead_id, "lead", "high"],
+                      (err, result) => {
+                        if (!err) {
+                          const notificationIO = getNotificationIO();
+                          if (notificationIO) {
+                            notificationIO.sendToAdmin("new_notification", {
+                              id: result.insertId,
+                              type: "missed_reminder",
+                              message: `New escalation: missed reminder for lead "${lead.customer_name}"`,
+                              employee_name: lead.staff_name,
+                              priority: "high",
+                              is_read: 0,
+                              created_at: new Date().toISOString()
+                            });
+                          }
+                        }
+                      }
+                    );
                   }
                   if (--pending === 0) res.json({ markedMissed, escalated });
                 }
@@ -193,6 +235,8 @@ router.put("/escalations/:id/resolve", verifyToken, (req, res) => {
           if (!e && tmRows.length > 0 && tmRows[0].user_id) {
             const notificationIO = req.app.get("notificationIO");
             if (notificationIO && notificationIO.emitNotification) {
+              // DISABLED: Old notification system
+              /*
               notificationIO.emitNotification("escalation_resolved", {
                 leadId: escalation.lead_id,
                 leadType: escalation.lead_type,
@@ -200,6 +244,7 @@ router.put("/escalations/:id/resolve", verifyToken, (req, res) => {
                 message: `Your missed reminder escalation for lead ${escalation.customer_name} has been resolved.`,
                 type: "lead"
               }, tmRows[0].user_id, false);
+              */
             }
           }
         });
@@ -330,14 +375,30 @@ const createClientFromLead = (lead, leadType, callback) => {
       return;
     }
 
-    db.query("SELECT id FROM clients WHERE phone = ? AND (original_lead_id IS NULL OR original_lead_type IS NULL) AND client_status != 'converted'", [lead.mobile_number], (err4, byPhone) => {
-      if (err4) { console.error("Error checking by phone:", err4); doInsert(); return; }
+    // Check for duplicate phone/email in other clients
+    const dupChecks = [];
+    if (lead.mobile_number) dupChecks.push(db.query("SELECT id, name, phone FROM clients WHERE phone = ? AND (original_lead_id IS NULL OR original_lead_type IS NULL) AND client_status != 'converted'", [lead.mobile_number]));
+    if (lead.email) dupChecks.push(db.query("SELECT id, name, email as phone FROM clients WHERE email = ? AND (original_lead_id IS NULL OR original_lead_type IS NULL) AND client_status != 'converted'", [lead.email]));
 
-      if (byPhone.length > 0) {
-        doUpdate(byPhone[0].id);
-      } else {
-        doInsert();
-      }
+    if (dupChecks.length === 0) { doInsert(); return; }
+
+    let completed = 0;
+    const dupResults = [];
+    dupChecks.forEach((q) => {
+      q((err, rows) => {
+        if (err) { completed++; if (completed === dupChecks.length) doInsert(); return; }
+        if (rows.length > 0) dupResults.push({ id: rows[0].id, name: rows[0].name, phone: rows[0].phone });
+        completed++;
+        if (completed === dupChecks.length) {
+          if (dupResults.length > 0) {
+            // Update existing client instead of creating duplicate
+            console.log(`Found existing client ${dupResults[0].id} matching ${leadType} lead ${lead.id} by phone/email, updating instead`);
+            doUpdate(dupResults[0].id);
+          } else {
+            doInsert();
+          }
+        }
+      });
     });
   });
 };
@@ -346,15 +407,17 @@ const createClientFromLead = (lead, leadType, callback) => {
 router.put("/telecall/:id", verifyToken, isAdmin, (req, res) => {
   const { call_outcome } = req.body;
   db.query(
-    "UPDATE Telecalls SET call_outcome=? WHERE id=?",
+    "UPDATE telecalls SET call_outcome=? WHERE id=?",
     [call_outcome || "Converted", req.params.id],
     (err) => {
       if (err) return res.status(500).json({ error: err.message });
 
-      db.query("SELECT * FROM Telecalls WHERE id=?", [req.params.id], (err2, rows) => {
+      db.query("SELECT * FROM telecalls WHERE id=?", [req.params.id], (err2, rows) => {
         if (!err2 && rows.length > 0) {
           const lead = rows[0];
           createClientFromLead(lead, "telecall", (clientId) => {
+            // DISABLED: Old notification system
+            /*
             const notificationIO = req.app.get("notificationIO");
             if (notificationIO && notificationIO.emitNotification) {
               notificationIO.emitNotification("lead_converted", {
@@ -365,6 +428,7 @@ router.put("/telecall/:id", verifyToken, isAdmin, (req, res) => {
                 clientId: clientId
               }, null, true);
             }
+            */
           });
         }
       });
@@ -378,15 +442,17 @@ router.put("/telecall/:id", verifyToken, isAdmin, (req, res) => {
 router.put("/walkin/:id", verifyToken, isAdmin, (req, res) => {
   const { walkin_status } = req.body;
   db.query(
-    "UPDATE Walkins SET walkin_status=? WHERE id=?",
+    "UPDATE walkins SET walkin_status=? WHERE id=?",
     [walkin_status || "Converted", req.params.id],
     (err) => {
       if (err) return res.status(500).json({ error: err.message });
 
-      db.query("SELECT * FROM Walkins WHERE id=?", [req.params.id], (err2, rows) => {
+      db.query("SELECT * FROM walkins WHERE id=?", [req.params.id], (err2, rows) => {
         if (!err2 && rows.length > 0) {
           const lead = rows[0];
           createClientFromLead(lead, "walkin", (clientId) => {
+            // DISABLED: Old notification system
+            /*
             const notificationIO = req.app.get("notificationIO");
             if (notificationIO && notificationIO.emitNotification) {
               notificationIO.emitNotification("lead_converted", {
@@ -397,6 +463,7 @@ router.put("/walkin/:id", verifyToken, isAdmin, (req, res) => {
                 clientId: clientId
               }, null, true);
             }
+            */
           });
         }
       });
@@ -419,6 +486,8 @@ router.put("/field/:id", verifyToken, isAdmin, (req, res) => {
         if (!err2 && rows.length > 0) {
           const lead = rows[0];
           createClientFromLead(lead, "field", (clientId) => {
+            // DISABLED: Old notification system
+            /*
             const notificationIO = req.app.get("notificationIO");
             if (notificationIO && notificationIO.emitNotification) {
               notificationIO.emitNotification("lead_converted", {
@@ -429,6 +498,7 @@ router.put("/field/:id", verifyToken, isAdmin, (req, res) => {
                 clientId: clientId
               }, null, true);
             }
+            */
           });
         }
       });

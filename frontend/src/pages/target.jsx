@@ -104,6 +104,12 @@ const Targets = () => {
       fetchMyTarget();
       fetchHistory();
     }
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(() => {
+      if (isAdmin) fetchAllTargets();
+      else { fetchMyTarget(); fetchHistory(); }
+    }, 10000);
+    return () => clearInterval(interval);
   }, [isAdmin, user]);
 
   useEffect(() => {
@@ -154,6 +160,10 @@ const Targets = () => {
       } else {
         setForm({ ...form, user_id: "", user_name: value, teammember_id: "" });
       }
+    } else if (name === "yearly_target") {
+      const yearly = parseFloat(value) || 0;
+      const monthly = form.monthly_target && form.monthly_target !== Math.round((parseFloat(form.yearly_target) || 0) / 12) ? form.monthly_target : Math.round(yearly / 12);
+      setForm({ ...form, yearly_target: value, monthly_target: monthly });
     } else {
       setForm({ ...form, [name]: value });
     }
@@ -387,7 +397,7 @@ const Targets = () => {
                       value={form.yearly_target}
                       onChange={handleChange}
                       className="w-full border rounded-lg p-2 mt-1"
-                      placeholder="e.g. 36000000"
+                      placeholder="e.g. 3600000"
                       required
                     />
                   </div>
@@ -399,8 +409,11 @@ const Targets = () => {
                       value={form.monthly_target}
                       onChange={handleChange}
                       className="w-full border rounded-lg p-2 mt-1"
-                      placeholder="e.g. 3000000 (optional - auto-calculated)"
+                      placeholder="Auto-calculated from yearly"
                     />
+                    {form.yearly_target && !form.monthly_target && (
+                      <p className="text-xs text-blue-600 mt-1">Auto-calculated: ₹{Math.round(parseFloat(form.yearly_target) / 12).toLocaleString()}/month</p>
+                    )}
                   </div>
                   <div className="flex gap-2 pt-4">
                     <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
@@ -449,6 +462,28 @@ const Targets = () => {
               <TrendingUp className="text-green-600" /> Update Achievement
             </h3>
             <div className="space-y-4">
+              {myTarget && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="grid grid-cols-3 gap-4 mb-3">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500">Monthly Target</p>
+                      <p className="text-lg font-bold text-blue-600">₹{formatIndian(myTarget.monthly_target)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500">Achieved</p>
+                      <p className="text-lg font-bold text-green-600">₹{formatIndian(myTarget.achieved_amount || 0)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500">Remaining</p>
+                      <p className="text-lg font-bold text-orange-600">₹{formatIndian(Math.max(0, (myTarget.monthly_target || 0) - (myTarget.achieved_amount || 0)))}</p>
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div className="h-3 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, myTarget.monthly_target > 0 ? Math.round(((myTarget.achieved_amount || 0) / myTarget.monthly_target) * 100) : 0)}%`, background: (myTarget.achieved_amount || 0) >= myTarget.monthly_target ? '#22c55e' : '#3b82f6' }}></div>
+                  </div>
+                  <p className="text-xs text-center mt-1 text-gray-500">{myTarget.monthly_target > 0 ? Math.round(((myTarget.achieved_amount || 0) / myTarget.monthly_target) * 100) : 0}% achieved</p>
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium text-gray-600">Amount Achieved (₹)</label>
                 <input

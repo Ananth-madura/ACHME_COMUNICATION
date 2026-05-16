@@ -15,6 +15,7 @@ const db = mysql.createConnection({
   port: dbPort,
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
+  database: dbName,
   charset: "utf8mb4",
   multipleStatements: true
 });
@@ -125,8 +126,28 @@ async function ensureTablesAndColumns() {
       sql: `CREATE TABLE IF NOT EXISTS estimate_items (id INT AUTO_INCREMENT PRIMARY KEY, estimate_id INT NOT NULL, product_number INT NOT NULL, description VARCHAR(255) NOT NULL, brand_model VARCHAR(150) DEFAULT NULL, hsn_sac VARCHAR(20) DEFAULT NULL, uom VARCHAR(20) DEFAULT 'Nos', price DECIMAL(10,2) NOT NULL, quantity INT NOT NULL, tax DECIMAL(10,2) DEFAULT 0, discount DECIMAL(10,2) DEFAULT 0, subtotal DECIMAL(10,2) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     },
     {
-      name: "performa_invoice_items",
-      sql: `CREATE TABLE IF NOT EXISTS performa_invoice_items (id INT AUTO_INCREMENT PRIMARY KEY, invoice_id INT NOT NULL, product_number INT NOT NULL, description VARCHAR(255) NOT NULL, brand_model VARCHAR(150) DEFAULT NULL, hsn_sac VARCHAR(20) DEFAULT NULL, uom VARCHAR(20) DEFAULT 'Nos', price DECIMAL(10,2) NOT NULL, quantity INT NOT NULL, tax DECIMAL(10,2) DEFAULT 0, discount DECIMAL(10,2) DEFAULT 0, subtotal DECIMAL(10,2) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+      name: "performainvoice_items",
+      sql: `CREATE TABLE IF NOT EXISTS performainvoice_items (id INT AUTO_INCREMENT PRIMARY KEY, invoice_id INT NOT NULL, product_number INT NOT NULL, description VARCHAR(255) NOT NULL, brand_model VARCHAR(150) DEFAULT NULL, hsn_sac VARCHAR(20) DEFAULT NULL, uom VARCHAR(20) DEFAULT 'Nos', price DECIMAL(10,2) NOT NULL, quantity INT NOT NULL, tax DECIMAL(10,2) DEFAULT 0, discount DECIMAL(10,2) DEFAULT 0, subtotal DECIMAL(10,2) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
+      name: "performainvoices",
+      sql: `CREATE TABLE IF NOT EXISTS performainvoices (id INT AUTO_INCREMENT PRIMARY KEY, customer_id INT NOT NULL, invoice_date DATE NOT NULL, subtotal DECIMAL(12,2) DEFAULT 0, total_tax DECIMAL(12,2) DEFAULT 0, total_discount DECIMAL(12,2) DEFAULT 0, grand_total DECIMAL(12,2) DEFAULT 0, created_by INT DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, total_cgst DECIMAL(12,2) DEFAULT 0, total_sgst DECIMAL(12,2) DEFAULT 0, total_igst DECIMAL(12,2) DEFAULT 0, reference_no VARCHAR(50) DEFAULT NULL, from_address_id INT DEFAULT NULL, from_address_custom TEXT DEFAULT NULL, client_company VARCHAR(150) DEFAULT NULL, client_address1 TEXT DEFAULT NULL, client_address2 TEXT DEFAULT NULL, client_city VARCHAR(100) DEFAULT NULL, client_state VARCHAR(100) DEFAULT NULL, client_pincode VARCHAR(20) DEFAULT NULL, client_country VARCHAR(50) DEFAULT 'India', tax_type VARCHAR(20) DEFAULT 'GST18', custom_tax VARCHAR(20) DEFAULT NULL, exec_name VARCHAR(100) DEFAULT NULL, exec_phone VARCHAR(20) DEFAULT NULL, exec_email VARCHAR(150) DEFAULT NULL, terms_general TINYINT(1) DEFAULT 0, terms_tax TINYINT(1) DEFAULT 0, terms_project_period VARCHAR(100) DEFAULT NULL, terms_validity VARCHAR(50) DEFAULT NULL, terms_separate_orders TEXT DEFAULT NULL, terms_payment VARCHAR(100) DEFAULT NULL, terms_payment_custom VARCHAR(100) DEFAULT NULL, terms_warranty VARCHAR(100) DEFAULT NULL, hsn_sac_code VARCHAR(50) DEFAULT NULL, supplier_branch VARCHAR(100) DEFAULT NULL, bank_details_id VARCHAR(50) DEFAULT NULL, bank_company VARCHAR(150) DEFAULT NULL, bank_name VARCHAR(100) DEFAULT NULL, bank_account VARCHAR(50) DEFAULT NULL, bank_ifsc VARCHAR(50) DEFAULT NULL, bank_branch VARCHAR(100) DEFAULT NULL, custom_terms TEXT DEFAULT NULL, is_latest TINYINT(1) DEFAULT 1, parent_id INT DEFAULT NULL, version INT DEFAULT 1) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
+      name: "services",
+      sql: `CREATE TABLE IF NOT EXISTS services (id INT AUTO_INCREMENT PRIMARY KEY, client VARCHAR(150) DEFAULT NULL, material VARCHAR(255) DEFAULT NULL, warranty VARCHAR(100) DEFAULT NULL, amc TINYINT(1) DEFAULT 0, date DATE DEFAULT NULL, images TEXT DEFAULT NULL, issues TEXT DEFAULT NULL, created_by INT DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
+      name: "customers",
+      sql: `CREATE TABLE IF NOT EXISTS customers (id INT AUTO_INCREMENT PRIMARY KEY, customer_name VARCHAR(150) NOT NULL, mobile_number VARCHAR(20) DEFAULT NULL, email VARCHAR(150) DEFAULT NULL, gst_number VARCHAR(50) DEFAULT NULL, location_city VARCHAR(100) DEFAULT NULL, created_by INT DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
+      name: "quotations",
+      sql: `CREATE TABLE IF NOT EXISTS quotations (id INT AUTO_INCREMENT PRIMARY KEY, customer_id INT NOT NULL, quotation_date DATE NOT NULL, subtotal DECIMAL(12,2) DEFAULT 0, total_tax DECIMAL(12,2) DEFAULT 0, total_discount DECIMAL(12,2) DEFAULT 0, grand_total DECIMAL(12,2) DEFAULT 0, created_by INT DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, total_cgst DECIMAL(12,2) DEFAULT 0, total_sgst DECIMAL(12,2) DEFAULT 0, total_igst DECIMAL(12,2) DEFAULT 0, reference_no VARCHAR(50) DEFAULT NULL, from_address_id INT DEFAULT NULL, from_address_custom TEXT DEFAULT NULL, client_company VARCHAR(150) DEFAULT NULL, client_address1 TEXT DEFAULT NULL, client_address2 TEXT DEFAULT NULL, client_city VARCHAR(100) DEFAULT NULL, client_state VARCHAR(100) DEFAULT NULL, client_pincode VARCHAR(20) DEFAULT NULL, client_country VARCHAR(50) DEFAULT 'India', tax_type VARCHAR(20) DEFAULT 'GST18', custom_tax VARCHAR(20) DEFAULT NULL, exec_name VARCHAR(100) DEFAULT NULL, exec_phone VARCHAR(20) DEFAULT NULL, exec_email VARCHAR(150) DEFAULT NULL, terms_general TINYINT(1) DEFAULT 0, terms_tax TINYINT(1) DEFAULT 0, terms_project_period VARCHAR(100) DEFAULT NULL, terms_validity VARCHAR(50) DEFAULT NULL, terms_separate_orders TEXT DEFAULT NULL, terms_payment VARCHAR(100) DEFAULT NULL, terms_payment_custom VARCHAR(100) DEFAULT NULL, terms_warranty VARCHAR(100) DEFAULT NULL, hsn_sac_code VARCHAR(50) DEFAULT NULL, supplier_branch VARCHAR(100) DEFAULT NULL, bank_details_id VARCHAR(50) DEFAULT NULL, bank_company VARCHAR(150) DEFAULT NULL, bank_name VARCHAR(100) DEFAULT NULL, bank_account VARCHAR(50) DEFAULT NULL, bank_ifsc VARCHAR(50) DEFAULT NULL, bank_branch VARCHAR(100) DEFAULT NULL, custom_terms TEXT DEFAULT NULL, is_latest TINYINT(1) DEFAULT 1, parent_id INT DEFAULT NULL, version INT DEFAULT 1) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+    },
+    {
+      name: "quotation_items",
+      sql: `CREATE TABLE IF NOT EXISTS quotation_items (id INT AUTO_INCREMENT PRIMARY KEY, quotation_id INT NOT NULL, product_number INT NOT NULL, description VARCHAR(255) NOT NULL, brand_model VARCHAR(150) DEFAULT NULL, hsn_sac VARCHAR(20) DEFAULT NULL, uom VARCHAR(20) DEFAULT 'Nos', price DECIMAL(10,2) NOT NULL, quantity INT NOT NULL, tax DECIMAL(10,2) DEFAULT 0, discount DECIMAL(10,2) DEFAULT 0, subtotal DECIMAL(10,2) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
     },
     {
       name: "lead_reminders",
@@ -351,13 +372,19 @@ async function ensureTablesAndColumns() {
       sql: `CREATE TABLE IF NOT EXISTS clients (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(150) NOT NULL,
-        company_name VARCHAR(150),
-        email VARCHAR(150),
-        phone VARCHAR(20),
-        address TEXT,
-        service VARCHAR(255),
-        gst_number VARCHAR(50),
-        created_by INT,
+        company_name VARCHAR(150) DEFAULT NULL,
+        email VARCHAR(150) DEFAULT NULL,
+        phone VARCHAR(20) DEFAULT NULL,
+        alternate_phone VARCHAR(20) DEFAULT NULL,
+        address TEXT DEFAULT NULL,
+        city VARCHAR(100) DEFAULT NULL,
+        state VARCHAR(100) DEFAULT NULL,
+        pincode VARCHAR(20) DEFAULT NULL,
+        service VARCHAR(255) DEFAULT NULL,
+        gst_number VARCHAR(50) DEFAULT NULL,
+        notes TEXT DEFAULT NULL,
+        client_status ENUM('active','inactive','converted','prospect') DEFAULT 'active',
+        created_by INT DEFAULT NULL,
         assigned_teammember_id INT DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -368,7 +395,6 @@ async function ensureTablesAndColumns() {
         lead_city VARCHAR(100) DEFAULT NULL,
         lead_reference VARCHAR(255) DEFAULT NULL,
         lead_purpose VARCHAR(255) DEFAULT NULL,
-        client_status ENUM('active','inactive','converted') DEFAULT 'active',
         lead_staff_name VARCHAR(150) DEFAULT NULL,
         lead_id_display VARCHAR(50) DEFAULT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
@@ -461,6 +487,9 @@ async function ensureTablesAndColumns() {
     { table: "call_reports", column: "payment_mode", definition: "payment_mode VARCHAR(50) DEFAULT NULL" },
     { table: "amc_alc_services", column: "amount_collected", definition: "amount_collected DECIMAL(10,2) DEFAULT 0" },
     { table: "amc_alc_services", column: "payment_mode", definition: "payment_mode VARCHAR(50) DEFAULT NULL" },
+    { table: "amc_alc_services", column: "call_number", definition: "call_number INT DEFAULT 1" },
+    { table: "amc_alc_services", column: "breakpoints", definition: "breakpoints TEXT DEFAULT NULL" },
+    { table: "amc_alc_services", column: "duration_limit", definition: "duration_limit INT DEFAULT NULL" },
     { table: "clients", column: "gst_number", definition: "gst_number VARCHAR(50) DEFAULT NULL" },
     { table: "clients", column: "company_name", definition: "company_name VARCHAR(150) DEFAULT NULL" },
     { table: "clients", column: "service", definition: "service VARCHAR(255) DEFAULT NULL" },

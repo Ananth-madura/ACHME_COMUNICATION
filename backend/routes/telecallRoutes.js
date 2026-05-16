@@ -12,6 +12,32 @@ const getNotificationIO = () => {
   }
 };
 
+const checkDuplicateLead = (phone, email, excludeId, callback) => {
+  if (typeof excludeId === 'function') { callback = excludeId; excludeId = null; }
+  const checks = [];
+  if (phone) checks.push({ sql: "SELECT id, customer_name, mobile_number as phone FROM telecalls WHERE (phone = ? OR mobile_number = ?) AND id != ?", params: [phone, phone, excludeId || 0] });
+  if (phone) checks.push({ sql: "SELECT id, customer_name, mobile_number as phone FROM walkins WHERE (phone = ? OR mobile_number = ?) AND id != ?", params: [phone, phone, excludeId || 0] });
+  if (phone) checks.push({ sql: "SELECT id, customer_name, mobile_number as phone FROM fields WHERE (phone = ? OR mobile_number = ?) AND id != ?", params: [phone, phone, excludeId || 0] });
+  if (email) checks.push({ sql: "SELECT id, customer_name, email as phone FROM telecalls WHERE email = ? AND id != ?", params: [email, excludeId || 0] });
+  if (email) checks.push({ sql: "SELECT id, customer_name, email as phone FROM walkins WHERE email = ? AND id != ?", params: [email, excludeId || 0] });
+  if (email) checks.push({ sql: "SELECT id, customer_name, email as phone FROM fields WHERE email = ? AND id != ?", params: [email, excludeId || 0] });
+  if (phone) checks.push({ sql: "SELECT id, name, phone FROM clients WHERE phone = ?", params: [phone] });
+  if (email) checks.push({ sql: "SELECT id, name, email as phone FROM clients WHERE email = ?", params: [email] });
+
+  if (checks.length === 0) return callback(null);
+
+  let completed = 0;
+  const results = [];
+  checks.forEach((c) => {
+    db.query(c.sql, c.params, (err, rows) => {
+      if (err) { completed++; if (completed === checks.length) callback(null); return; }
+      if (rows.length > 0) results.push({ id: rows[0].id, table: "Lead", name: rows[0].customer_name || rows[0].name, phone: rows[0].phone });
+      completed++;
+      if (completed === checks.length) callback(results.length > 0 ? results : null);
+    });
+  });
+};
+
 // Helper to safely format date to YYYY-MM-DD
 const toDateOnly = (val) => {
   if (!val) return null;
@@ -21,7 +47,7 @@ router.get("/", verifyToken, (req, res) => {
   const { id: user_id, role, first_name: user_name } = req.user;
   let sql = `
     SELECT t.*, u.first_name as creator_name 
-    FROM Telecalls t
+    FROM telecalls t
     LEFT JOIN users u ON t.created_by = u.id
   `;
   const params = [];
@@ -50,7 +76,14 @@ const syncClient = (data, userId, leadId, teammemberId) => {
       }
 
       if (result.length === 0) {
-        db.query("SELECT id FROM clients WHERE phone = ? AND (original_lead_id IS NULL OR original_lead_type != 'telecall')", [mobile_number], (err2, phoneResult) => {
+        // Check by phone OR email
+        const phoneCheck = mobile_number ? "phone = ?" : "1=0";
+        const emailCheck = email ? "OR email = ?" : "";
+        const params = [];
+        if (mobile_number) params.push(mobile_number);
+        if (email) params.push(email);
+
+        db.query(`SELECT id FROM clients WHERE (${phoneCheck}) ${emailCheck} AND (original_lead_id IS NULL OR original_lead_type != 'telecall')`, params, (err2, phoneResult) => {
           if (!err2 && phoneResult.length > 0) {
             db.query(
               `UPDATE clients SET name=?, phone=?, address=?, service=?, email=?, gst_number=?, 
@@ -97,7 +130,7 @@ router.get("/:id", verifyToken, (req, res) => {
   }
 
   db.query(
-    "SELECT * FROM Telecalls WHERE id = ?",
+    "SELECT * FROM telecalls WHERE id = ?",
     [id],
     (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -135,8 +168,15 @@ router.post("/", verifyToken, (req, res) => {
     email
   } = req.body;
 
+  // Check for duplicates across all lead tables and clients
+  checkDuplicateLead(mobile_number, email, (duplicates) => {
+    if (duplicates && duplicates.length > 0) {
+      const msgs = duplicates.map(d => `${d.name} (${d.phone || "N/A"})`);
+      return res.status(409).json({ message: "Duplicate lead found", duplicates, details: `Phone/Email already exists: ${msgs.join("; ")}` });
+    }
+
   const sql = `
-    INSERT INTO Telecalls (
+    INSERT INTO telecalls (
       customer_name,
       mobile_number,
       location_city,
@@ -153,9 +193,10 @@ router.post("/", verifyToken, (req, res) => {
       reference,
       gst_number,
       email,
-      created_by
+      created_by,
+      assigned_to
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   db.query(
@@ -177,7 +218,8 @@ router.post("/", verifyToken, (req, res) => {
       reference,
       gst_number,
       email,
-      req.user.id
+      req.user.id,
+      req.body.assigned_to || null
     ],
     (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -186,6 +228,8 @@ router.post("/", verifyToken, (req, res) => {
 
       // Notify when lead is converted
       if (call_outcome === "Converted") {
+        // DISABLED: Old notification system
+        /*
         const notificationIO = getNotificationIO();
         if (notificationIO) {
           const time = new Date().toLocaleString();
@@ -199,6 +243,7 @@ router.post("/", verifyToken, (req, res) => {
             type: "lead"
           }, null, true);
         }
+        */
       }
       // Log activity
       db.query(
@@ -213,6 +258,8 @@ router.post("/", verifyToken, (req, res) => {
         );
       }
 
+      // DISABLED: Old notification system
+      /*
       const notificationIO = getNotificationIO();
       if (notificationIO) {
         notificationIO.emitNotification("new_lead", {
@@ -225,10 +272,12 @@ router.post("/", verifyToken, (req, res) => {
           type: "lead"
         }, null, true);
       }
+      */
 
       res.json({ message: "Telecall added", id: newId });
     }
   );
+  });
 });
 
 
@@ -255,7 +304,7 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
   } = req.body;
 
   // Check ownership
-  db.query("SELECT created_by FROM Telecalls WHERE id = ?", [req.params.id], (err, results) => {
+  db.query("SELECT created_by FROM telecalls WHERE id = ?", [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     if (results.length === 0) return res.status(404).json({ message: "Not found" });
 
@@ -263,8 +312,15 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
+    // Check for duplicates (exclude current record)
+    checkDuplicateLead(mobile_number, email, Number(req.params.id), (duplicates) => {
+      if (duplicates && duplicates.length > 0) {
+        const msgs = duplicates.map(d => `${d.name} (${d.phone || "N/A"})`);
+        return res.status(409).json({ message: "Duplicate lead found", duplicates, details: `Phone/Email already exists: ${msgs.join("; ")}` });
+      }
+
     db.query(
-      `UPDATE Telecalls SET
+      `UPDATE telecalls SET
           customer_name=?,
           mobile_number=?,
           location_city=?,
@@ -280,7 +336,8 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
           reminder_notes=?,
           reference=?,
           gst_number=?,
-          email=?
+          email=?,
+          assigned_to=?
          WHERE id=?`,
       [
         customer_name,
@@ -299,6 +356,7 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
         reference,
         gst_number,
         email,
+        req.body.assigned_to || null,
         req.params.id
       ],
       (err) => {
@@ -310,6 +368,8 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
         const id = req.params.id;
 
         if (call_outcome === "Converted") {
+          // DISABLED: Old notification system
+          /*
           const notificationIO = getNotificationIO();
           if (notificationIO) {
             const time = new Date().toLocaleString();
@@ -323,6 +383,7 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
               type: "lead"
             }, null, true);
           }
+          */
         }
 
         db.query(
@@ -355,11 +416,12 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
         res.json({ message: "Telecall updated successfully" });
       }
     );
+    });
   });
 });
 
 router.delete("/:id", verifyToken, isAdmin, (req, res) => {
-  db.query("SELECT created_by FROM Telecalls WHERE id = ?", [req.params.id], (err, results) => {
+  db.query("SELECT created_by FROM telecalls WHERE id = ?", [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     if (results.length === 0) return res.status(404).json({ message: "Not found" });
 
@@ -367,7 +429,7 @@ router.delete("/:id", verifyToken, isAdmin, (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    db.query("DELETE FROM Telecalls WHERE id = ?", [req.params.id], (err2) => {
+    db.query("DELETE FROM telecalls WHERE id = ?", [req.params.id], (err2) => {
       if (err2) return res.status(500).json({ message: "Delete failed" });
       res.json({ message: "Telecall deleted" });
     });

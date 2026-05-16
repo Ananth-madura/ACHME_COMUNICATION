@@ -22,7 +22,10 @@ router.post("/amc-alc", verifyToken, (req, res) => {
     total_expenses,
     amount_collected,
     payment_mode,
-    status
+    status,
+    call_number,
+    breakpoints,
+    duration_limit
   } = req.body;
 
   if (!contract_id || !service_type || !service_date) {
@@ -33,13 +36,13 @@ router.post("/amc-alc", verifyToken, (req, res) => {
 
   const sql = `
     INSERT INTO amc_alc_services
-    (contract_id, service_type, customer_name, mobile_number, location_city, service_date, start_time, end_time, km, technician, sales_person, service_person, description, remarks, petrol_charges, spare_parts_price, labour_charges, total_expenses, amount_collected, payment_mode, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (contract_id, service_type, customer_name, mobile_number, location_city, service_date, start_time, end_time, km, technician, sales_person, service_person, description, remarks, petrol_charges, spare_parts_price, labour_charges, total_expenses, amount_collected, payment_mode, status, call_number, breakpoints, duration_limit)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   db.query(
     sql,
-    [contract_id, service_type, customer_name, mobile_number, location_city, service_date, start_time || null, end_time || null, km || null, technician || null, sales_person || null, service_person, description, remarks || null, petrol_charges || 0, spare_parts_price || 0, labour_charges || 0, total_expenses || 0, amount_collected || 0, payment_mode || null, status || "Completed"],
+    [contract_id, service_type, customer_name, mobile_number, location_city, service_date, start_time || null, end_time || null, km || null, technician || null, sales_person || null, service_person, description, remarks || null, petrol_charges || 0, spare_parts_price || 0, labour_charges || 0, total_expenses || 0, amount_collected || 0, payment_mode || null, status || "Completed", call_number || 1, breakpoints || null, duration_limit || null],
     (err, result) => {
       if (err) {
         console.error("AMC/ALC service insert error:", err);
@@ -118,7 +121,10 @@ router.put("/amc-alc/:id", verifyToken, isAdmin, (req, res) => {
     total_expenses,
     amount_collected,
     payment_mode,
-    status
+    status,
+    call_number,
+    breakpoints,
+    duration_limit
   } = req.body;
 
   db.query(
@@ -142,9 +148,12 @@ router.put("/amc-alc/:id", verifyToken, isAdmin, (req, res) => {
       total_expenses = ?,
       amount_collected = ?,
       payment_mode = ?,
-      status = ?
+      status = ?,
+      call_number = ?,
+      breakpoints = ?,
+      duration_limit = ?
      WHERE id = ?`,
-    [service_type, customer_name, mobile_number, location_city, service_date, start_time || null, end_time || null, km || null, technician || null, sales_person || null, service_person, description, remarks || null, petrol_charges || 0, spare_parts_price || 0, labour_charges || 0, total_expenses || 0, amount_collected || 0, payment_mode || null, status, id],
+    [service_type, customer_name, mobile_number, location_city, service_date, start_time || null, end_time || null, km || null, technician || null, sales_person || null, service_person, description, remarks || null, petrol_charges || 0, spare_parts_price || 0, labour_charges || 0, total_expenses || 0, amount_collected || 0, payment_mode || null, status, call_number || 1, breakpoints || null, duration_limit || null, id],
     (err) => {
       if (err) return res.status(500).json({ error: err.message });
 

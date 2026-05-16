@@ -124,7 +124,10 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
           [yearly_target, finalMonthlyTarget, tmId, rows[0].id],
           (err2) => {
             if (err2) return res.status(500).json({ error: err2.message });
+            // DISABLED: Old notification system
+            /*
             if (notificationIO) notificationIO.emitNotification("target_updated", { id: rows[0].id, userId: user_id, userName: user_name, newAmount: yearly_target, type: "target" }, null, true);
+            */
             res.json({ message: "Target updated", id: rows[0].id });
           }
         );
@@ -143,7 +146,10 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
                   if (!userErr && userRows.length && userRows[0].id) {
                     const targetUser = userRows[0];
                     if (notificationIO) {
+                      // DISABLED: Old notification system
+                      /*
                       notificationIO.emitNotification("new_target", { id: newTargetId, userId: targetUser.id, userName: targetUser.first_name || user_name, targetAmount: yearly_target, monthlyTarget: finalMonthlyTarget, type: "target" }, targetUser.id, false);
+                      */
                     }
                     db.query("INSERT INTO notifications (task_id, user_id, type, title, description) VALUES (?, ?, ?, ?, ?)",
                       [0, targetUser.id, "target_assigned", "New Target Assigned", message],
@@ -153,7 +159,10 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
                 }
               );
             }
+            // DISABLED: Old notification system
+            /*
             if (notificationIO) notificationIO.emitNotification("new_target", { id: newTargetId, userId: user_id, userName: user_name, targetAmount: yearly_target, monthlyTarget: finalMonthlyTarget, type: "target" }, null, true);
+            */
             res.json({ message: "Target created", id: newTargetId });
           }
         );
@@ -208,13 +217,31 @@ router.post("/update", verifyToken, (req, res) => {
                   const percentage = monthlyTarget > 0 ? Math.round((totalAchieved / monthlyTarget) * 100) : 0;
 
                   if (notificationIO) {
+                    // DISABLED: Old notification system
+                    /*
                     notificationIO.emitNotification("target_updated", { id: targetId, userId: user_id, userName: user_name, newAmount: amount, totalAchieved, percentage, type: "achievement" }, null, true);
                     if (percentage >= 100) notificationIO.emitNotification("target_achieved", { id: targetId, userId: user_id, userName: user_name, percentage, type: "achievement" }, null, true);
+                    */
                   }
 
                   db.query("INSERT INTO admin_notifications (type, user_id, message, related_id, related_type, priority) VALUES (?, ?, ?, ?, ?, ?)",
                     ["target_achievement", user_id, `${user_name} achieved Rs.${Number(amount).toLocaleString()} - Total: Rs.${Number(totalAchieved).toLocaleString()} (${percentage}%)`, targetId, "target", percentage >= 100 ? "high" : "normal"],
-                    () => { }
+                    (err, result) => {
+                      if (!err) {
+                        const notificationIO = getNotificationIO();
+                        if (notificationIO) {
+                          notificationIO.sendToAdmin("new_notification", {
+                            id: result.insertId,
+                            type: "target_achievement",
+                            message: `${user_name} achieved Rs.${Number(amount).toLocaleString()} (${percentage}%)`,
+                            employee_name: user_name,
+                            priority: percentage >= 100 ? "high" : "normal",
+                            is_read: 0,
+                            created_at: new Date().toISOString()
+                          });
+                        }
+                      }
+                    }
                   );
                 }
               );

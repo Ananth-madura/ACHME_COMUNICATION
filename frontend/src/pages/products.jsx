@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { X, Search, Plus, Eye, ChevronLeft, ChevronRight, Edit, Trash2 } from "lucide-react";
+import { X, Search, Plus, Eye, ChevronLeft, ChevronRight, Edit, Trash2, Mail } from "lucide-react";
+import ClientSearchDropdown from "../components/ClientSearchDropdown";
 import "../Styles/tailwind.css";
 
 import { API as BASE_API } from "../config";
@@ -15,14 +16,13 @@ function Products() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [client, setClient] = useState("");
+  const [selectedClientData, setSelectedClientData] = useState(null);
   const [material, setMaterial] = useState("");
   const [warranty, setWarranty] = useState("");
   const [amc, setAmc] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [issues, setIssues] = useState("");
 
-  const [clients, setClients] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(false);
 
   const [images, setImages] = useState([]);
   const [previews, setPreviews] = useState([]);
@@ -36,10 +36,22 @@ function Products() {
   const [currentImages, setCurrentImages] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  const [mailOpen, setMailOpen] = useState(false);
+  const [mailTo, setMailTo] = useState("");
+  const [mailCc, setMailCc] = useState("");
+  const [mailSubject, setMailSubject] = useState("");
+  const [mailSending, setMailSending] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState(null);
+
+  const getAuthConfig = () => {
+    const token = localStorage.getItem("token");
+    return { headers: { Authorization: `Bearer ${token}` } };
+  };
+
   // 🔥 FETCH SERVICES
   const fetchServices = async () => {
     try {
-      const res = await axios.get(`${API}/services`);
+      const res = await axios.get(`${API}/services`, getAuthConfig());
       setServices(res.data);
     } catch (err) {
       console.error(err);
@@ -48,39 +60,10 @@ function Products() {
 
   useEffect(() => {
     fetchServices();
-  }, []);
+  }, [fetchServices]);
 
   // 🔍 CLIENT SEARCH
-  const fetchClients = async (query) => {
-    try {
-      const res = await axios.get(`${API}/client/search?name=${query}`);
-      setClients(res.data);
-    } catch (err) {
-      // If search endpoint doesn't exist, we could fetch all and filter locally
-      try {
-        const allRes = await axios.get(`${API}/client`);
-        const filtered = allRes.data.filter(c => 
-          c.name?.toLowerCase().includes(query.toLowerCase()) || 
-          c.company_name?.toLowerCase().includes(query.toLowerCase())
-        );
-        setClients(filtered);
-      } catch (err2) {
-        console.error(err2);
-      }
-    }
-  };
 
-  const handleClientChange = (e) => {
-    const value = e.target.value;
-    setClient(value);
-
-    if (value.length > 1) {
-      fetchClients(value);
-      setShowDropdown(true);
-    } else {
-      setShowDropdown(false);
-    }
-  };
 
   // 🖼️ IMAGE PREVIEW
   const handleImageChange = (e) => {
@@ -107,10 +90,10 @@ function Products() {
 
     try {
       if (isEdit) {
-        await axios.put(`${API}/services/${editId}`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+        await axios.put(`${API}/services/${editId}`, formData, { ...getAuthConfig(), headers: { ...getAuthConfig().headers, "Content-Type": "multipart/form-data" } });
         alert("Service updated successfully");
       } else {
-        await axios.post(`${API}/services`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+        await axios.post(`${API}/services`, formData, { ...getAuthConfig(), headers: { ...getAuthConfig().headers, "Content-Type": "multipart/form-data" } });
         alert("Service added successfully");
       }
 
@@ -126,7 +109,7 @@ function Products() {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this service?")) return;
     try {
-      await axios.delete(`${API}/services/${id}`);
+      await axios.delete(`${API}/services/${id}`, getAuthConfig());
       fetchServices();
     } catch (err) {
       console.error(err);
@@ -137,18 +120,20 @@ function Products() {
     setEditId(service.id);
     setIsEdit(true);
     setClient(service.client);
+    setSelectedClientData(null);
     setMaterial(service.material);
     setWarranty(service.warranty);
     setAmc(service.amc === 1 || service.amc === true);
     setDate(service.date?.split("T")[0]);
     setIssues(service.issues || "");
-    setPreviews([]); // In a real app we might show existing images
+    setPreviews([]);
     setImages([]);
     setShowModal(true);
   };
 
   const resetForm = () => {
     setClient("");
+    setSelectedClientData(null);
     setMaterial("");
     setWarranty("");
     setAmc(false);
@@ -158,6 +143,31 @@ function Products() {
     setPreviews([]);
     setIsEdit(false);
     setEditId(null);
+  };
+
+  const openMailModal = (service) => {
+    setSelectedServiceId(service.id);
+    const clientEmail = selectedClientData?.email || service.client_email || "";
+    const adminEmail = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").email || ""; } catch { return ""; } })();
+    setMailTo(clientEmail);
+    setMailCc(adminEmail);
+    const svcNumber = `SVC-${new Date(service.date).getFullYear()}-${String(service.id).padStart(3, "0")}`;
+    setMailSubject(`Service Report ${svcNumber}`);
+    setMailOpen(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!mailTo) return alert("Please enter recipient email");
+    setMailSending(true);
+    try {
+      await axios.post(`${API}/services/send-email/${selectedServiceId}`, { to: mailTo, cc: mailCc, subject: mailSubject }, getAuthConfig());
+      alert("Email sent successfully");
+      setMailOpen(false);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to send email");
+    } finally {
+      setMailSending(false);
+    }
   };
 
   const openCarousel = (imgs) => {
@@ -185,13 +195,13 @@ function Products() {
   };
 
   useEffect(() => {
-    if (showModal || carouselOpen) {
+    if (showModal || carouselOpen || mailOpen) {
       document.body.classList.add("modal-open");
     } else {
       document.body.classList.remove("modal-open");
     }
     return () => document.body.classList.remove("modal-open");
-  }, [showModal, carouselOpen]);
+  }, [showModal, carouselOpen, mailOpen]);
 
   // Material-based search logic
   const filteredServices = services.filter(s => 
@@ -267,6 +277,13 @@ function Products() {
                 <td className="p-4 text-center">
                   <div className="flex justify-center gap-3">
                     <button
+                      onClick={() => openMailModal(s)}
+                      className="text-green-600 hover:text-green-800 transition"
+                      title="Send Email"
+                    >
+                      <Mail size={18} />
+                    </button>
+                    <button
                       onClick={() => startEdit(s)}
                       className="text-blue-600 hover:text-blue-800 transition"
                       title="Edit"
@@ -302,33 +319,30 @@ function Products() {
           <form onSubmit={handleSubmit} className="task-form space-y-6">
             <div className="flex items-center gap-6 relative">
               <label className="w-40 text-lg">Client*</label>
-              <div className="w-[60%] relative">
-                <input
-                  type="text"
+                <ClientSearchDropdown
                   value={client}
-                  onChange={handleClientChange}
-                  className="form-control w-full border rounded-lg p-2"
-                  placeholder="Search & Select Client"
+                  onSelect={(c) => {
+                    const displayName = c.name || c.company_name || "";
+                    setClient(displayName);
+                    setSelectedClientData(c.id ? c : null);
+                  }}
                   required
                 />
-                {showDropdown && clients.length > 0 && (
-                  <div className="absolute bg-white border rounded-lg shadow-lg w-full z-10 mt-1 max-h-40 overflow-y-auto">
-                    {clients.map((c) => (
-                      <div
-                        key={c.id}
-                        onClick={() => {
-                          setClient(c.name || c.company_name);
-                          setShowDropdown(false);
-                        }}
-                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-                      >
-                        {c.name} {c.company_name ? `- ${c.company_name}` : ""}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
+
+            {selectedClientData && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 ml-46">
+                <h4 className="text-sm font-bold text-blue-700 mb-2">Client Details (Auto-filled)</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-gray-500">Phone:</span> <span className="font-medium">{selectedClientData.phone || "-"}</span></div>
+                  <div><span className="text-gray-500">Email:</span> <span className="font-medium">{selectedClientData.email || "-"}</span></div>
+                  <div><span className="text-gray-500">Company:</span> <span className="font-medium">{selectedClientData.company_name || "-"}</span></div>
+                  <div><span className="text-gray-500">City:</span> <span className="font-medium">{selectedClientData.city || selectedClientData.address || "-"}</span></div>
+                  <div><span className="text-gray-500">GST:</span> <span className="font-medium">{selectedClientData.gst_number || "-"}</span></div>
+                  <div><span className="text-gray-500">State:</span> <span className="font-medium">{selectedClientData.state || "-"}</span></div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-6">
               <label className="w-40 text-lg">Material*</label>
@@ -477,6 +491,36 @@ function Products() {
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      {/* MAIL MODAL */}
+      <div className={`overlay ${mailOpen ? "show" : ""} flex justify-center items-center`}>
+        <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-lg p-8 relative">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Mail size={20} /> Send Service Report</h2>
+            <X className="cursor-pointer text-gray-400 hover:text-red-500" onClick={() => setMailOpen(false)} />
+          </div>
+          <div className="space-y-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-gray-500 uppercase">To (Email)</label>
+              <input type="email" value={mailTo} onChange={e => setMailTo(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" placeholder="recipient@email.com" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-gray-500 uppercase">CC (Email)</label>
+              <input type="email" value={mailCc} onChange={e => setMailCc(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" placeholder="cc@email.com" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-gray-500 uppercase">Subject</label>
+              <input type="text" value={mailSubject} onChange={e => setMailSubject(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" />
+            </div>
+          </div>
+          <div className="flex gap-4 pt-6">
+            <button onClick={handleSendEmail} disabled={mailSending} className="bg-blue-600 text-white px-8 py-2.5 rounded-lg hover:bg-blue-700 font-bold shadow transition disabled:opacity-60">
+              {mailSending ? "Sending..." : "Send Email"}
+            </button>
+            <button onClick={() => setMailOpen(false)} className="bg-gray-200 text-gray-600 px-8 py-2.5 rounded-lg hover:bg-gray-300 font-bold transition">Cancel</button>
+          </div>
         </div>
       </div>
     </div>

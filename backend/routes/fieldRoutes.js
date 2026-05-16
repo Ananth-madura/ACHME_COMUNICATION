@@ -12,6 +12,32 @@ const getNotificationIO = () => {
   }
 };
 
+const checkDuplicateLead = (phone, email, excludeId, callback) => {
+  if (typeof excludeId === 'function') { callback = excludeId; excludeId = null; }
+  const checks = [];
+  if (phone) checks.push({ sql: "SELECT id, customer_name, mobile_number as phone FROM telecalls WHERE (phone = ? OR mobile_number = ?) AND id != ?", params: [phone, phone, excludeId || 0] });
+  if (phone) checks.push({ sql: "SELECT id, customer_name, mobile_number as phone FROM walkins WHERE (phone = ? OR mobile_number = ?) AND id != ?", params: [phone, phone, excludeId || 0] });
+  if (phone) checks.push({ sql: "SELECT id, customer_name, mobile_number as phone FROM fields WHERE (phone = ? OR mobile_number = ?) AND id != ?", params: [phone, phone, excludeId || 0] });
+  if (email) checks.push({ sql: "SELECT id, customer_name, email as phone FROM telecalls WHERE email = ? AND id != ?", params: [email, excludeId || 0] });
+  if (email) checks.push({ sql: "SELECT id, customer_name, email as phone FROM walkins WHERE email = ? AND id != ?", params: [email, excludeId || 0] });
+  if (email) checks.push({ sql: "SELECT id, customer_name, email as phone FROM fields WHERE email = ? AND id != ?", params: [email, excludeId || 0] });
+  if (phone) checks.push({ sql: "SELECT id, name, phone FROM clients WHERE phone = ?", params: [phone] });
+  if (email) checks.push({ sql: "SELECT id, name, email as phone FROM clients WHERE email = ?", params: [email] });
+
+  if (checks.length === 0) return callback(null);
+
+  let completed = 0;
+  const results = [];
+  checks.forEach((c) => {
+    db.query(c.sql, c.params, (err, rows) => {
+      if (err) { completed++; if (completed === checks.length) callback(null); return; }
+      if (rows.length > 0) results.push({ id: rows[0].id, table: "Lead", name: rows[0].customer_name || rows[0].name, phone: rows[0].phone });
+      completed++;
+      if (completed === checks.length) callback(results.length > 0 ? results : null);
+    });
+  });
+};
+
 /* AUTO CREATE CLIENT IF CONVERTED */
 const syncClient = (data, userId, leadId, teammemberId) => {
   const { customer_name, mobile_number, location_city, purpose, email, field_outcome, gst_number, staff_name } = data;
@@ -25,7 +51,13 @@ const syncClient = (data, userId, leadId, teammemberId) => {
       }
 
       if (result.length === 0) {
-        db.query("SELECT id FROM clients WHERE phone = ? AND (original_lead_id IS NULL OR original_lead_type != 'field')", [mobile_number], (err2, phoneResult) => {
+        const phoneCheck = mobile_number ? "phone = ?" : "1=0";
+        const emailCheck = email ? "OR email = ?" : "";
+        const params = [];
+        if (mobile_number) params.push(mobile_number);
+        if (email) params.push(email);
+
+        db.query(`SELECT id FROM clients WHERE (${phoneCheck}) ${emailCheck} AND (original_lead_id IS NULL OR original_lead_type != 'field')`, params, (err2, phoneResult) => {
           if (!err2 && phoneResult.length > 0) {
             db.query(
               `UPDATE clients SET name=?, phone=?, address=?, service=?, email=?, gst_number=?, 
@@ -72,6 +104,13 @@ router.post("/new", verifyToken, (req, res) => {
     return res.status(400).json({ message: "Customer name & visit date required" });
   }
 
+  // Check duplicates
+  checkDuplicateLead(data.mobile_number, data.email, (duplicates) => {
+    if (duplicates && duplicates.length > 0) {
+      const msgs = duplicates.map(d => `${d.name} (${d.phone || "N/A"})`);
+      return res.status(409).json({ message: "Duplicate lead found", duplicates, details: `Phone/Email already exists: ${msgs.join("; ")}` });
+    }
+
   db.query("INSERT INTO fields SET ?", data, (err, result) => {
     if (err) { console.error(err); return res.status(500).json({ message: "Insert failed" }); }
     const newId = result.insertId;
@@ -79,6 +118,8 @@ router.post("/new", verifyToken, (req, res) => {
 
     // Notify when lead is converted
     if (data.field_outcome === "Converted") {
+      // DISABLED: Old notification system
+      /*
       const notificationIO = getNotificationIO();
       if (notificationIO) {
         const time = new Date().toLocaleString();
@@ -92,6 +133,7 @@ router.post("/new", verifyToken, (req, res) => {
           type: "lead"
         }, null, true);
       }
+      */
     }
     db.query("INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
       [newId, "field", "Lead Created", `Outcome: ${data.field_outcome || "New"}`]);
@@ -100,6 +142,8 @@ router.post("/new", verifyToken, (req, res) => {
         [newId, "field", data.reminder_date, data.reminder_notes || "", req.user?.id || null]);
     }
 
+    // DISABLED: Old notification system
+    /*
     const notificationIO = getNotificationIO();
     if (notificationIO) {
       notificationIO.emitNotification("new_lead", {
@@ -112,8 +156,10 @@ router.post("/new", verifyToken, (req, res) => {
         type: "lead"
       }, null, true);
     }
+    */
 
     res.json({ message: "Field added", id: newId });
+  });
   });
 });
 
@@ -130,6 +176,13 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
+    // Check duplicates (exclude current record)
+    checkDuplicateLead(data.mobile_number, data.email, Number(req.params.id), (duplicates) => {
+      if (duplicates && duplicates.length > 0) {
+        const msgs = duplicates.map(d => `${d.name} (${d.phone || "N/A"})`);
+        return res.status(409).json({ message: "Duplicate lead found", duplicates, details: `Phone/Email already exists: ${msgs.join("; ")}` });
+      }
+
     db.query(
       `UPDATE fields SET ? WHERE id=?`,
       [data, req.params.id],
@@ -140,6 +193,8 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
 
       // Notify when lead is converted on update
       if (data.field_outcome === "Converted") {
+        // DISABLED: Old notification system
+        /*
         const notificationIO = getNotificationIO();
         if (notificationIO) {
           const time = new Date().toLocaleString();
@@ -153,6 +208,7 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
             type: "lead"
           }, null, true);
         }
+        */
       }
 
       db.query("INSERT INTO lead_activity (lead_id, lead_type, action, details) VALUES (?,?,?,?)",
@@ -172,6 +228,7 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
       res.json({ message: "Field updated successfully" });
     }
   );
+    });
   });
 });
 

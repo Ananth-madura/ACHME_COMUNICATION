@@ -40,6 +40,8 @@ const findUserForTask = (nameOrEmailOrTmId, callback) => {
   }
 };
 
+// DISABLED: Old notification system - replaced with 3-type redesign
+/*
 const notifyTaskAssigned = (task, assignedTo) => {
   findUserForTask(assignedTo, (err, user) => {
     if (err) { console.warn("task assignee lookup skipped:", err.message); return; }
@@ -93,12 +95,15 @@ const notifyTaskCompleted = (assignment) => {
     ["task_completed", assignment.assigned_to_user_id || null, `${assignment.assigned_to_user_name || "Employee"} completed task: "${assignment.task_title || "Task"}"`]
   );
 };
+*/
 
 const checkOverdueTasks = () => {
   db.query(`SELECT ta.*, t.task_title, t.due_date FROM task_assignments ta JOIN tasks t ON ta.task_id = t.id WHERE ta.status NOT IN ('Completed', 'Declined') AND t.due_date < CURDATE()`,
     (err, overdueTasks) => {
       if (err) { console.error("Error checking overdue tasks:", err); return; }
       overdueTasks.forEach(task => {
+        // DISABLED: Old notification system
+        /*
         const notificationIO = getNotificationIO();
         if (notificationIO) {
           notificationIO.emitNotification("task_overdue", {
@@ -107,14 +112,33 @@ const checkOverdueTasks = () => {
             type: "task", priority: "high"
           }, null, true);
         }
-        db.query("INSERT INTO admin_notifications (type, user_id, message) VALUES (?, ?, ?)",
-          ["task_overdue", 0, `Task "${task.task_title}" assigned to ${task.assigned_to_user_name} is overdue by ${Math.floor((new Date() - new Date(task.due_date)) / (1000 * 60 * 60 * 24))} days`]
+        */
+        db.query("INSERT INTO admin_notifications (type, user_id, message, related_id, related_type, priority) VALUES (?, ?, ?, ?, ?, ?)",
+          ["overdue_task", 0, `Task "${task.task_title}" assigned to ${task.assigned_to_user_name} is overdue by ${Math.floor((new Date() - new Date(task.due_date)) / (1000 * 60 * 60 * 24))} days`, task.task_id, "task", "high"],
+          (err, result) => {
+            if (!err) {
+              const notificationIO = getNotificationIO();
+              if (notificationIO) {
+                notificationIO.sendToAdmin("new_notification", {
+                  id: result.insertId,
+                  type: "overdue_task",
+                  message: `Task "${task.task_title}" assigned to ${task.assigned_to_user_name} is overdue`,
+                  employee_name: task.assigned_to_user_name,
+                  priority: "high",
+                  is_read: 0,
+                  created_at: new Date().toISOString()
+                });
+              }
+            }
+          }
         );
       });
     }
   );
 };
 
+// DISABLED: Old upcoming deadlines checker
+/*
 const checkUpcomingDeadlines = () => {
   db.query(`SELECT ta.*, t.task_title, t.due_date FROM task_assignments ta JOIN tasks t ON ta.task_id = t.id WHERE ta.status NOT IN ('Completed', 'Declined') AND t.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 2 DAY)`,
     (err, upcomingTasks) => {
@@ -135,9 +159,10 @@ const checkUpcomingDeadlines = () => {
     }
   );
 };
+*/
 
 setInterval(checkOverdueTasks, 60 * 60 * 1000);
-setInterval(checkUpcomingDeadlines, 60 * 60 * 1000);
+// setInterval(checkUpcomingDeadlines, 60 * 60 * 1000); // DISABLED
 
 router.get("/", verifyToken, (req, res) => {
   const { id: user_id, role, first_name: user_name } = req.user;
@@ -179,6 +204,8 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
             if (userErr || !userRows.length) return;
             const assignedUser = userRows[0];
             const message = `New task assigned: "${task_title || project_name || "Task"}"${due_date ? ` (Due: ${due_date})` : ""} - Priority: ${project_priority}`;
+            // DISABLED: Old notification system - replaced with 3-type redesign
+            /*
             const notifIO = getNotificationIO();
             if (notifIO && assignedUser.id) {
               notifIO.emitNotification("task_assigned", {
@@ -186,19 +213,40 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
                 userId: assignedUser.id, userName: assignedUser.first_name || finalStaffName,
                 dueDate: due_date, priority: project_priority, type: "task"
               }, assignedUser.id, false);
+              notifIO.emit("task_updated", { taskId, assignedTo: assignedUser.id });
             } else {
               db.query("INSERT INTO notifications (task_id, user_id, type, title, description) VALUES (?, ?, ?, ?, ?)",
                 [taskId, assignedUser.id, "task_assigned", "New Task Assigned", message],
                 () => { }
               );
             }
+            */
+            // New: Store as admin_notification for overdue_task tracking only
             db.query("INSERT INTO admin_notifications (type, user_id, message, related_id, related_type, priority) VALUES (?, ?, ?, ?, ?, ?)",
-              ["task_assigned", assignedUser.id, `Task assigned to ${assignedUser.first_name || finalStaffName}: "${task_title || project_name}"`, taskId, "task", project_priority],
-              () => { }
+              ["task_assigned", assignedUser.id, `Task assigned to ${assignedUser.first_name || finalStaffName}: "${task_title || project_name}"`, taskId, "task", "normal"],
+              (err, result) => {
+                if (!err) {
+                  const notifIO = getNotificationIO();
+                  if (notifIO) {
+                    notifIO.sendToAdmin("new_notification", {
+                      id: result.insertId,
+                      type: "task_assigned",
+                      message: `Task assigned to ${assignedUser.first_name || finalStaffName}: "${task_title || project_name}"`,
+                      employee_name: assignedUser.first_name || finalStaffName,
+                      priority: "normal",
+                      is_read: 0,
+                      created_at: new Date().toISOString()
+                    });
+                  }
+                }
+              }
             );
           }
         );
       }
+      // Emit socket event for live refresh
+      const notifIO = getNotificationIO();
+      if (notifIO) notifIO.emit("task_updated", { taskId });
       res.json({ message: "Task created", id: taskId });
     }
   );
@@ -235,6 +283,9 @@ router.put("/:id", verifyToken, (req, res) => {
           if (err) return res.status(500).json({ error: err.message });
           db.query("INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
             [req.params.id, "Status Updated", `Employee ${req.user.first_name} updated status to ${project_status}`]);
+          // Emit socket event for live refresh
+          const notifIO = getNotificationIO();
+          if (notifIO) notifIO.emit("task_updated", { taskId: req.params.id, newStatus: project_status });
           return res.json({ message: "Status updated" });
         }
       );
@@ -256,9 +307,13 @@ router.put("/:id", verifyToken, (req, res) => {
         db.query("INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
           [req.params.id, "Updated", `Task "${task_title}" updated`]);
         const notifIO = getNotificationIO();
+        // Emit socket event for live refresh
+        if (notifIO) notifIO.emit("task_updated", { taskId: req.params.id, newStatus: project_status });
         if (project_status === "Completed") {
           const prevStatus = results[0];
           const taskName = task_title || project_name || "Task";
+          // DISABLED: Old notification system
+          /*
           if (notifIO) {
             notifIO.emitNotification("task_completed", {
               taskId: req.params.id, taskName,
@@ -266,9 +321,22 @@ router.put("/:id", verifyToken, (req, res) => {
               type: "task", priority: "high"
             }, null, true);
           }
+          */
           db.query("INSERT INTO admin_notifications (type, user_id, message, related_id, related_type, priority) VALUES (?, ?, ?, ?, ?, ?)",
             ["task_completed", req.user.id, `${req.user.first_name || req.user.name || "Employee"} completed task: "${taskName}"`, req.params.id, "task", project_priority],
-            () => { }
+            (err, result) => {
+              if (!err && notifIO) {
+                notifIO.sendToAdmin("new_notification", {
+                  id: result.insertId,
+                  type: "task_completed",
+                  message: `${req.user.first_name || req.user.name || "Employee"} completed task: "${taskName}"`,
+                  employee_name: req.user.first_name || req.user.name || "Employee",
+                  priority: project_priority,
+                  is_read: 0,
+                  created_at: new Date().toISOString()
+                });
+              }
+            }
           );
         }
         res.json({ message: "Task updated" });
@@ -442,7 +510,10 @@ router.post("/targets", verifyToken, isAdmin, (req, res) => {
           [yearly_target, monthlyTarget, tmId, rows[0].id],
           (err2) => {
             if (err2) return res.status(500).json({ error: err2.message });
+            // DISABLED: Old notification system
+            /*
             if (notificationIO) notificationIO.emitNotification("target_updated", { id: rows[0].id, userId: user_id, userName: user_name, newAmount: yearly_target, monthlyTarget, type: "target" }, user_id, true);
+            */
             res.json({ message: "Target updated", id: rows[0].id, yearly_target, monthly_target: monthlyTarget });
           }
         );
@@ -459,12 +530,15 @@ router.post("/targets", verifyToken, isAdmin, (req, res) => {
                 (userErr, userRows) => {
                   if (!userErr && userRows.length && userRows[0].id) {
                     const targetUser = userRows[0];
+                    // DISABLED: Old notification system
+                    /*
                     if (notificationIO) {
                       notificationIO.emitNotification("new_target", {
                         id: newTargetId, userId: targetUser.id, userName: targetUser.first_name || user_name,
                         targetAmount: yearly_target, monthlyTarget, type: "target"
                       }, targetUser.id, false);
                     }
+                    */
                     db.query("INSERT INTO notifications (task_id, user_id, type, title, description) VALUES (?, ?, ?, ?, ?)",
                       [0, targetUser.id, "target_assigned", "New Target Assigned", message],
                       () => { }
@@ -473,7 +547,10 @@ router.post("/targets", verifyToken, isAdmin, (req, res) => {
                 }
               );
             }
+            // DISABLED: Old notification system
+            /*
             if (notificationIO) notificationIO.emitNotification("new_target", { id: newTargetId, userId: user_id, userName: user_name, targetAmount: yearly_target, monthlyTarget, type: "target" }, null, true);
+            */
             res.json({ message: "Yearly target created", id: newTargetId, yearly_target, monthly_target: monthlyTarget });
           }
         );
@@ -495,7 +572,10 @@ router.put("/targets/:id", verifyToken, isAdmin, (req, res) => {
     [yearly_target, monthlyTarget, tmId, user_id || null, user_name || "", id],
     (err) => {
       if (err) return res.status(500).json({ error: err.message });
+      // DISABLED: Old notification system
+      /*
       if (notificationIO) notificationIO.emitNotification("target_updated", { id: parseInt(id), userId: user_id, userName: user_name, newAmount: yearly_target, monthlyTarget, type: "target" }, user_id, true);
+      */
       res.json({ message: "Target updated", id: parseInt(id), yearly_target, monthly_target: monthlyTarget });
     }
   );
@@ -563,12 +643,15 @@ const processAchievement = (user_id, user_name, targetId, monthlyTarget, achieve
               if (err4) return res.status(500).json({ error: err4.message });
               db.query("INSERT INTO task_activity (task_id, action, message) VALUES (?, ?, ?)",
                 [targetId, "Task Achievement Update", user_name + " achieved Rs." + amount + " (effective target: Rs." + effectiveTarget + ")"]);
+              // DISABLED: Old notification system
+              /*
               const notificationIO = getNotificationIO();
               if (notificationIO) {
                 const percentage = effectiveTarget > 0 ? Math.round((parseFloat(amount) / effectiveTarget) * 100) : 0;
                 notificationIO.emitNotification("target_updated", { id: targetId, userId: user_id, userName: user_name, newAmount: amount, percentage, type: "achievement" }, null, true);
                 if (percentage >= 100) notificationIO.emitNotification("target_achieved", { id: targetId, userId: user_id, userName: user_name, percentage, type: "achievement" }, null, true);
               }
+              */
               db.query("INSERT INTO admin_notifications (type, user_id, message, related_id, related_type, priority) VALUES (?, ?, ?, ?, ?, ?)",
                 ["target_achievement", user_id, `${user_name} achieved Rs.${Number(amount).toLocaleString()} - Total achieved: Rs.${(achievedCount + parseFloat(amount)).toLocaleString()} (${Math.round(((achievedCount + parseFloat(amount)) / effectiveTarget * 100))}%)`, targetId, "target", "normal"],
                 () => { }

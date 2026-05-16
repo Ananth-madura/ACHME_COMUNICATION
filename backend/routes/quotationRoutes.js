@@ -3,6 +3,19 @@ const router = express.Router();
 const db = require("../config/database");
 const { verifyToken, isAdmin } = require("../middleware/authMiddleware");
 
+let ioInstance = null;
+const getNotificationIO = () => {
+  if (!ioInstance) {
+    try {
+      const { getIO } = require("../sockets/notificationHandler");
+      ioInstance = getIO();
+    } catch (e) {
+      console.error("Failed to load notification IO:", e.message);
+    }
+  }
+  return ioInstance;
+};
+
 // FROM ADDRESSES (shared table)
 router.get("/from-addresses", verifyToken, (req, res) => {
   db.query("SELECT * FROM pi_from_addresses ORDER BY id ASC", (err, rows) => {
@@ -250,7 +263,8 @@ router.post("/create", verifyToken, (req, res) => {
                 db.commit(err => {
                   if (err) return db.rollback(() => res.status(500).json(err));
 
-                  // Send notification for proposal/quotation created
+                  // DISABLED: Old notification system
+                  /*
                   const notificationIO = getNotificationIO();
                   if (notificationIO) {
                     const time = new Date().toLocaleString();
@@ -265,6 +279,7 @@ router.post("/create", verifyToken, (req, res) => {
                       type: "proposal"
                     }, null, true);
                   }
+                  */
 
                   res.status(201).json({ message: "Quotation Created Successfully", quotationId, reference_no: refNo });
                 });
@@ -453,9 +468,10 @@ router.get("/download-pdf/:id", verifyToken, async (req, res) => {
     LEFT JOIN pi_from_addresses fa ON fa.id = q.from_address_id WHERE q.id = ?`;
   const itemsSql = `SELECT product_number, description, brand_model, hsn_sac, uom, price, quantity, tax, discount, subtotal FROM quotation_items WHERE quotation_id = ? ORDER BY product_number`;
   db.query(headerSql, [id], (err, headerRows) => {
-    if (err || !headerRows.length) return res.status(404).json({ message: "Not found" });
+    if (err) { console.error("PDF header query error:", err); return res.status(500).json({ message: "Database error: " + err.message }); }
+    if (!headerRows.length) return res.status(404).json({ message: "Quotation not found" });
     db.query(itemsSql, [id], async (err, items) => {
-      if (err) return res.status(500).json(err);
+      if (err) { console.error("PDF items query error:", err); return res.status(500).json({ message: "Database error: " + err.message }); }
       try {
         const pdfBuffer = await generateInvoicePdf({ invoice: headerRows[0], items, type: "quotation" });
         const year = new Date(headerRows[0].invoice_date).getFullYear();
@@ -463,14 +479,14 @@ router.get("/download-pdf/:id", verifyToken, async (req, res) => {
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
         res.send(pdfBuffer);
-      } catch (e) { res.status(500).json({ message: e.message }); }
+      } catch (e) { console.error("PDF generation error:", e); res.status(500).json({ message: "PDF generation failed: " + e.message }); }
     });
   });
 });
 
 router.post("/send-email/:id", verifyToken, (req, res) => {
   const { id } = req.params;
-  const { to, subject } = req.body;
+  const { to, subject, cc } = req.body;
 
   const headerSql = `
     SELECT q.*, c.email, c.customer_name, c.mobile_number, c.location_city,
@@ -513,6 +529,7 @@ router.post("/send-email/:id", verifyToken, (req, res) => {
         await transporter.sendMail({
           from: `"Achme Communication" <${process.env.EMAIL_USER}>`,
           to: recipientEmail,
+          cc: cc || undefined,
           subject: subject || `Quotation ${qtNumber}`,
           html: `<div style="font-family:Arial,sans-serif;padding:24px;max-width:600px;margin:0 auto;">
             <p style="font-size:16px;color:#1e293b;">Dear Customer,</p>

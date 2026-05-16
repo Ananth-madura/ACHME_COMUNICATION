@@ -25,24 +25,7 @@ const COMPANY = {
   address: "436H Avinashi Road Opp to SMS Hotel, Peelamedu, Coimbatore - 641004"
 };
 
-const BANK_DETAILS = [
-  { id: "1", company: "Achme Communication", bank: "KOTAK MAHINDRA BANK", account: "12345667", ifsc: "34DJFHJDH", branch: "Test, Coimbatore" },
-  { id: "2", company: "Achme Communication", bank: "DUMMY BANK", account: "00000000", ifsc: "DUMMY001", branch: "Dummy Branch" }
-];
-
-// ─── UTILS ──────────────────────────────────────────────────
-const Card = ({ children, style }) => (
-  <div style={{
-    background: PALETTE.white,
-    borderRadius: "12px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-    border: `1px solid ${PALETTE.border}`,
-    overflow: "hidden",
-    ...style
-  }}>
-    {children}
-  </div>
-);
+// ─── DESIGN SYSTEM ─────────────────────────────────────────
 
 const TotalsBlock = ({ h, taxRate, fmt }) => (
   <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px" }}>
@@ -68,54 +51,6 @@ const TotalsBlock = ({ h, taxRate, fmt }) => (
       </tbody>
     </table>
   </div>
-);
-
-/* ─── LOGO: Complete triangle design with lines in bottom half and circle cutout ─── */
-const LogoSVG = ({ size = 70 }) => (
-  <svg width={size * 1.8} height={size} viewBox="0 0 180 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      {/* Mask with large circular cutout */}
-      <mask id="logoMask">
-        <rect width="180" height="100" fill="white" />
-        <circle cx="78" cy="70" r="30" fill="black" />
-      </mask>
-    </defs>
-    
-    {/* Main triangle with mask */}
-    <path d="M5 95 L52 3 L99 95 Z" fill="#0052CC" mask="url(#logoMask)" />
-    
-    {/* Horizontal lines in BOTTOM HALF only - starting from middle */}
-    <g mask="url(#logoMask)">
-      {[...Array(18)].map((_, i) => {
-        const y = 48 + i * 2.7;
-        const triangleWidth = (95 - y) * 0.94;
-        const leftX = 52 - triangleWidth / 2;
-        const rightX = 52 + triangleWidth / 2;
-        return (
-          <line
-            key={i}
-            x1={leftX}
-            y1={y}
-            x2={rightX}
-            y2={y}
-            stroke="white"
-            strokeWidth="1.6"
-            opacity="0.92"
-          />
-        );
-      })}
-    </g>
-    
-    {/* Curved swoosh - smooth S-curve */}
-    <path 
-      d="M 99 70 Q 110 80 124 73 Q 138 66 150 75" 
-      fill="none" 
-      stroke="#0052CC" 
-      strokeWidth="5.5" 
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
 );
 
 /* ─── WAVE BACKGROUND: Clear and visible wave design ─── */
@@ -474,9 +409,10 @@ const Invoice = ({ quotationId, type = "quotation", pdfMode = false }) => {
     };
     const route = ROUTE_MAP[type] || "quotations";
     const endpoint = `${API}/api/${route}/${quotationId}`;
+    const token = localStorage.getItem("token");
     
     axios
-      .get(endpoint)
+      .get(endpoint, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => {
         setRows(res.data);
         setLoading(false);
@@ -502,7 +438,7 @@ const Invoice = ({ quotationId, type = "quotation", pdfMode = false }) => {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: PALETTE.lightBg }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "60px", background: PALETTE.lightBg }}>
         <div style={{ fontSize: "20px", fontWeight: "600", color: PALETTE.primary }}>Loading Premium Template...</div>
       </div>
     );
@@ -510,7 +446,7 @@ const Invoice = ({ quotationId, type = "quotation", pdfMode = false }) => {
 
   if (error || !rows.length) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", color: "#e74c3c" }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "60px", color: "#e74c3c" }}>
         {error || "No document data found"}
       </div>
     );

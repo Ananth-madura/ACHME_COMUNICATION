@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Plus, Search, Download, X, Edit2, MinusCircle, PlusCircle, Trash2, Mail, MapPin, History } from "lucide-react";
+import ClientSearchDropdown from "../components/ClientSearchDropdown";
 import { calculateItemTotal } from "../utils/invoicecal";
 import axios from "axios";
 import Invoice from "../components/invoicetemplate";
@@ -25,7 +26,6 @@ const emptyExtra = () => ({
 });
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-
 const Quotation = () => {
   const userRole = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").role || "employee"; } catch { return "employee"; } })();
   const canEditDelete = userRole === "admin" || userRole === "subadmin";
@@ -39,20 +39,18 @@ const Quotation = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [mailOpen, setMailOpen] = useState(false);
   const [mailTo, setMailTo] = useState("");
+  const [mailCc, setMailCc] = useState("");
   const [mailSubject, setMailSubject] = useState("");
   const [mailSending, setMailSending] = useState(false);
   const [descInput, setDescInput] = useState("");
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [newAddrLabel, setNewAddrLabel] = useState("");
   const [newAddrText, setNewAddrText] = useState("");
-  const [clientSearchResults, setClientSearchResults] = useState([]);
-  const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyList, setHistoryList] = useState([]);
   const [historyCustomerName, setHistoryCustomerName] = useState("");
-  const [historySelectedId, setHistorySelectedId] = useState(null);
-  const [historySearch, setHistorySearch] = useState("");
   const [historyRootId, setHistoryRootId] = useState(null);
+  const [historySearch, setHistorySearch] = useState("");
   const [items, setItems] = useState([{name:"",brand_model:"",hsn_sac:"",uom:"Nos",price:0,qty:1,tax:18,discount:0}]);
   const [customer, setCustomer] = useState({customer_name:"",mobile_number:"",email:"",gst_number:"",location_city:""});
   const [quotationData, setQuotationData] = useState({quotation_date:todayStr()});
@@ -64,7 +62,7 @@ const Quotation = () => {
   const fmtSubQT = (rootId,ver,d) => `QT-${d?new Date(d).getFullYear():new Date().getFullYear()}-${String(rootId).padStart(3,"0")}-${ver}`;
   const fmtDate = (d) => d?new Date(d).toLocaleString("en-IN",{dateStyle:"medium"}):"---";
 
-useEffect(() => {
+ useEffect(() => {
     fetchList();
     fetchAddresses();
     const p = new URLSearchParams(window.location.search);
@@ -75,8 +73,38 @@ useEffect(() => {
       window.history.replaceState({},document.title,window.location.pathname);
     } else {
       const pf = sessionStorage.getItem("qt_prefill");
-      if (pf) { try { const v=JSON.parse(pf); setCustomer(c=>({...c,...v})); setExtra(ex=>({...ex,client_city:v.location_city||""})); setOpen(true); sessionStorage.removeItem("qt_prefill"); } catch(_){} }
+      if (pf) {
+        try {
+          const v = JSON.parse(pf);
+          setCustomer(c=>({
+            ...c,
+            customer_name: v.customer_name || "",
+            mobile_number: v.mobile_number || c.mobile_number,
+            email: v.email || c.email,
+            gst_number: v.gst_number || c.gst_number,
+            location_city: v.location_city || c.location_city
+          }));
+          setExtra(ex=>({
+            ...ex,
+            client_company: v.company_name || v.customer_name || ex.client_company,
+            client_address1: v.address || ex.client_address1,
+            client_city: v.location_city || ex.client_city,
+            client_state: v.state || ex.client_state,
+            client_pincode: v.pincode || ex.client_pincode
+          }));
+          if (v.contract_id) {
+            setQuotationData(qd=>({...qd, reference_no: v.contract_title || "", quotation_date: v.start_date || todayStr()}));
+          }
+          if (v.service_description) {
+            setDescInput(v.service_description);
+            setItems([{name:v.service_description,brand_model:"",hsn_sac:"",uom:"Nos",price:0,qty:1,tax:18,discount:0}]);
+          }
+          setOpen(true);
+          sessionStorage.removeItem("qt_prefill");
+        } catch(_){}
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getAuthConfig = () => {
@@ -149,49 +177,20 @@ const handleAddItem = () => {
     setDescInput("");
   };
 
-  const handleClientSearch = async (val) => {
-    if (val.length < 2) { setClientSearchResults([]); setClientSearchOpen(false); return; }
-    try {
-      const res = await axios.get(`${API}/api/client/search?name=${encodeURIComponent(val)}`, getAuthConfig());
-      setClientSearchResults(res.data);
-      setClientSearchOpen(true);
-    } catch(e) { console.error(e); }
-  };
-
-  const handleSelectClient = (client) => {
-    setCustomer({
-      customer_name: client.name || "",
-      mobile_number: client.phone || "",
-      email: client.email || client.lead_email || "",
-      gst_number: client.gst_number || "",
-      location_city: client.lead_city || client.city || client.location_city || ""
-    });
-    setExtra(ex => ({
-      ...ex,
-      client_company: client.company_name || "",
-      client_address1: client.address || "",
-      client_address2: "",
-      client_city: client.lead_city || client.city || "",
-      client_state: client.state || "",
-      client_pincode: client.pincode || "",
-      client_country: "India"
-    }));
-    setClientSearchResults([]); setClientSearchOpen(false);
-  };
-
   const updateItem = (i,f,v) => { const c=[...items]; c[i][f]=v; setItems(c); };
   const removeItem = () => { if(items.length<=1)return; setItems(p=>p.slice(0,-1)); };
 
   const openMailModal = () => {
     if (!selectedId) return alert("Select an invoice to send");
     const inv=list.find(p=>p.id===selectedId);
-    setMailTo(inv?.email||""); setMailSubject(`Proposal ${fmtQT(selectedId,inv?.quotation_date||inv?.invoice_date)}`); setMailOpen(true);
+    const adminEmail = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").email || ""; } catch { return ""; } })();
+    setMailTo(inv?.email||""); setMailCc(adminEmail); setMailSubject(`Proposal ${fmtQT(selectedId,inv?.quotation_date||inv?.invoice_date)}`); setMailOpen(true);
   };
 
 const handleSendEmail = async () => {
     if (!mailTo) return alert("Please enter recipient email");
     setMailSending(true);
-    try { await axios.post(`${API}/api/quotations/send-email/${selectedId}`,{to:mailTo,subject:mailSubject},getAuthConfig()); alert("Email sent"); setMailOpen(false); }
+    try { await axios.post(`${API}/api/quotations/send-email/${selectedId}`,{to:mailTo,cc:mailCc,subject:mailSubject},getAuthConfig()); alert("Email sent"); setMailOpen(false); }
     catch(e){ alert(e.response?.data?.message||"Failed to send email"); } finally { setMailSending(false); }
   };
 
@@ -199,7 +198,7 @@ const handleSendEmail = async () => {
     e.stopPropagation();
     try {
       const res=await axios.get(`${API}/api/quotations/customer-history/${id}`,getAuthConfig());
-      setHistoryList(res.data); setHistoryCustomerName(name); setHistorySelectedId(null); setHistorySearch("");
+      setHistoryList(res.data); setHistoryCustomerName(name); setHistorySearch("");
       const cur=list.find(p=>p.id===id); setHistoryRootId(cur?.parent_id||id); setHistoryOpen(true);
     } catch(e){ alert("Failed to load history"); }
   };
@@ -230,13 +229,13 @@ const handleSendEmail = async () => {
             <input type="text" placeholder="Search by customer..." className="outline-none text-sm w-40 bg-transparent" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
           </div>
           <div className="flex items-center gap-2 mt-2">
-            <button onClick={async()=>{ const id=viewId||selectedId; if(!id)return alert("Select an invoice first"); try{const r=await fetch(`${API}/api/quotations/download-pdf/${id}`,{headers:{Authorization:`Bearer ${localStorage.getItem("token")}`}});const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`Quotation_${fmtQT(id,list.find(p=>p.id===id)?.invoice_date)}.pdf`;a.click();URL.revokeObjectURL(url);}catch(e){alert("Download failed");} }} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Download size={20}/></button>
+            <button onClick={async()=>{ const id=viewId||selectedId; if(!id)return alert("Select an invoice first"); try{const r=await fetch(`${API}/api/quotations/download-pdf/${id}`,{headers:{Authorization:`Bearer ${localStorage.getItem("token")}`}});if(!r.ok){const err=await r.json();return alert(err.message||"Download failed");}if(!r.headers.get("content-type")?.includes("application/pdf")){const err=await r.json();return alert(err.message||"Server returned invalid response");}const blob=await r.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`Quotation_${fmtQT(id,list.find(p=>p.id===id)?.invoice_date)}.pdf`;a.click();URL.revokeObjectURL(url);}catch(e){alert("Download failed: "+e.message);} }} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Download size={20}/></button>
 <button onClick={openMailModal} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Mail size={18}/></button>
             {canEditDelete && <button onClick={()=>{if(!selectedId)return alert("Select an item");handleEdit(selectedId);}} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Edit2 size={18}/></button>}
             {canEditDelete && <button onClick={handleDelete} className="w-10 h-10 bg-white border rounded-lg shadow-sm flex justify-center items-center hover:bg-gray-50"><Trash2 size={18} className="text-red-500"/></button>}
           </div>
           <div className="mt-2">
-            <button onClick={()=>{resetForm();setOpen(true);}} className="bg-[#FF3355] text-white w-12 h-12 rounded-full flex justify-center items-center shadow-lg hover:bg-[#e62848]"><Plus size={24}/></button>
+            <button onClick={()=>{resetForm();setOpen(true);}} className="bg-[#FF3355] text-white w-12 h-12 rounded-full flex justify-center items-center shadow-lg hover:bg-[#e62848] transition"><Plus size={24}/></button>
           </div>
         </div>
       </div>
@@ -259,18 +258,18 @@ const handleSendEmail = async () => {
             </thead>
             <tbody>
               {filtered.map(p=>(
-                <tr key={p.id} onClick={()=>setSelectedId(p.id)} onDoubleClick={()=>{setViewId(p.id);setTimeout(()=>setShowInvoice(true),50);}} className={`cursor-pointer border-b hover:bg-gray-50 ${selectedId===p.id?"bg-blue-50/50":""}`}>
+                <tr key={p.id} onClick={()=>setSelectedId(p.id)} onDoubleClick={()=>{setViewId(p.id);setTimeout(()=>setShowInvoice(true),50);}} className={`cursor-pointer border-b hover:bg-gray-50 transition ${selectedId===p.id?"bg-blue-50/50":""}`}>
                   <td className="px-4 py-4 border-r font-medium text-blue-600">{fmtQT(p.id,p.quotation_date||p.invoice_date)}</td>
                   <td className="px-4 py-4 border-r">{p.customer_name}</td>
                   <td className="px-4 py-4 border-r text-gray-500">{p.email||"---"}</td>
                   <td className="px-4 py-4 border-r">{p.mobile_number}</td>
                   <td className="px-4 py-4 border-r">{fmtDate(p.quotation_date||p.invoice_date)}</td>
-                  <td className="px-4 py-4 border-r font-bold">&#8377;{p.grand_total?.toLocaleString()}</td>
+                  <td className="px-4 py-4 border-r font-bold text-gray-900">&#8377;{p.grand_total?.toLocaleString()}</td>
                   <td className="px-4 py-4 border-r">{p.location_city}</td>
-                  <td className="px-4 py-4"><button onClick={e=>openHistory(e,p.id,p.customer_name)} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-xs font-bold"><History size={13}/> History</button></td>
+                  <td className="px-4 py-4"><button onClick={e=>openHistory(e,p.id,p.customer_name)} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-xs font-bold transition"><History size={13}/> History</button></td>
                 </tr>
               ))}
-{filtered.length===0&&(<tr><td colSpan="8" className="py-10 text-gray-400 italic">No quotations found</td></tr>)}
+              {filtered.length===0&&(<tr><td colSpan="8" className="py-10 text-gray-400 italic">No quotations found</td></tr>)}
             </tbody>
           </table>
         </div>
@@ -345,11 +344,10 @@ const handleSendEmail = async () => {
               </div>
             )}
 
-            {/* Bank Details */}
             <div className="mt-4 p-5 bg-[#f8fafc] border border-slate-200 rounded-2xl shadow-sm">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
                 <h4 className="text-sm font-black text-blue-800 uppercase tracking-tighter flex items-center gap-2"><span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>Bank Details</h4>
-<div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Bank A/C:</label>
                   <select value={extra.bank_details_id} onChange={e => {
                     const b = BANK_DETAILS.find(x => x.id === e.target.value);
@@ -381,30 +379,29 @@ const handleSendEmail = async () => {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-bold text-gray-500 uppercase">Customer Name *</label>
                 <div className="relative">
-                  <input
-                    type="text"
+                  <ClientSearchDropdown
                     value={customer.customer_name}
-                    onChange={e => {
-                      setCustomer({ ...customer, customer_name: e.target.value });
-                      handleClientSearch(e.target.value);
+                    onSelect={(client) => {
+                      setCustomer({
+                        customer_name: client.name || "",
+                        mobile_number: client.phone || "",
+                        email: client.email || client.lead_email || "",
+                        gst_number: client.gst_number || "",
+                        location_city: client.lead_city || client.city || ""
+                      });
+                      setExtra(ex => ({
+                        ...ex,
+                        client_company: client.company_name || "",
+                        client_address1: client.address || "",
+                        client_address2: "",
+                        client_city: client.lead_city || client.city || "",
+                        client_state: client.state || "",
+                        client_pincode: client.pincode || "",
+                        client_country: "India"
+                      }));
                     }}
-                    onFocus={e => { if (customer.customer_name.length >= 2) setClientSearchOpen(true); }}
-                    onBlur={() => setTimeout(() => setClientSearchOpen(false), 300)}
-                    className="border rounded-lg px-3 py-2 outline-none text-sm w-full"
-                    placeholder="Type to search client..."
                     required
                   />
-                  {clientSearchOpen && clientSearchResults.length > 0 && (
-                    <div className="absolute z-50 bg-white border rounded-xl shadow-2xl mt-1 w-full max-h-60 overflow-y-auto">
-                      {clientSearchResults.map(c => (
-                        <button key={c.id} type="button" onMouseDown={() => handleSelectClient(c)}
-                          className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b last:border-b-0 transition">
-                          <div className="font-bold text-sm text-gray-800">{c.name}</div>
-                          <div className="text-xs text-gray-500">{c.company_name || "—"} | {c.phone || "No phone"}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
               <div className="flex flex-col gap-1">
@@ -466,7 +463,7 @@ const handleSendEmail = async () => {
             </div>
             <div className="border rounded-xl overflow-hidden shadow-sm overflow-x-auto">
               <table className="w-full text-center text-sm min-w-[700px]">
-                <thead>
+                <thead className="bg-gray-50 border-b">
                   <tr className="text-gray-600 font-bold uppercase text-[10px]">
                     <th className="px-3 py-3 text-left">S.No</th>
                     <th className="px-3 py-3 text-left">Description</th>
@@ -612,6 +609,10 @@ const handleSendEmail = async () => {
               <input type="email" value={mailTo} onChange={e => setMailTo(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" placeholder="recipient@email.com" />
             </div>
             <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-gray-500 uppercase">CC (Email)</label>
+              <input type="email" value={mailCc} onChange={e => setMailCc(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" placeholder="cc@email.com" />
+            </div>
+            <div className="flex flex-col gap-1">
               <label className="text-xs font-bold text-gray-500 uppercase">Subject</label>
               <input type="text" value={mailSubject} onChange={e => setMailSubject(e.target.value)} className="border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-100" />
             </div>
@@ -670,8 +671,8 @@ const handleSendEmail = async () => {
       )}
 
       {/* Invoice Preview */}
-      {viewId && (
-        <div key={viewId} ref={invoiceRef} className="w-full mt-6 bg-white shadow-xl p-6 relative overflow-y-auto">
+      {viewId && showinvoice && (
+        <div key={viewId} ref={invoiceRef} className="w-full mt-6 bg-white shadow-xl p-6 relative">
           <div className="flex gap-3 absolute right-6 top-6 z-10">
             <X className="cursor-pointer text-gray-400 hover:text-red-500 bg-white rounded-full p-1" onClick={() => { setViewId(null); setShowInvoice(false); }} />
           </div>

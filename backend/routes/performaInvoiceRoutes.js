@@ -354,9 +354,10 @@ router.get("/download-pdf/:id", verifyToken, async (req, res) => {
   const itemsSql = `SELECT product_number, description, brand_model, hsn_sac, uom, price, quantity, tax, discount, subtotal FROM performainvoice_items WHERE invoice_id = ? ORDER BY product_number`;
   
   db.query(headerSql, params, (err, headerRows) => {
-    if (err || !headerRows.length) return res.status(404).json({ message: "Not found" });
+    if (err) { console.error("PI PDF header error:", err); return res.status(500).json({ message: "Database error: " + err.message }); }
+    if (!headerRows.length) return res.status(404).json({ message: "Proforma invoice not found" });
     db.query(itemsSql, [id], async (err, items) => {
-      if (err) return res.status(500).json(err);
+      if (err) { console.error("PI PDF items error:", err); return res.status(500).json({ message: "Database error: " + err.message }); }
       try {
         const pdfBuffer = await generateInvoicePdf({ invoice: headerRows[0], items, type: "proforma" });
         const year = new Date(headerRows[0].invoice_date).getFullYear();
@@ -364,7 +365,7 @@ router.get("/download-pdf/:id", verifyToken, async (req, res) => {
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
         res.send(pdfBuffer);
-      } catch (e) { res.status(500).json({ message: e.message }); }
+      } catch (e) { console.error("PI PDF generation error:", e); res.status(500).json({ message: "PDF generation failed: " + e.message }); }
     });
   });
 });
@@ -372,7 +373,7 @@ router.get("/download-pdf/:id", verifyToken, async (req, res) => {
 router.post("/send-email/:id", verifyToken, (req, res) => {
   const { id } = req.params;
   const { id: user_id, role } = req.user;
-  const { to, subject } = req.body;
+  const { to, subject, cc } = req.body;
 
   const headerSql = `
     SELECT p.*, c.email, c.customer_name, c.mobile_number, c.location_city,
@@ -416,6 +417,7 @@ router.post("/send-email/:id", verifyToken, (req, res) => {
         await transporter.sendMail({
           from: `"Achme Communication" <${process.env.EMAIL_USER}>`,
           to: recipientEmail,
+          cc: cc || undefined,
           subject: subject || `Proforma Invoice ${piNumber}`,
           html: `<div style="font-family:Arial,sans-serif;padding:24px;max-width:600px;margin:0 auto;">
             <p style="font-size:16px;color:#1e293b;">Dear Customer,</p>
