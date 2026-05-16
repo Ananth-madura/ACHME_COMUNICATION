@@ -12,6 +12,14 @@ if not exist node_modules (
     echo Backend dependencies already installed.
 )
 
+echo Checking Puppeteer Chrome browser...
+if not exist "C:\Users\thana\.cache\puppeteer\chrome\win64-146.0.7680.153\chrome-win64\chrome.exe" (
+    echo Installing Chrome for Puppeteer PDF generation...
+    npx puppeteer browsers install chrome
+) else (
+    echo Puppeteer Chrome already installed.
+)
+
 echo Checking Frontend dependencies...
 cd /d "%~dp0frontend"
 if not exist node_modules (
